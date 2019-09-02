@@ -25,7 +25,7 @@ AndroidRosInterface::AndroidRosInterface(ros::NodeHandle nh, ros::NodeHandle _nh
 	_max_speed = 1.5;
 	int port_in = 14500;
 	float max_turn_radius = 0.381;
-	float update_rate = 100;
+	float update_rate = 30;
 
 	p_nh.getParam("prefix",prefix);
 	p_nh.getParam("frontTarget",frontTarget);
@@ -47,7 +47,7 @@ AndroidRosInterface::AndroidRosInterface(ros::NodeHandle nh, ros::NodeHandle _nh
 
 	// rc_in = new UDP(35555,NULL);
 	mRelay = new AndroidAppInterface(port_in);
-	_loop_rate = new ros::Rate(100);
+	_loop_rate = new ros::Rate(update_rate);
 }
 
 AndroidRosInterface::~AndroidRosInterface(){

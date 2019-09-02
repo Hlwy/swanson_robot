@@ -65,7 +65,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 
 add_library(androidRosInterface src/android_ros_interface_listener.cpp)
 target_link_libraries(androidRosInterface ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
-add_dependencies(androidRosInterface ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_dependencies(androidRosInterface ${catkin_EXPORTED_TARGETS} )#${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(android_interface_listener_node src/android_interface_listener_node.cpp)
 target_link_libraries(android_interface_listener_node androidRosInterface)

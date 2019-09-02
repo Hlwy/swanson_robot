@@ -6,7 +6,7 @@
 #include <geometry_msgs/Pose.h>
 
 #include <RoboCommander/base/definitions.h>
-#include <RoboCommander/sensors/imu.h>
+#include <RoboCommander/sensors/generic_rtimu.h>
 
 using namespace std;
 
@@ -26,7 +26,7 @@ public:
      RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~RtImuRos();
 
-     IMU* imu;
+     GenericRTIMU* imu;
 
      void update(bool verbose = false);
      int run(bool verbose = false);

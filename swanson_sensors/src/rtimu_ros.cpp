@@ -26,7 +26,7 @@ RtImuRos::RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh
 	p_nh.getParam("pose_topic",pose_topic);
 
 	/** Initialize Dual RoboClaws */
-	this->imu = new IMU();
+	this->imu = new GenericRTIMU();
 	int err = imu->init(root_path, config_file);
 	if(err < 0){
 		printf("[ERROR] Could not establish RTIMU Imu using specified configuration file at \'%s/%s\'. Error Code = %d\r\n",root_path.c_str(),config_file.c_str(), err);

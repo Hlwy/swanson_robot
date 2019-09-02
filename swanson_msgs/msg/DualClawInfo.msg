@@ -13,8 +13,8 @@ float64[2] left_motor_speeds
 float64[2] right_motor_speeds
 
 # Position of motors via encoders, in quadrature pulses (qp)
-float64[2] left_motor_positions
-float64[2] right_motor_positions
+uint32[2] left_motor_positions
+uint32[2] right_motor_positions
 
 # 2D Pose based on Dead-reckoning via encoders
 geometry_msgs/Pose2D estimated_pose

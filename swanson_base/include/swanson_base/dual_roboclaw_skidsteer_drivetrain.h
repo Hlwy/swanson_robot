@@ -1,11 +1,12 @@
 #ifndef DUAL_ROBOCLAW_SKIDSTEER_DRIVETRAIN_H_
 #define DUAL_ROBOCLAW_SKIDSTEER_DRIVETRAIN_H_
 
-#include <ros/ros.h>
-#include <geometry_msgs/Twist.h>
-
 #include <pigpiod_if2.h>
 #include <RoboCommander/drivetrains/dual_roboclaw.h>
+
+#include <ros/ros.h>
+#include <geometry_msgs/Twist.h>
+#include <swanson_msgs/DualClawInfo.h>
 
 using namespace std;
 
@@ -18,6 +19,8 @@ private:
      ros::Rate* _loop_rate;
      int _count;
      ros::Subscriber cmd_sub;
+     ros::Publisher data_pub;
+
      void cmdCallback(const geometry_msgs::Twist::ConstPtr& msg, const int topic_index);
 
 public:

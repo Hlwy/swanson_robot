@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package>
+  <name>swanson_robot</name>
+  <version>0.1.0</version>
+  <description>Metapackage for Hunter Young's Swanson robot software</description>
+  <maintainer email="hunter.lw.young@gmail.com">Hunter Young</maintainer>
+
+  <license>GNU</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <run_depend>swanson_base</run_depend>
+
+  <export>
+    <metapackage/>
+  </export>
+</package>
+

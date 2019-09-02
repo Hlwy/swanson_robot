@@ -17,10 +17,11 @@ AndroidRosInterface::AndroidRosInterface(ros::NodeHandle nh, ros::NodeHandle _nh
 	maxTimeout = 100;
 
 	std::string prefix;
-	std::string frontTarget = "/target_angle/front";
-	std::string rightTarget = "/target_angle/right";
-	std::string leftTarget = "/target_angle/left";
-	std::string backTarget = "/target_angle/back";
+	std::string cmdTopic = "cmd_vel";
+	std::string frontTarget = "target_angle/front";
+	std::string rightTarget = "target_angle/right";
+	std::string leftTarget = "target_angle/left";
+	std::string backTarget = "target_angle/back";
 
 	_max_speed = 1.5;
 	int port_in = 14500;
@@ -28,18 +29,19 @@ AndroidRosInterface::AndroidRosInterface(ros::NodeHandle nh, ros::NodeHandle _nh
 	float update_rate = 30;
 
 	p_nh.getParam("prefix",prefix);
-	p_nh.getParam("frontTarget",frontTarget);
-	p_nh.getParam("rightTarget",rightTarget);
-	p_nh.getParam("leftTarget",leftTarget);
-	p_nh.getParam("backTarget",backTarget);
+	p_nh.getParam("cmd_topic",cmdTopic);
+	p_nh.getParam("frontGimbalTargetTopic",frontTarget);
+	p_nh.getParam("rightGimbalTargetTopic",rightTarget);
+	p_nh.getParam("leftGimbalTargetTopic",leftTarget);
+	p_nh.getParam("backGimbalTargetTopic",backTarget);
 	p_nh.getParam("update_rate",update_rate);
-	p_nh.getParam("input_port",port_in);
+	p_nh.getParam("app_port",port_in);
 	p_nh.getParam("max_speed",_max_speed);
 	p_nh.getParam("max_turn_radius",max_turn_radius);
 
 	_max_omega = _max_speed / max_turn_radius;
 
-	cmd_pub = m_nh.advertise<geometry_msgs::Twist>(prefix + "/cmd_vel", 1000);
+	cmd_pub = m_nh.advertise<geometry_msgs::Twist>(cmdTopic, 1000);
 	angF_pub = m_nh.advertise<std_msgs::Float32>(frontTarget, 100);
 	angR_pub = m_nh.advertise<std_msgs::Float32>(rightTarget, 100);
 	angL_pub = m_nh.advertise<std_msgs::Float32>(leftTarget, 100);

@@ -15,8 +15,8 @@ RtImuRos::RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh
 	std::string config_file = "mpu9250";
 
 	std::string prefix;
-	std::string imu_topic = "/imu/data";
-	std::string pose_topic = "/imu/pose";
+	std::string imu_topic = "imu/data";
+	std::string pose_topic = "imu/pose";
 
 	p_nh.getParam("root_path",root_path);
 	p_nh.getParam("config_file",config_file);
@@ -33,8 +33,8 @@ RtImuRos::RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh
 		exit(0);
 	}
 
-	imu_pub = m_nh.advertise<sensor_msgs::Imu>(prefix + "/" + imu_topic, 1000);
-	pose_pub = m_nh.advertise<geometry_msgs::Pose>(prefix + "/" + pose_topic, 1000);
+	imu_pub = m_nh.advertise<sensor_msgs::Imu>(imu_topic, 1000);
+	pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
 
 	usleep(2 * 1000000);
 }

@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<launch>
+     <!-- Base Platform and Drivetrain Constants -->
+     <arg name="maxVel" default="2.0"/>
+     <arg name="maxTurnRadius" default="0.381"/>
+     <arg name="baseWidth" default="0.219"/>
+     <arg name="wheelDiameter" default="0.1905"/>
+     <arg name="pulsesPerMeter" default="9596"/>
+
+     <!-- Robot pose-->
+     <arg name="x" default="-0.4"/>
+     <arg name="y" default="-0.3"/>
+     <arg name="z" default="0.175"/>
+     <arg name="roll" default="0"/>
+     <arg name="pitch" default="0"/>
+     <arg name="yaw" default="0"/>
+
+     <!-- Launch configuration settings -->
+     <arg name="use_android_app" default="true"/>
+     <arg name="android_app_port" default="14500"/>
+     <arg name="dev_joy" default="/dev/input/js0"/>
+
+     <!-- <arg name="bot_model" default="swanson_base.urdf.xacro" />
+     <param name="robot_description" command="$(find xacro)/xacro $(find swanson_description)/robots/$(arg bot_model)" />
+
+     <node pkg="robot_state_publisher" type="state_publisher" name="robot_state_publisher">
+          <param name="publish_frequency" type="double" value="200.0"/>
+          <param name="tf_prefix"         value="/"/>
+          <param name="robot_description" value="/robot_description"/>
+     </node>
+
+     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
+		<param name="rate" type="double" value="50.0"/>
+	</node>
+
+     <node name="spawn_swanson" pkg="gazebo_ros" type="spawn_model"
+          args="-x $(arg x) -y $(arg y) -z $(arg z) -R $(arg roll)
+         -P $(arg pitch) -Y $(arg yaw) -urdf -param robot_description -model Swanson"
+          output="screen"
+     /> -->
+
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node">
+          <param name="serial_device" value="/dev/ttyS0"/>
+          <param name="serial_baud" value="115200"/>
+          <param name="left_claw_addr" value="128"/>
+          <param name="right_claw_addr" value="129"/>
+          <param name="base_width" value="$(arg baseWidth)"/>
+          <param name="qpps_per_meter" value="$(arg pulsesPerMeter)"/>
+          <param name="wheel_diameter" value="$(arg wheelDiameter)"/>
+          <param name="max_speed" value="$(arg maxVel)"/>
+          <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
+          <param name="update_rate" value="30"/>
+     </node>
+
+     <!-- Load joystick nodes for manual control -->
+     <group if="$(arg use_android_app)">
+          <node pkg="swanson_teleop" type="android_interface_listener_node" name="android_teleop_node">
+               <param name="app_port" value="$(arg android_app_port)"/>
+               <param name="frontGimbalTargetTopic" value="camera_gimbal/target/front"/>
+               <param name="backGimbalTargetTopic" value="camera_gimbal/target/rear"/>
+               <param name="rightGimbalTargetTopic" value="camera_gimbal/target/right"/>
+               <param name="leftGimbalTargetTopic" value="camera_gimbal/target/left"/>
+               <param name="max_speed" value="$(arg maxVel)"/>
+               <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
+               <param name="update_rate" value="30"/>
+          </node>
+     </group>
+     <group unless="$(arg use_android_app)">
+          <node pkg="joy" type="joy_node" name="joy_node">
+               <param name="dev" value="$(arg dev_joy)"/>
+          </node>
+          <!-- Xbox -->
+          <!-- <node pkg="teleop_twist_joy" type="teleop_node" name="joy_controller_node">
+               <param name="enable_button" value="7"/>
+               <param name="axis_angular" value="2"/>
+               <param name="scale_linear" value="1"/>
+               <param name="scale_angular" value="1.5"/>
+          </node> -->
+
+          <!-- PS3 -->
+          <node pkg="teleop_twist_joy" type="teleop_node" name="joy_controller_node">
+               <param name="enable_button" value="11"/>
+               <param name="axis_angular" value="2"/>
+               <param name="scale_linear" value="1"/>
+               <param name="scale_angular" value="1.5"/>
+          </node>
+     </group>
+
+
+     <node pkg="swanson_sensors" type="rtimu_ros_node" name="mpu9250_node">
+          <param name="root_path" value="/home/pi/devel/robo-commander/config/sensors"/>
+          <param name="config_file" value="mpu9250"/>
+          <param name="imu_topic" value="imu/data"/>
+          <param name="pose_topic" value="imu/pose"/>
+     </node>
+
+     <!-- <node pkg="tf" type="static_transform_publisher" name="world_broadcaster" args="0 0 0 0 0 0 world odom 100" /> -->
+
+</launch>

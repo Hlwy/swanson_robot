@@ -20,12 +20,16 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	float wheel_diameter = 0.1905;
 
 	std::string prefix;
-	std::string cmd_vel_topic = "/cmd_vel";
-	std::string data_topic = "/dualclaw/info";
+	std::string cmd_vel_topic = "cmd_vel";
+	std::string data_topic = "dualclaw/info";
+	int left_claw_addr = 128;
+	int right_claw_addr = 129;
 	float update_rate = 20;
 
 	p_nh.getParam("serial_device",ser_dev);
 	p_nh.getParam("serial_baud",ser_baud);
+	p_nh.getParam("left_claw_addr",left_claw_addr);
+	p_nh.getParam("right_claw_addr",right_claw_addr);
 
 	p_nh.getParam("max_speed",max_speed);
 	p_nh.getParam("max_turn_radius",max_turn_radius);
@@ -47,7 +51,7 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 
 	/** Initialize Dual RoboClaws */
 	this->claws = new DualClaw(this->pi);
-	int err = this->claws->init(ser_dev.c_str(), ser_baud, 128, 129);
+	int err = this->claws->init(ser_dev.c_str(), ser_baud, left_claw_addr, right_claw_addr);
 	if(err < 0){
 		printf("[ERROR] Could not establish serial communication with DualClaws. Error Code = %d\r\n", err);
 		exit(0);
@@ -59,7 +63,7 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	this->claws->set_wheel_diameter(wheel_diameter);
 
 	cmd_sub = m_nh.subscribe<geometry_msgs::Twist>(cmd_vel_topic, 50, boost::bind(&DualClawSkidsteerDrivetrainInterface::cmdCallback,this,_1,0));
-	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(prefix + "/" + data_topic, 1000);
+	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 1000);
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);
 }

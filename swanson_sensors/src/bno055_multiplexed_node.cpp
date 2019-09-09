@@ -29,9 +29,6 @@ int main (int argc, char** argv){
      BNO055_I2C_Ros imu2("imu/r", nh, _nh, &pi, 1, &mux);
      BNO055_I2C_Ros imu3("imu/l", nh, _nh, &pi, 3, &mux);
 
-     int dummy;
-	cout << "Please press [Enter] to start retrieving IMU values...";
-	cin >> dummy;
      cout << "Looping..." << endl;
 
      while(ros::ok()){

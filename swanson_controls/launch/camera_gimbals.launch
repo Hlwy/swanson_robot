@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<launch>
+
+     <node pkg="swanson_sensors" type="bno055_multiplexed_node" name="mulitplexed_bno055_node">
+          <!-- <param name="imu_topic" value="imu/data"/>
+          <param name="pose_topic" value="imu/pose"/> -->
+     </node>
+
+     <node pkg="swanson_controls" type="camera_gimbal_controller_node" name="left_gimbal_node">
+          <param name="imu_topic" value="imu/l/angles"/>
+          <param name="target_topic" value="gimbal/left/target"/>
+     </node>
+     <node pkg="swanson_controls" type="camera_gimbal_controller_node" name="right_gimbal_node">
+          <param name="imu_topic" value="imu/r/angles"/>
+          <param name="target_topic" value="gimbal/right/target"/>
+     </node>
+     <node pkg="swanson_controls" type="camera_gimbal_controller_node" name="front_gimbal_node">
+          <param name="imu_topic" value="imu/f/angles"/>
+          <param name="target_topic" value="gimbal/front/target"/>
+     </node>
+
+</launch>

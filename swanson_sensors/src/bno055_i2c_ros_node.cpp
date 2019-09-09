@@ -18,7 +18,7 @@ int main (int argc, char** argv){
      // if(useMux) TCA9548A mux(pi, bus);
      // else
 
-     BNO055_I2C_Ros mImu(nh, _nh, &pi);
+     BNO055_I2C_Ros mImu("imu", nh, _nh, &pi);
 
-     mImu.run(true);
+     mImu.run();
 }

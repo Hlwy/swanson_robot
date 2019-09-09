@@ -69,6 +69,8 @@ add_dependencies(bno055_i2c_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_gen
 add_executable(bno055_i2c_node src/bno055_i2c_ros_node.cpp)
 target_link_libraries(bno055_i2c_node bno055_i2c_ros)
 
+add_executable(bno055_multiplexed_node src/bno055_multiplexed_node.cpp)
+target_link_libraries(bno055_multiplexed_node bno055_i2c_ros)
 #############
 ## Install ##
 #############

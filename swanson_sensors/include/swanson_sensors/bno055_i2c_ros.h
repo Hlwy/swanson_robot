@@ -28,7 +28,8 @@ private:
      int _count;
 public:
      // Contructor/DeConstructor
-     BNO055_I2C_Ros(ros::NodeHandle nh, ros::NodeHandle _nh, int* pih = nullptr);
+     BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::NodeHandle _nh, \
+                    int* pih = nullptr, int mux_channel = 0, TCA9548A* _mux = nullptr);
      ~BNO055_I2C_Ros();
 
      BNO055_I2C* imu;

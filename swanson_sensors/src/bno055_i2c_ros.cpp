@@ -7,7 +7,7 @@ using namespace std;
 /** SECTION:
      CONSTRUCTOR & DECONSTRUCTOR
 */
-BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, ros::NodeHandle _nh, int* pih) : m_nh(nh), p_nh(_nh){
+BNO055_I2C_Ros::BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::NodeHandle _nh, int* pih, int mux_channel, TCA9548A* _mux) : m_nh(nh), p_nh(_nh){
      // Declare constants
 	_count = 0;
 	int pi;
@@ -15,24 +15,18 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, ros::NodeHandle _nh, int* pih
 	int i2cAddr = 0x28;
 	bool verbose = false;
 	int update_rate = 20;
-	std::string prefix;
-	std::string imu_topic = "imu/data";
-	std::string angle_topic = "imu/angles";
-
-	bool useMux;
-	int mux_addr, mux_channel;
-     nh.param<int>("muxAddr", mux_addr, 0x41);
-     nh.param<int>("muxChannel", mux_channel, 0);
-     nh.param<bool>("useMux", useMux, false);
+	std::string imu_topic = "/data";
+	std::string angle_topic = "/angles";
 
 	p_nh.getParam("i2c_bus",bus);
 	p_nh.getParam("i2c_addr",i2cAddr);
 
-	p_nh.getParam("prefix",prefix);
 	p_nh.getParam("imu_topic",imu_topic);
 	p_nh.getParam("angle_topic",angle_topic);
 	p_nh.getParam("update_rate",update_rate);
 	p_nh.getParam("verbose",verbose);
+	imu_topic = prefix + "/" + imu_topic;
+	angle_topic = prefix + "/" + angle_topic;
 
 	/* Connect to Pi. */
 	if(!pih){
@@ -50,7 +44,7 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, ros::NodeHandle _nh, int* pih
 	}else{ this->_pi = pi; }
 
 	/** Initialize IMU */
-	this->imu = new BNO055_I2C(pi, 1, 0x28);
+	this->imu = new BNO055_I2C(pi, bus, i2cAddr,mux_channel,_mux);
 	int err = imu->startup(verbose);
 	if(err < 0){
 		printf("[ERROR] Could not initialize Imu. Error Code = %d\r\n", err);

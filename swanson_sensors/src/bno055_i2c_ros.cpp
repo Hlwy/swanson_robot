@@ -66,6 +66,14 @@ void BNO055_I2C_Ros::update(bool verbose){
 	_count++;
 	float _angles[3];
 	imu->get_euler(&_angles[0]);
+
+	if(_angles[0] < -360.0) _angles[0] = -360.0;
+	else if(_angles[0] > 360.0) _angles[0] = 360.0;
+	if(_angles[1] < -360.0) _angles[1] = -360.0;
+	else if(_angles[1] > 360.0) _angles[1] = 360.0;
+	if(_angles[2] < -360.0) _angles[2] = -360.0;
+	else if(_angles[2] > 360.0) _angles[2] = 360.0;
+
 	if(verbose) printf("Euler Angles: %f, %f, %f\r\n", _angles[0], _angles[1] , _angles[2]);
 
      // ros::Time curTime = ros::Time::now();

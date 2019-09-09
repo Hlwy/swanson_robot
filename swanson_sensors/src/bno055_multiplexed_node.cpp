@@ -14,7 +14,7 @@ int main (int argc, char** argv){
      nh.param<int>("muxAddr", mux_addr, 0x41);
      // nh.param<int>("muxChannel", mux_channel, 0);
      nh.param<int>("muxBus", mux_bus, 1);
-     nh.param<int>("update_rate", update_rate, 20);
+     nh.param<int>("update_rate", update_rate, 80);
 
      ros::Rate rate = ros::Rate(update_rate);
 

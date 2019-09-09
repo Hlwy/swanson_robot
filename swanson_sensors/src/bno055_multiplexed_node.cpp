@@ -25,9 +25,9 @@ int main (int argc, char** argv){
 
      TCA9548A mux(pi, mux_bus);
 
-     BNO055_I2C_Ros imu1("imu/f", nh, _nh, &pi, 6, &mux);
+     BNO055_I2C_Ros imu1("imu/l", nh, _nh, &pi, 6, &mux);
      BNO055_I2C_Ros imu2("imu/r", nh, _nh, &pi, 1, &mux);
-     BNO055_I2C_Ros imu3("imu/l", nh, _nh, &pi, 3, &mux);
+     BNO055_I2C_Ros imu3("imu/f", nh, _nh, &pi, 3, &mux);
 
      cout << "Looping..." << endl;
 

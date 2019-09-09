@@ -62,6 +62,13 @@ add_dependencies(rtimuRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_
 add_executable(rtimu_ros_node src/rtimu_ros_node.cpp)
 target_link_libraries(rtimu_ros_node rtimuRos)
 
+add_library(bno055_i2c_ros src/bno055_i2c_ros.cpp)
+target_link_libraries(bno055_i2c_ros ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
+add_dependencies(bno055_i2c_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+
+add_executable(bno055_i2c_node src/bno055_i2c_ros_node.cpp)
+target_link_libraries(bno055_i2c_node bno055_i2c_ros)
+
 #############
 ## Install ##
 #############

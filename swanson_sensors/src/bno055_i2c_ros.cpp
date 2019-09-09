@@ -59,7 +59,9 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::Node
 	usleep(2 * 1000000);
 }
 
-BNO055_I2C_Ros::~BNO055_I2C_Ros(){}
+BNO055_I2C_Ros::~BNO055_I2C_Ros(){
+	delete this->imu;
+}
 
 
 void BNO055_I2C_Ros::update(bool verbose){

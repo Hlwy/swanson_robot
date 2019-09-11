@@ -66,39 +66,68 @@ BNO055_I2C_Ros::~BNO055_I2C_Ros(){
 
 void BNO055_I2C_Ros::update(bool verbose){
 	_count++;
+	ros::Time curTime = ros::Time::now();
+
+	/** Get Euler Angles */
 	float _angles[3];
 	imu->get_euler(&_angles[0]);
-
-	if(_angles[0] < -360.0) _angles[0] = -360.0;
-	else if(_angles[0] > 360.0) _angles[0] = 360.0;
-	if(_angles[1] < -360.0) _angles[1] = -360.0;
-	else if(_angles[1] > 360.0) _angles[1] = 360.0;
-	if(_angles[2] < -360.0) _angles[2] = -360.0;
-	else if(_angles[2] > 360.0) _angles[2] = 360.0;
-
 	if(verbose) printf("Euler Angles: %f, %f, %f\r\n", _angles[0], _angles[1] , _angles[2]);
-
-     // ros::Time curTime = ros::Time::now();
-     // sensor_msgs::Imu imuMsg;
-     // imuMsg.header.stamp = curTime;
-	// imuMsg.header.seq = _count;
-	// imuMsg.orientation.x = imu->quats[0];
-	// imuMsg.orientation.y = imu->quats[1];
-	// imuMsg.orientation.z = imu->quats[2];
-	// imuMsg.orientation.w = imu->quats[3];
-	// imuMsg.angular_velocity.x = imu->gyro[0];
-	// imuMsg.angular_velocity.y = imu->gyro[1];
-	// imuMsg.angular_velocity.z = imu->gyro[2];
-	// imuMsg.linear_acceleration.x = imu->accel[0];
-	// imuMsg.linear_acceleration.y = imu->accel[1];
-	// imuMsg.linear_acceleration.z = imu->accel[2];
-     // imu_pub.publish(imuMsg);
-
-     geometry_msgs::Vector3 angMsg;
+	geometry_msgs::Vector3 angMsg;
      angMsg.x = _angles[0];
      angMsg.y = _angles[1];
      angMsg.z = _angles[2];
      angle_pub.publish(angMsg);
+
+	/** Get Magnetometer */
+	// float _mags[3];
+	// imu->get_magnetometer(&_mags[0]);
+	// if(verbose) printf("Magnetic Fields: %f, %f, %f\r\n", _mags[0], _mags[1] , _mags[2]);
+	// sensor_msgs::MagneticField magMsg;
+	// magMsg.header.stamp = curTime;
+	// magMsg.header.seq = _count;
+	// magMsg.magnetic_field.x = _mags[0];
+	// magMsg.magnetic_field.y = _mags[1];
+	// magMsg.magnetic_field.z = _mags[2];
+	// mag_pub.publish(magMsg);
+
+	/** Get Temperature */
+	// float _temp = imu->get_temperature();
+	// if(verbose) printf("Temperature: %f\r\n", _temp);
+	// sensor_msgs::Temperature tempMsg;
+	// tempMsg.header.stamp = curTime;
+	// tempMsg.header.seq = _count;
+	// tempMsg.temperature = _temp;
+	// temp_pub.publish(tempMsg);
+
+	/** Get Accelerometer */
+	// float _accels[3];
+	// imu->get_accelerometer(&_accel[0]);
+	// if(verbose) printf("Accelerations: %f, %f, %f\r\n", _accels[0], _accels[1] , _accels[2]);
+	//
+	// /** Get Gyroscope */
+	// float _gyros[3];
+	// imu->get_gyroscope(&_gyros[0]);
+	// if(verbose) printf("Angular Velocities: %f, %f, %f\r\n", _gyros[0], _gyros[1] , _gyros[2]);
+	//
+	// /** Get Quaternions */
+	// float _quats[4];
+	// imu->get_quaternions(&_quats[0]);
+	// if(verbose) printf("Quaternions: %f, %f, %f, %f\r\n", _quats[0], _quats[1] , _quats[2], _quats[3]);
+	//
+     // sensor_msgs::Imu imuMsg;
+     // imuMsg.header.stamp = curTime;
+	// imuMsg.header.seq = _count;
+	// imuMsg.orientation.x = _quats[1];
+	// imuMsg.orientation.y = _quats[2];
+	// imuMsg.orientation.z = _quats[3];
+	// imuMsg.orientation.w = _quats[0];
+	// imuMsg.angular_velocity.x = _gyros[0];
+	// imuMsg.angular_velocity.y = _gyros[1];
+	// imuMsg.angular_velocity.z = _gyros[2];
+	// imuMsg.linear_acceleration.x = _accels[0];
+	// imuMsg.linear_acceleration.y = _accels[1];
+	// imuMsg.linear_acceleration.z = _accels[2];
+     // imu_pub.publish(imuMsg);
 
      // float roll = fmod((imu->euler[0]*M_RAD2DEG + 360.0),360.0);
      // float pitch = fmod((imu->euler[1]*M_RAD2DEG + 360.0),360.0);

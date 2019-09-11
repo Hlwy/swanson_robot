@@ -109,11 +109,28 @@ void CameraGimbalControllerRos::imuCallback(const geometry_msgs::Vector3::ConstP
 }
 
 void CameraGimbalControllerRos::cfgCallback(swanson_controls::GimbalConfig &config, uint32_t level) {
-	ROS_INFO("Reconfigure Request: %d %f %s %s %d",
-		config.int_param, config.double_param,
-		config.str_param.c_str(),
-		config.bool_param?"True":"False",
-		config.size);
+	float maxAngle = config.max_angle;
+     float targetAngle = config.target_angle;
+	int nullPulse = config.null_cmd;
+	float kp = config.kp;
+	float ki = config.ki;
+	float kd = config.kd;
+	float target = targetAngle / maxAngle;
+	ROS_INFO("Reconfigure Request: %.2f %.2f %.2f %d %.2f %.2f", kp, ki, kd, nullPulse, maxAngle, target);
+
+	_maxAngle = maxAngle;
+     _targetAngle = targetAngle;
+	_nullPulse = nullPulse;
+	_kp = kp;
+	_ki = ki;
+	_kd = kd;
+
+	cg->set_p_gain(kp);			// Set P Gain
+	cg->set_i_gain(ki);			// Set I Gain
+	cg->set_d_gain(kd);			// Set D Gain
+	cg->set_max_state(maxAngle);
+	cg->set_null_cmd((float)nullPulse);
+	cg->set_target_state(target);
 }
 
 void CameraGimbalControllerRos::update(bool verbose){

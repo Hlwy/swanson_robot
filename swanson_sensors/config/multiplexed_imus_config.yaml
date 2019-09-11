@@ -1,0 +1,24 @@
+mux_address: 0x70
+mux_bus: 1
+imu_topic: "/data"
+angle_topic: "/angles"
+update_rate: 80
+verbose: false
+imu/l: {
+    prefix: "imu/l",
+    bus: 1,
+    address: 0x28,
+    mux_channel: 6,
+}
+imu/r: {
+    prefix: "imu/r",
+    bus: 1,
+    address: 0x28,
+    mux_channel: 1,
+}
+imu/f: {
+    prefix: "imu/f",
+    bus: 1,
+    address: 0x28,
+    mux_channel: 3,
+}

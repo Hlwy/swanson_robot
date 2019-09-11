@@ -29,7 +29,11 @@ private:
 public:
      // Contructor/DeConstructor
      BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::NodeHandle _nh, \
-                    int* pih = nullptr, int mux_channel = 0, TCA9548A* _mux = nullptr);
+          int* pih = nullptr, int mux_channel = 0, TCA9548A* _mux = nullptr);
+
+     BNO055_I2C_Ros(ros::NodeHandle nh, std::string prefix, int* pih = nullptr, \
+          TCA9548A* _mux = nullptr, int bus = 1, int i2cAddr = 0x28, int mux_channel = 0, \
+          std::string imu_topic = "/data", std::string angle_topic = "/angles", int update_rate = 80, bool verbose = false);
      ~BNO055_I2C_Ros();
 
      BNO055_I2C* imu;

@@ -15,10 +15,7 @@ int main (int argc, char** argv){
      int pi = pigpio_start(NULL, NULL);
 	if(pi < 0) return -1;
      printf("[INFO] BNO055_I2C_Node --- pigpiod initialized [%d] declared.\r\n", pi);
-     // if(useMux) TCA9548A mux(pi, bus);
-     // else
 
      BNO055_I2C_Ros mImu("imu", nh, _nh, &pi);
-
      mImu.run();
 }

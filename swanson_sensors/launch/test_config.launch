@@ -1,0 +1,9 @@
+<launch>
+    <rosparam file="$(find swanson_sensors)/config/multiplexed_imus_config.yaml" />
+
+    <node pkg="swanson_sensors" type="bno055_multiplexed_node" name="mulitplexed_bno055_node" output="screen">
+         <!-- <param name="imu_topic" value="imu/data"/>
+         <param name="pose_topic" value="imu/pose"/> -->
+    </node>
+
+</launch>

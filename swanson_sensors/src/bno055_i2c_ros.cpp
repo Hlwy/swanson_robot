@@ -59,6 +59,57 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::Node
 	usleep(2 * 1000000);
 }
 
+BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, std::string prefix, int* pih, \
+	TCA9548A* _mux, int bus, int i2cAddr, int mux_channel, std::string imu_topic, \
+	std::string angle_topic, int update_rate, bool verbose) : m_nh(nh){
+     // Declare constants
+	_count = 0;
+	int pi;
+
+	imu_topic = prefix + "/" + imu_topic;
+	angle_topic = prefix + "/" + angle_topic;
+
+     printf("BNO-055 Parameters:\r\n");
+     printf(" ----------------- \r\n");
+     printf("  addr:    0x%02X\r\n", i2cAddr);
+     printf("  bus:     %d\r\n", bus);
+     printf("  channel: %d\r\n", mux_channel);
+     printf("  imu_topic:   %s\r\n", imu_topic.c_str());
+     printf("  angle_topic: %s\r\n", angle_topic.c_str());
+     printf("  update_rate: %d\r\n", update_rate);
+
+
+	/* Connect to Pi. */
+	if(!pih){
+		printf("[INFO] BNO055_I2C_Ros::BNO055_I2C_Ros() --- no pigpiod handle declared. Attempting to connect to pigpiod...\r\n");
+		pi = pigpio_start(NULL, NULL);
+	}
+	else{
+		pi = *pih;
+		printf("[INFO] BNO055_I2C_Ros::BNO055_I2C_Ros() --- pigpiod handle [%d] declared.\r\n", pi);
+	}
+
+	if(pi < 0){
+		printf("[ERROR] Could not initialize with the pigpiod \r\n");
+		exit(0);
+	}else{ this->_pi = pi; }
+
+	/** Initialize IMU */
+	this->imu = new BNO055_I2C(pi, bus, i2cAddr,mux_channel,_mux);
+	int err = imu->startup(verbose);
+	if(err < 0){
+		printf("[ERROR] Could not initialize Imu. Error Code = %d\r\n", err);
+		exit(0);
+	}
+
+	// imu_pub = m_nh.advertise<sensor_msgs::Imu>(imu_topic, 1000);
+	angle_pub = m_nh.advertise<geometry_msgs::Vector3>(angle_topic, 1000);
+	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
+
+	_loop_rate = new ros::Rate(update_rate);
+	usleep(2 * 1000000);
+}
+
 BNO055_I2C_Ros::~BNO055_I2C_Ros(){
 	delete this->imu;
 }

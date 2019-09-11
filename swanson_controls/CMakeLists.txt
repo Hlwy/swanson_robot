@@ -12,6 +12,7 @@ set( ROS_CXX_DEPENDENCIES
      sensor_msgs
      swanson_msgs
      message_generation
+     dynamic_reconfigure
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
@@ -30,6 +31,11 @@ endforeach()
 # Find pigpiod libraries
 list(APPEND CMAKE_MODULE_PATH "${RoboCommander_ROOT}/external/pigpiod")
 find_package(pigpio REQUIRED)
+
+
+generate_dynamic_reconfigure_options(
+     cfg/Gimbal.cfg
+)
 
 catkin_package(
   INCLUDE_DIRS include
@@ -54,7 +60,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 # Libraries
 add_library(camera_gimbal_controller_ros src/camera_gimbal_controller_ros.cpp)
 target_link_libraries(camera_gimbal_controller_ros ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${RoboCommander_LIBRARIES})
-add_dependencies(camera_gimbal_controller_ros ${catkin_EXPORTED_TARGETS})
+add_dependencies(camera_gimbal_controller_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 # Executables
 add_executable(camera_gimbal_controller_node src/camera_gimbal_controller_ros_node.cpp)

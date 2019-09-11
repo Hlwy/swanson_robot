@@ -7,6 +7,8 @@
 #include <RoboCommander/devices/tca9548a.h>
 
 #include <ros/ros.h>
+#include <dynamic_reconfigure/server.h>
+#include <swanson_controls/GimbalConfig.h>
 #include <std_msgs/Float32.h>
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Vector3.h>
@@ -36,12 +38,16 @@ private:
 	ros::NodeHandle p_nh;
      ros::Rate* _loop_rate;
 
+     dynamic_reconfigure::Server<swanson_controls::GimbalConfig> _cfg_server;
+     dynamic_reconfigure::Server<swanson_controls::GimbalConfig>::CallbackType _f;
+
      ros::Subscriber cmd_sub;
      ros::Subscriber imu_sub;
      ros::Publisher data_pub;
 
      void cmdCallback(const std_msgs::Float32::ConstPtr& msg, const int topic_index);
      void imuCallback(const geometry_msgs::Vector3::ConstPtr& msg, const int topic_index);
+     void cfgCallback(swanson_controls::GimbalConfig &config, uint32_t level);
 
 public:
      CameraGimbal* cg;

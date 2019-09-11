@@ -71,6 +71,9 @@ CameraGimbalControllerRos::CameraGimbalControllerRos(ros::NodeHandle nh, ros::No
 	int err = cg->init_actuator(_actCommCfg, act_channel);
 	cg->gimbal->setFrequency(actuator_freq);
 
+	_f = boost::bind(&CameraGimbalControllerRos::cfgCallback, this, _1, _2);
+  	_cfg_server.setCallback(_f);
+
 	cmd_sub = m_nh.subscribe<std_msgs::Float32>(target_angle_topic, 50, boost::bind(&CameraGimbalControllerRos::cmdCallback,this,_1,0));
 	imu_sub = m_nh.subscribe<geometry_msgs::Vector3>(imu_topic, 1000, boost::bind(&CameraGimbalControllerRos::imuCallback,this,_1,0));
 	// data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 1000);
@@ -103,6 +106,14 @@ void CameraGimbalControllerRos::imuCallback(const geometry_msgs::Vector3::ConstP
 	_curAngles[2] = msg->z;
 	// printf("[INFO] CameraGimbalControllerRos::cmdCallback() ---- Recieved Cmds V,W: %.3f, %.3f\r\n",target_v,target_w);
 	if(!_flag_start) _flag_start = true;
+}
+
+void CameraGimbalControllerRos::cfgCallback(swanson_controls::GimbalConfig &config, uint32_t level) {
+	ROS_INFO("Reconfigure Request: %d %f %s %s %d",
+		config.int_param, config.double_param,
+		config.str_param.c_str(),
+		config.bool_param?"True":"False",
+		config.size);
 }
 
 void CameraGimbalControllerRos::update(bool verbose){

@@ -1,10 +1,7 @@
 <?xml version="1.0"?>
 <launch>
 
-     <node pkg="swanson_sensors" type="bno055_multiplexed_node" name="mulitplexed_bno055_node" output="screen">
-          <!-- <param name="imu_topic" value="imu/data"/>
-          <param name="pose_topic" value="imu/pose"/> -->
-     </node>
+     <include file="$(find swanson_sensors)/launch/multiplexed_imus.launch" />
 
      <node pkg="swanson_controls" type="camera_gimbal_controller_node" name="left_gimbal_node">
           <param name="imu_topic" value="imu/l/angles"/>

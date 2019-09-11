@@ -1,7 +1,7 @@
 mux_address: 0x70
 mux_bus: 1
-imu_topic: "/data"
-angle_topic: "/angles"
+imu_topic: "data"
+angle_topic: "angles"
 update_rate: 80
 verbose: false
 imu/l: {

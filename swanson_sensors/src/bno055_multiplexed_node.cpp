@@ -63,24 +63,18 @@ int main (int argc, char** argv){
      // BNO055_I2C_Ros imu2("imu/r", nh, _nh, &pi, 1, &mux);
      // BNO055_I2C_Ros imu3("imu/f", nh, _nh, &pi, 3, &mux);
 
-     BNO055_I2C_Ros imuF(nh, prefix_f, &pi, &mux, bus_f, addr_f, ch_f, \
-          imu_topic,angle_topic, update_rate,verbose);
-     BNO055_I2C_Ros imuR(nh, prefix_r, &pi, &mux, bus_r, addr_r, ch_r, \
-          imu_topic,angle_topic, update_rate,verbose);
-     BNO055_I2C_Ros imuL(nh, prefix_l, &pi, &mux, bus_l, addr_l, ch_l, \
-          imu_topic,angle_topic, update_rate,verbose);
+     BNO055_I2C_Ros imuF(nh, prefix_f, &pi, &mux, bus_f, addr_f, ch_f, imu_topic,angle_topic, update_rate,verbose);
+     BNO055_I2C_Ros imuR(nh, prefix_r, &pi, &mux, bus_r, addr_r, ch_r, imu_topic,angle_topic, update_rate,verbose);
+     BNO055_I2C_Ros imuL(nh, prefix_l, &pi, &mux, bus_l, addr_l, ch_l, imu_topic,angle_topic, update_rate,verbose);
 
-     int dummy;
-	cout << "Please press [Enter] to start retrieving IMU values...";
-	cin >> dummy;
      cout << "Looping..." << endl;
-     // while(ros::ok()){
-	// 	imu1.update();
-	// 	imu2.update();
-	// 	imu3.update();
-     //      ros::spinOnce();
-     //      rate.sleep();
-     // }
+     while(ros::ok()){
+		imuF.update();
+		imuR.update();
+		imuL.update();
+          ros::spinOnce();
+          rate.sleep();
+     }
 
      return 0;
 }

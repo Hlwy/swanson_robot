@@ -55,8 +55,8 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::Node
 	angle_pub = m_nh.advertise<geometry_msgs::Vector3>(angle_topic, 1000);
 	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
 
-	_reset_service = m_nh.advertiseService("reset_imu", &BNO055_I2C_Ros::reset_imu, this);
-     _start_service = m_nh.advertiseService("start_imu", &BNO055_I2C_Ros::start_imu, this);
+	_reset_service = m_nh.advertiseService(prefix + "/" + "reset_imu", &BNO055_I2C_Ros::reset_imu, this);
+     _start_service = m_nh.advertiseService(prefix + "/" + "start_imu", &BNO055_I2C_Ros::start_imu, this);
 
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);
@@ -109,8 +109,8 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, std::string prefix, int* pih,
 	angle_pub = m_nh.advertise<geometry_msgs::Vector3>(angle_topic, 1000);
 	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
 
-	_reset_service = m_nh.advertiseService("reset_imu", &BNO055_I2C_Ros::reset_imu, this);
-     _start_service = m_nh.advertiseService("start_imu", &BNO055_I2C_Ros::start_imu, this);
+	_reset_service = m_nh.advertiseService(prefix + "/" + "reset_imu", &BNO055_I2C_Ros::reset_imu, this);
+     _start_service = m_nh.advertiseService(prefix + "/" + "start_imu", &BNO055_I2C_Ros::start_imu, this);
 
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);

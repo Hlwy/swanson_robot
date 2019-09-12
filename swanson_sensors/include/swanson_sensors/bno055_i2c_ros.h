@@ -5,6 +5,7 @@
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Vector3.h>
+#include "std_srvs/Empty.h"
 
 #include <RoboCommander/base/definitions.h>
 #include <RoboCommander/sensors/bno055_i2c.h>
@@ -23,6 +24,12 @@ private:
      ros::Publisher mag_pub;
      ros::Publisher pose_pub;
      ros::Publisher angle_pub;
+
+     ros::ServiceServer _reset_service;
+     ros::ServiceServer _start_service;
+
+     bool reset_imu(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
+     bool start_imu(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 
      float dt;
      int _count;

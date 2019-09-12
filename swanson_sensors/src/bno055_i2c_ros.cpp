@@ -55,6 +55,9 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(std::string prefix, ros::NodeHandle nh, ros::Node
 	angle_pub = m_nh.advertise<geometry_msgs::Vector3>(angle_topic, 1000);
 	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
 
+	_reset_service = m_nh.advertiseService("reset_imu", &BNO055_I2C_Ros::reset_imu, this);
+     _start_service = m_nh.advertiseService("start_imu", &BNO055_I2C_Ros::start_imu, this);
+
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);
 }
@@ -105,6 +108,9 @@ BNO055_I2C_Ros::BNO055_I2C_Ros(ros::NodeHandle nh, std::string prefix, int* pih,
 	// imu_pub = m_nh.advertise<sensor_msgs::Imu>(imu_topic, 1000);
 	angle_pub = m_nh.advertise<geometry_msgs::Vector3>(angle_topic, 1000);
 	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
+
+	_reset_service = m_nh.advertiseService("reset_imu", &BNO055_I2C_Ros::reset_imu, this);
+     _start_service = m_nh.advertiseService("start_imu", &BNO055_I2C_Ros::start_imu, this);
 
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);
@@ -197,6 +203,23 @@ void BNO055_I2C_Ros::update(bool verbose){
      //      printf(" ===================================================== \r\n");
      // }
 }
+
+bool BNO055_I2C_Ros::reset_imu(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
+	ROS_INFO("[INFO] BNO055_I2C_Ros::reset_imu() --- Resetting IMU...");
+	imu->reset();
+	return true;
+}
+
+bool BNO055_I2C_Ros::start_imu(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
+	ROS_INFO("[INFO] BNO055_I2C_Ros::start_imu() --- Starting IMU...");
+	int err = imu->startup();
+	if(err < 0){
+		printf("[ERROR] Could not initialize Imu. Error Code = %d\r\n", err);
+		return false;
+	}
+	return true;
+}
+
 
 int BNO055_I2C_Ros::run(bool verbose){
      cout << "Looping..." << endl;

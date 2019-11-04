@@ -1,5 +1,5 @@
 #ifndef VBOATS_ROS_H_
-#define RTIMU_ROS_H_
+#define VBOATS_ROS_H_
 
 #include <thread>
 #include <atomic>
@@ -37,7 +37,6 @@ private:
 public:
      // Contructor/DeConstructor
      VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);
-     // VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh, CameraD415* cam);
      ~VboatsRos();
 
      CameraD415* cam;
@@ -50,4 +49,4 @@ public:
 };
 
 
-#endif // RTIMU_ROS_H_
+#endif // VBOATS_ROS_H_

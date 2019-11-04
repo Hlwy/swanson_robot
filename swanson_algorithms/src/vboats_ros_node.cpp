@@ -1,6 +1,5 @@
 #include <ros/ros.h>
 #include "swanson_algorithms/vboats_ros.h"
-#include <unistd.h>
 
 using namespace std;
 

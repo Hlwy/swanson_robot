@@ -9,7 +9,6 @@ using namespace std;
 VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh),
 	_cam_thread(), _stop_threads(false), _thread_started(false)
 {
-
      // Declare constants
 	_count = 0;
 
@@ -48,11 +47,10 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	// 	printf("[ERROR] Could not establish RTIMU Imu using specified configuration file at \'%s/%s\'. Error Code = %d\r\n",root_path.c_str(),config_file.c_str(), err);
 	// 	exit(0);
 	// }
-	//
+
 	// imu_pub = m_nh.advertise<sensor_msgs::Imu>(imu_topic, 1000);
 	// pose_pub = m_nh.advertise<geometry_msgs::Pose>(pose_topic, 1000);
 	this->_loop_rate = new ros::Rate(update_rate);
-	// usleep(2 * 1000000);
 }
 
 VboatsRos::~VboatsRos(){
@@ -97,8 +95,6 @@ void VboatsRos::start(){
 }
 
 void VboatsRos::update(bool verbose){
-
-
 
      // int dt_us = imu->get_update_period();
      // this->dt = (float) dt_us / 1000000.0;
@@ -151,7 +147,6 @@ int VboatsRos::run(bool verbose){
 		_lock.unlock();
 		cv::imshow("RGB", rgb);
 		cv::imshow("Depth", depth);
-	     // printf("%d images collected.\r\n", count);
 		// this->update(verbose);
           // ros::spinOnce();
           // this->_loop_rate->sleep();

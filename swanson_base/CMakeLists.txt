@@ -16,7 +16,7 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED)
+find_package(RoboCommander REQUIRED COMPONENTS dualclaw)
 
 message(STATUS "RoboCommander: Found = ${RoboCommander_FOUND}")
 message(STATUS "     Root Directory --- ${RoboCommander_ROOT}")
@@ -47,7 +47,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 
 # Libraries
 add_library(dualclawskidsteerdrivetrain src/dual_roboclaw_skidsteer_drivetrain.cpp)
-target_link_libraries(dualclawskidsteerdrivetrain ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
+target_link_libraries(dualclawskidsteerdrivetrain ${catkin_LIBRARIES} dualclaw)
 add_dependencies(dualclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} swanson_msgs_generate_messages_cpp)
 
 # Executables

@@ -1,0 +1,8 @@
+<launch>
+
+    <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen">
+         <!-- <param name="imu_topic" value="imu/data"/>
+         <param name="pose_topic" value="imu/pose"/> -->
+    </node>
+
+</launch>

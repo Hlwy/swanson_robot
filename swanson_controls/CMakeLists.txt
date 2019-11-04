@@ -17,7 +17,7 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED)
+find_package(RoboCommander REQUIRED COMPONENTS camera_gimbal tca9548a)
 
 message(STATUS "RoboCommander: Found = ${RoboCommander_FOUND}")
 message(STATUS "     Root Directory --- ${RoboCommander_ROOT}")
@@ -59,7 +59,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 
 # Libraries
 add_library(camera_gimbal_controller_ros src/camera_gimbal_controller_ros.cpp)
-target_link_libraries(camera_gimbal_controller_ros ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${RoboCommander_LIBRARIES})
+target_link_libraries(camera_gimbal_controller_ros ${catkin_LIBRARIES} ${Boost_LIBRARIES} camera_gimbal tca9548a)
 add_dependencies(camera_gimbal_controller_ros ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 # Executables

@@ -13,7 +13,7 @@ set( ROS_CXX_DEPENDENCIES
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED)
+find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu)
 
 ## Generate messages in the 'msg' folder
 # add_message_files(
@@ -56,14 +56,14 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ###########
 
 add_library(rtimuRos src/rtimu_ros.cpp)
-target_link_libraries(rtimuRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
+target_link_libraries(rtimuRos ${catkin_LIBRARIES} rtimu)
 add_dependencies(rtimuRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(rtimu_ros_node src/rtimu_ros_node.cpp)
 target_link_libraries(rtimu_ros_node rtimuRos)
 
 add_library(bno055_i2c_ros src/bno055_i2c_ros.cpp)
-target_link_libraries(bno055_i2c_ros ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
+target_link_libraries(bno055_i2c_ros ${catkin_LIBRARIES} bno055_i2c tca9548a)
 add_dependencies(bno055_i2c_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(bno055_i2c_node src/bno055_i2c_ros_node.cpp)

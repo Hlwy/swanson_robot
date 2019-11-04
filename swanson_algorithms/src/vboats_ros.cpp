@@ -95,7 +95,7 @@ void VboatsRos::start(){
 }
 
 void VboatsRos::update(bool verbose){
-
+	// boost::mutex::scoped_lock scoped_lock(_lock);
      // int dt_us = imu->get_update_period();
      // this->dt = (float) dt_us / 1000000.0;
 	//

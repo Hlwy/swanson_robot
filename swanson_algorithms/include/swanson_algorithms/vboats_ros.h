@@ -4,10 +4,15 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include <ros/ros.h>
-#include <sensor_msgs/Imu.h>
-#include <geometry_msgs/Pose.h>
 // #include <boost/thread/mutex.hpp>
+
+#include <ros/ros.h>
+
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/image_encodings.h>
+#include <image_transport/image_transport.h>
+#include <tf/transform_broadcaster.h>
 
 #include <RoboCommander/sensors/camera_d415.h>
 #include <RoboCommander/algorithms/vboats/vboats.h>
@@ -16,19 +21,63 @@ using namespace std;
 
 class VboatsRos{
 private:
+     /** ROS Objects */
      ros::NodeHandle m_nh;
 	ros::NodeHandle p_nh;
+     tf::TransformBroadcaster _br;
+     image_transport::ImageTransport _it;
      ros::Rate* _loop_rate;
 
-     ros::Publisher imu_pub;
-     ros::Publisher pose_pub;
+     image_transport::Publisher _rgb_pub;
+     image_transport::Publisher _depth_pub;
+     ros::Publisher _rgb_info_pub;
+     ros::Publisher _depth_info_pub;
+     image_transport::Publisher _disparity_pub;
+     image_transport::Publisher _obstacles_img_pub;
+     ros::Publisher _detected_obstacle_info_pub;
 
+     /** ROS topics and tf frames */
+     std::string _ns;
+     std::string _camera_name;
+     std::string _tf_prefix;
+     std::string _parent_tf;
+	std::string _cam_base_tf;
+	std::string _rgb_base_tf;
+	std::string _rgb_optical_tf;
+	std::string _depth_base_tf;
+	std::string _depth_optical_tf;
+	std::string _aligned_base_tf;
+
+     /** Internally Stored Images */
      cv::Mat _rgb;
      cv::Mat _depth;
      cv::Mat _disparity;
+     cv::Mat _umap;
+     cv::Mat _vmap;
+     /** Camera Intrinsic/Extrinsic Properties */
+     float _dscale;
+     float _baseline;
+     float _fxd, _fyd, _pxd, _pyd;
+	float _fxc, _fyc, _pxc, _pyc;
+     cv::Mat _Krgb;
+     cv::Mat _Prgb;
+     cv::Mat _Kdepth;
+     cv::Mat _Pdepth;
 
+     /** Camera Info msg containers */
+     sensor_msgs::CameraInfo _rgb_info_msg;
+     sensor_msgs::CameraInfo _depth_info_msg;
+
+     /** Counters and Timers */
      float dt;
      int _count;
+     int _img_count;
+     /** Flags */
+     bool _use_float_depth;
+     bool _get_aligned;
+     bool _publish_tf;
+     bool _publish_obs_display;
+     /** Multi-threading objects */
      // boost::mutex _lock;
      std::mutex _lock;
      std::thread _cam_thread;
@@ -40,11 +89,13 @@ public:
      ~VboatsRos();
 
      CameraD415* cam;
+     VBOATS* vb;
      void cameraThreadFunction();
      void start();
      void stop();
 
-     void update(bool verbose = false);
+     void publish_image(const cv::Mat& image);
+     void update(const cv::Mat& image, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
      int run(bool verbose = false);
 };
 

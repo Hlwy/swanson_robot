@@ -4,18 +4,31 @@ project(swanson_algorithms)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
 set( ROS_CXX_DEPENDENCIES
-     roscpp
      rospy
+     roscpp
+     tf
      std_msgs
-     geometry_msgs
+     cv_bridge
      sensor_msgs
+     image_transport
      message_generation
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(realsense2 2.28.0 REQUIRED)
+# For proper linkage use:
+#    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/RoboCommander
+find_package(RoboCommander REQUIRED)
+
+message(STATUS "RoboCommander: Found = ${RoboCommander_FOUND}")
+message(STATUS "     Root Directory --- ${RoboCommander_ROOT}")
+message(STATUS "     Includes Directory --- ${RoboCommander_INCLUDE_DIR}")
+message(STATUS "     CMake Directory --- ${RoboCommander_INSTALLED_CMAKE_DIR}")
+message(STATUS "     Library Objects:")
+foreach(obj ${RoboCommander_LIBRARIES})
+     message(STATUS "          ${obj}")
+endforeach()
 
 ## Generate messages in the 'msg' folder
 # add_message_files(

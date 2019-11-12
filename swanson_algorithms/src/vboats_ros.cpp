@@ -1,6 +1,5 @@
 #include <iostream>
 #include "swanson_algorithms/vboats_ros.h"
-#include <RoboCommander/utilities/image_utils.h>
 
 using namespace std;
 
@@ -34,7 +33,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_publish_obs_display = flag_publish_obstacles_img;
 
 	/** Camera Parameter Configuration */
-	int depth_fps = 60;
+	int depth_fps = 90;
 	int color_fps = 60;
 	int depth_height = 480;
 	int depth_width = 848;
@@ -215,6 +214,52 @@ VboatsRos::~VboatsRos(){
 	delete this->cam;
 }
 
+void VboatsRos::cameraThreadFunction(){
+	this->_thread_started = true;
+	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Starting loop...\r\n");
+	int err = 0;
+	int count = 0;
+	bool debug_timing = false;
+	double t = (double)cv::getTickCount();
+	this->_img_count = 0;
+	while(!this->_stop_threads){
+		cv::Mat rgb, depth, disparity;
+		double cvtGain, cvtRatio;
+		err = cam->get_processed_queued_images(&rgb, &depth);
+		if(err >= 0){
+			this->_lock.lock();
+			this->_rgb = rgb.clone();
+			this->_depth = depth.clone();
+			disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
+			this->_disparity = disparity.clone();
+			this->_img_count++;
+			this->_lock.unlock();
+			count++;
+			if(debug_timing){
+				double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+				printf("[INFO] VboatsRos::cameraThreadFunction() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
+				t = (double)cv::getTickCount();
+			}
+		}
+		// ros::spinOnce();
+		// this->_loop_rate->sleep();
+	}
+	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Exiting loop...\r\n");
+	this->_thread_started = false;
+}
+
+void VboatsRos::stop(){
+	this->_stop_threads = true;
+	if(this->_thread_started){
+          if(this->_cam_thread.joinable()){ this->_cam_thread.join(); }
+     }
+}
+
+void VboatsRos::start(){
+	this->_stop_threads = false;
+     this->_cam_thread = std::thread(&VboatsRos::cameraThreadFunction,this);
+}
+
 void VboatsRos::publish_image(const cv::Mat& image){
 	ros::Time time = ros::Time::now();
 	cv_bridge::CvImagePtr cv_ptr;
@@ -248,44 +293,6 @@ void VboatsRos::publish_image(const cv::Mat& image){
 
 }
 
-void VboatsRos::cameraThreadFunction(){
-	this->_thread_started = true;
-	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Starting loop...\r\n");
-	int err = 0;
-	this->_img_count = 0;
-	while(!this->_stop_threads){
-		cv::Mat depth, rgb, disparity;
-		double cvtGain, cvtRatio;
-		err = cam->get_processed_queued_images(&rgb, &depth);
-		if(err >= 0){
-			this->_lock.lock();
-			this->_rgb = rgb.clone();
-			this->_depth = depth.clone();
-			disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
-			this->_disparity = disparity.clone();
-			this->_lock.unlock();
-			this->_img_count++;
-			// printf("%d images collected.\r\n", count);
-		}
-		ros::spinOnce();
-          this->_loop_rate->sleep();
-	}
-	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Exiting loop...\r\n");
-	this->_thread_started = false;
-}
-
-void VboatsRos::stop(){
-	this->_stop_threads = true;
-	if(this->_thread_started){
-          if(this->_cam_thread.joinable()){ this->_cam_thread.join(); }
-     }
-}
-
-void VboatsRos::start(){
-	this->_stop_threads = false;
-     _cam_thread = std::thread(&VboatsRos::cameraThreadFunction,this);
-}
-
 void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bool debug_timing){
 	// boost::mutex::scoped_lock scoped_lock(_lock);
 	double t, t1, dt;
@@ -312,8 +319,8 @@ void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bo
 		printf("[INFO] VboatsRos::update() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 	}
 
-	cv::imshow("Umap", umap);
-	cv::imshow("Vmap", vmap);
+	// cv::imshow("Umap", umap);
+	// cv::imshow("Vmap", vmap);
 
      // ros::Time curTime = ros::Time::now();
 
@@ -339,26 +346,36 @@ void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bo
      // }
 }
 
-int VboatsRos::run(bool verbose){
+int VboatsRos::run(bool verbose, bool debug_timing){
+	bool visualize = false;
 	this->start();
 	usleep(1 * 1000000);
 	cout << "Looping..." << endl;
 	int count = 0;
 	cv::Mat rgb, depth, disparity;
+	double t = (double)cv::getTickCount();
      while(ros::ok()){
 		this->_lock.lock();
-		rgb = this->_rgb.clone();
-		depth = this->_depth.clone();
+		// rgb = this->_rgb.clone();
+		// depth = this->_depth.clone();
 		disparity = this->_disparity.clone();
 		this->_lock.unlock();
 		this->update(disparity);
-		cv::imshow("RGB", rgb);
-		cv::imshow("Depth", depth);
-		cv::imshow("Disparity", disparity);
-		// this->update(verbose);
+		// cvinfo(rgb,"rgb");
+		// cvinfo(depth,"depth");
+
+		if(debug_timing){
+			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+			printf("[INFO] VboatsRos::update() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+			t = (double)cv::getTickCount();
+		}
+		if(visualize){
+			if(!rgb.empty()) cv::imshow("RGB", rgb);
+			if(!depth.empty()) cv::imshow("Depth", depth);
+			if(!disparity.empty()) cv::imshow("Disparity", disparity);
+		}
           // ros::spinOnce();
           // this->_loop_rate->sleep();
-		// cv::waitKey(0);
 		cv::waitKey(10);
      }
 

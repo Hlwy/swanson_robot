@@ -96,7 +96,7 @@ public:
 
      void publish_image(const cv::Mat& image);
      void update(const cv::Mat& image, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
-     int run(bool verbose = false);
+     int run(bool verbose = false, bool debug_timing = true);
 };
 
 

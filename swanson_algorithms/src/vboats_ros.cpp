@@ -300,7 +300,7 @@ void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bo
 	vector<Obstacle> obs;
 
 	if(debug_timing) t = (double)cv::getTickCount();
-	this->vb->get_uv_map(image,&umap,&vmap, false, "raw");
+	this->vb->get_uv_map(image,&umap,&vmap);
 	if(debug_timing){
 		dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 		printf("[INFO] VboatsRos::update() ---- UV-Map generation took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));

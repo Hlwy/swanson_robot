@@ -12,6 +12,7 @@ set( ROS_CXX_DEPENDENCIES
      sensor_msgs
      image_transport
      message_generation
+     swanson_msgs
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)

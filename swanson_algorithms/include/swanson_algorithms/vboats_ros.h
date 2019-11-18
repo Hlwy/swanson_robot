@@ -29,12 +29,16 @@ private:
      int _update_rate;
      ros::Rate* _loop_rate;
 
-     image_transport::Publisher _rgb_pub;
-     image_transport::Publisher _depth_pub;
      ros::Publisher _rgb_info_pub;
      ros::Publisher _depth_info_pub;
-     image_transport::Publisher _disparity_pub;
-     image_transport::Publisher _obstacles_img_pub;
+     ros::Publisher _rgb_pub;
+     ros::Publisher _depth_pub;
+     ros::Publisher _disparity_pub;
+     ros::Publisher _obstacles_img_pub;
+     // image_transport::Publisher _rgb_pub;
+     // image_transport::Publisher _depth_pub;
+     // image_transport::Publisher _disparity_pub;
+     // image_transport::Publisher _obstacles_img_pub;
      ros::Publisher _detected_obstacle_info_pub;
 
      /** ROS topics and tf frames */
@@ -114,6 +118,7 @@ public:
      void publish_tfs();
      void publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity);
      void publish_obstacle_image(cv::Mat image);
+     void publish_obstacle_data(vector<Obstacle> obstacles);
      void update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose = false, bool debug_timing = false);
      // void update(const cv::Mat& image, float conversion_gain, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
      int run(bool verbose = false);

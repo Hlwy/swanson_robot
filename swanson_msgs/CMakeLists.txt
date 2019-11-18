@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
      FILES
      DualClawInfo.msg
+     VboatsObstacle.msg
+     VboatsObstacles.msg
 )
 
 generate_messages(

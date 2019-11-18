@@ -2,6 +2,7 @@
 
 #include "swanson_algorithms/vboats_ros.h"
 #include <RoboCommander/algorithms/vboats/uvmap_utils.h>
+#include <RoboCommander/utilities/cv_utils.h>
 
 using namespace std;
 
@@ -233,8 +234,6 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 
 VboatsRos::~VboatsRos(){
 	this->stop();
-	// delete[] this->_focal;
-	// delete[] this->_principle;
 	delete this->_loop_rate;
 	delete this->vb;
 	delete this->cam;
@@ -245,22 +244,24 @@ void VboatsRos::cameraThreadFunction(){
 	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Starting loop...\r\n");
 	int err = 0;
 	int count = 0;
+	double cvtGain, cvtRatio;
 	bool debug_timing = false;
 	double t = (double)cv::getTickCount();
 	this->_img_count = 0;
 	while(!this->_stop_threads){
 		cv::Mat rgb, depth, disparity;
-		double cvtGain, cvtRatio;
 		err = cam->get_processed_queued_images(&rgb, &depth);
 		if(err >= 0){
 			this->_lock.lock();
 			this->_rgb = rgb.clone();
 			this->_depth = depth.clone();
-			disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
-			this->_disparity2depth = (float)cvtGain;
+			// disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
+			disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
+			this->_disparity2depth = (float)(cvtGain);
 			this->_disparity = disparity.clone();
 			this->_img_count++;
 			this->_lock.unlock();
+			// cvinfo(disparity, "disparity");
 			if(this->_publish_tf) this->publish_tfs();
 			if(this->_publish_images) this->publish_images(rgb, depth, disparity);
 			count++;
@@ -402,7 +403,7 @@ void VboatsRos::update(const cv::Mat& image, float conversion_gain, bool is_disp
 	// this->_lock.unlock();
 
 	if(debug_timing) t1 = (double)cv::getTickCount();
-	int nObs = this->vb->pipeline_disparity(image, umap, vmap, &obs,nullptr);
+	int nObs = this->vb->pipeline_disparity(image, umap, vmap, &obs);
 	// pipeline_disparity(disparity, umap, vmap, &obs, &element);
 	if(debug_timing){
 		dt = ((double)cv::getTickCount() - t1)/cv::getTickFrequency();
@@ -415,16 +416,15 @@ void VboatsRos::update(const cv::Mat& image, float conversion_gain, bool is_disp
           n++;
           if(this->_verbose_obstacles) printf("Obstacle [%d]: ", n);
 		// ob.update(false);
-          // ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, conversion_gain, 1.0, this->_verbose_obstacles);
-          ob.update(false,0,0,nullptr,nullptr, conversion_gain, 1.0, this->_verbose_obstacles);
+          ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, conversion_gain, 1.0, this->_verbose_obstacles);
           if(this->_publish_obs_display) cv::rectangle(clone, ob.minXY, ob.maxXY, cv::Scalar(255, 0, 255), 1);
      }
 	if(this->_verbose_obstacles) printf(" --------- \r\n");
 	if(this->_publish_obs_display) this->publish_obstacle_image(clone);
 	// cv::namedWindow("obstacles", cv::WINDOW_AUTOSIZE ); cv::imshow("obstacles", clone);
 
-	cv::imshow("Umap", umap);
-	cv::imshow("Vmap", vmap);
+	// cv::imshow("Umap", umap);
+	// cv::imshow("Vmap", vmap);
 }
 
 int VboatsRos::run(bool verbose){

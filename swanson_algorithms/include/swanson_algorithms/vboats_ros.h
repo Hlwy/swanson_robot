@@ -114,7 +114,8 @@ public:
      void publish_tfs();
      void publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity);
      void publish_obstacle_image(cv::Mat image);
-     void update(const cv::Mat& image, float conversion_gain, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
+     void update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose = false, bool debug_timing = false);
+     // void update(const cv::Mat& image, float conversion_gain, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
      int run(bool verbose = false);
 };
 

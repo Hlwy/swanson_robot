@@ -50,7 +50,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	int depth_width = 848;
 	int color_height = 480;
 	int color_width = 848;
-	int update_rate = 90;
+	int update_rate = 60;
 
 	p_nh.getParam("depth_fps",depth_fps);
 	p_nh.getParam("depth_height",depth_height);
@@ -249,14 +249,17 @@ void VboatsRos::cameraThreadFunction(){
 	double t = (double)cv::getTickCount();
 	this->_img_count = 0;
 	while(!this->_stop_threads){
-		cv::Mat rgb, depth, disparity;
+		cv::Mat rgb, depth, disparity, umap, vmap;
 		err = cam->get_processed_queued_images(&rgb, &depth);
 		if(err >= 0){
 			this->_lock.lock();
 			this->_rgb = rgb.clone();
 			this->_depth = depth.clone();
-			// disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
 			disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
+			// genUVMap(disparity,&umap,&vmap);
+			genUVMapThreaded(disparity,&umap,&vmap, 2.0);
+			this->_umap = umap.clone();
+			this->_vmap = vmap.clone();
 			this->_disparity2depth = (float)(cvtGain);
 			this->_disparity = disparity.clone();
 			this->_img_count++;
@@ -271,8 +274,8 @@ void VboatsRos::cameraThreadFunction(){
 				t = (double)cv::getTickCount();
 			}
 		}
-		// ros::spinOnce();
-		// ros::Rate(this->_update_rate).sleep();
+		ros::spinOnce();
+		ros::Rate(90).sleep();
 	}
 	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Exiting loop...\r\n");
 	this->_thread_started = false;
@@ -382,25 +385,26 @@ void VboatsRos::publish_obstacle_image(cv::Mat image){
 	}
 }
 
-void VboatsRos::update(const cv::Mat& image, float conversion_gain, bool is_disparity, bool verbose, bool debug_timing){
+void VboatsRos::update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose, bool debug_timing){
 	// boost::mutex::scoped_lock scoped_lock(_lock);
 	double t, t1, dt;
-	cv::Mat umap, vmap, clone;
+	// cv::Mat umap, vmap;
+	cv::Mat clone;
 	vector<Obstacle> obs;
 
-	if(debug_timing) t = (double)cv::getTickCount();
-	genUVMap(image,&umap,&vmap);
-	// genUVMapThreaded(image,&umap,&vmap, 1.0);
-	// this->vb->get_uv_map(image,&umap,&vmap);
-	if(debug_timing){
-		dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-		printf("[INFO] VboatsRos::update() ---- UV-Map generation took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
-	}
-
-	// this->_lock.lock();
-	// this->_umap = umap.clone();
-	// this->_vmap = vmap.clone();
-	// this->_lock.unlock();
+	// if(debug_timing) t = (double)cv::getTickCount();
+	// genUVMap(image,&umap,&vmap);
+	// // genUVMapThreaded(image,&umap,&vmap, 1.0);
+	// // this->vb->get_uv_map(image,&umap,&vmap);
+	// if(debug_timing){
+	// 	dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+	// 	printf("[INFO] VboatsRos::update() ---- UV-Map generation took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+	// }
+	//
+	// // this->_lock.lock();
+	// // this->_umap = umap.clone();
+	// // this->_vmap = vmap.clone();
+	// // this->_lock.unlock();
 
 	if(debug_timing) t1 = (double)cv::getTickCount();
 	int nObs = this->vb->pipeline_disparity(image, umap, vmap, &obs);
@@ -434,16 +438,18 @@ int VboatsRos::run(bool verbose){
 	cout << "Looping..." << endl;
 	int count = 0;
 	float cvt_gain;
-	cv::Mat rgb, depth, disparity;
+	cv::Mat rgb, depth, disparity, umap, vmap;
 	double t = (double)cv::getTickCount();
      while(ros::ok()){
 		this->_lock.lock();
 		rgb = this->_rgb.clone();
 		depth = this->_depth.clone();
 		disparity = this->_disparity.clone();
+		umap = this->_umap.clone();
+		vmap = this->_vmap.clone();
 		cvt_gain = this->_disparity2depth;
 		this->_lock.unlock();
-		this->update(disparity,cvt_gain);
+		this->update(disparity,umap, vmap,cvt_gain);
 		// cvinfo(rgb,"rgb");
 		// cvinfo(depth,"depth");
 
@@ -456,11 +462,13 @@ int VboatsRos::run(bool verbose){
 			if(!rgb.empty()) cv::imshow("RGB", rgb);
 			if(!depth.empty()) cv::imshow("Depth", depth);
 			if(!disparity.empty()) cv::imshow("Disparity", disparity);
+			if(!umap.empty()) cv::imshow("Umap", umap);
+			if(!vmap.empty()) cv::imshow("Vmap", vmap);
 		}
 
-          // ros::spinOnce();
-          // this->_loop_rate->sleep();
 		cv::waitKey(10);
+          ros::spinOnce();
+          this->_loop_rate->sleep();
      }
 
      return 0;

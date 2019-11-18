@@ -26,6 +26,7 @@ private:
 	ros::NodeHandle p_nh;
      tf::TransformBroadcaster _br;
      image_transport::ImageTransport _it;
+     int _update_rate;
      ros::Rate* _loop_rate;
 
      image_transport::Publisher _rgb_pub;
@@ -63,16 +64,31 @@ private:
      cv::Mat _Prgb;
      cv::Mat _Kdepth;
      cv::Mat _Pdepth;
+     float _focal[2];
+     float _principle[2];
+     float _disparity2depth;
+
+     /** Published Image Msg Header containers */
+     std_msgs::Header _rgbImgHeader;
+     std_msgs::Header _depthImgHeader;
+     std_msgs::Header _disparityImgHeader;
+     std_msgs::Header _obsImgHeader;
 
      /** Camera Info msg containers */
      sensor_msgs::CameraInfo _rgb_info_msg;
      sensor_msgs::CameraInfo _depth_info_msg;
+     /** TF Frame containers */
+     tf::Transform _tfOpticalBaseToCamBase;
+     tf::Transform _tfOpticalToOpticalBase;
 
      /** Counters and Timers */
      float dt;
      int _count;
      int _img_count;
      /** Flags */
+     bool _verbose_obstacles;
+     bool _verbose_timings;
+     bool _publish_images;
      bool _use_float_depth;
      bool _get_aligned;
      bool _publish_tf;
@@ -94,9 +110,12 @@ public:
      void start();
      void stop();
 
-     void publish_image(const cv::Mat& image);
-     void update(const cv::Mat& image, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
-     int run(bool verbose = false, bool debug_timing = true);
+     void initTfs();
+     void publish_tfs();
+     void publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity);
+     void publish_obstacle_image(cv::Mat image);
+     void update(const cv::Mat& image, float conversion_gain, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
+     int run(bool verbose = false);
 };
 
 

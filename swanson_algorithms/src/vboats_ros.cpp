@@ -1,5 +1,7 @@
 #include <iostream>
+
 #include "swanson_algorithms/vboats_ros.h"
+#include <RoboCommander/algorithms/vboats/uvmap_utils.h>
 
 using namespace std;
 
@@ -7,31 +9,39 @@ using namespace std;
      CONSTRUCTOR & DECONSTRUCTOR
 */
 VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh), _it(nh),
-	_cam_thread(), _stop_threads(false), _thread_started(false)
+	_cam_thread(), _stop_threads(false), _thread_started(false), _focal(), _principle()
 {
 	std::string ns = m_nh.getNamespace();
 	// Initialize internal constants
 	_count = 0;
 
 	/** Flag Configuration */
+	bool flag_verbose_obstacles = false;
+	bool flag_verbose_timings = false;
 	bool flag_gen_pc = false;
+	bool flag_publish_imgs = true;
 	bool flag_publish_tf = true;
 	bool flag_publish_obstacles_img = true;
 	bool flag_use_tf_prefix = true;
 	bool flag_get_aligned = false;
 	bool flag_use_float_depth = true;
+	p_nh.getParam("verbose_obstacles",flag_verbose_obstacles);
+	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);
+	p_nh.getParam("publish_images",flag_publish_imgs);
 	p_nh.getParam("publish_obstacles_image",flag_publish_obstacles_img);
 	p_nh.getParam("use_tf_prefix",flag_use_tf_prefix);
 	p_nh.getParam("use_aligned",flag_get_aligned);
 	p_nh.getParam("use_float_depth",flag_use_float_depth);
 
+	this->_verbose_obstacles = flag_verbose_obstacles;
+	this->_verbose_timings = flag_verbose_timings;
+	this->_publish_images = flag_publish_imgs;
 	this->_use_float_depth = flag_use_float_depth;
 	this->_get_aligned = flag_get_aligned;
 	this->_publish_tf = flag_publish_tf;
 	this->_publish_obs_display = flag_publish_obstacles_img;
-
 	/** Camera Parameter Configuration */
 	int depth_fps = 90;
 	int color_fps = 60;
@@ -48,6 +58,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	p_nh.getParam("color_height",color_height);
 	p_nh.getParam("color_width",color_width);
 	p_nh.getParam("update_rate",update_rate);
+	this->_update_rate = update_rate;
 
 	/** ROS Topics Configuration */
 	std::string camera_name = "camera";
@@ -71,7 +82,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	std::string _depth_image_topic = ns + camera_name + depth_image_topic;
 	std::string _color_info_topic = ns + camera_name + color_info_topic;
 	std::string _color_image_topic = ns + camera_name + color_image_topic;
-	std::string _disparity_image_topic = ns + disparity_image_topic;
+	std::string _disparity_image_topic = ns + camera_name + disparity_image_topic;
 	std::string _obstacles_image_topic = ns + obstacles_image_topic;
 	std::string _detected_obstacles_info_topic = ns + detected_obstacles_info_topic;
 
@@ -105,13 +116,13 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	std::string tmp_aligned_base_tf = aligned_base_tf;
 
 	if(flag_use_tf_prefix){
-		tmp_parent_tf = tf_prefix + _parent_tf;
-		tmp_cam_base_tf = tf_prefix + _cam_base_tf;
-		tmp_rgb_base_tf = tf_prefix + _rgb_base_tf;
-		tmp_rgb_optical_tf = tf_prefix + _rgb_optical_tf;
-		tmp_depth_base_tf = tf_prefix + _depth_base_tf;
-		tmp_depth_optical_tf = tf_prefix + _depth_optical_tf;
-		tmp_aligned_base_tf = tf_prefix + _aligned_base_tf;
+		tmp_parent_tf = tf_prefix + tmp_parent_tf;
+		tmp_cam_base_tf = tf_prefix + tmp_cam_base_tf;
+		tmp_rgb_base_tf = tf_prefix + tmp_rgb_base_tf;
+		tmp_rgb_optical_tf = tf_prefix + tmp_rgb_optical_tf;
+		tmp_depth_base_tf = tf_prefix + tmp_depth_base_tf;
+		tmp_depth_optical_tf = tf_prefix + tmp_depth_optical_tf;
+		tmp_aligned_base_tf = tf_prefix + tmp_aligned_base_tf;
 	}
 
 	this->_tf_prefix = tf_prefix;
@@ -122,6 +133,13 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_depth_base_tf = tmp_depth_base_tf;
 	this->_depth_optical_tf = tmp_depth_optical_tf;
 	this->_aligned_base_tf = tmp_aligned_base_tf;
+
+	/** Pre-initialize Common variables */
+	this->initTfs();
+	this->_rgbImgHeader = std_msgs::Header();
+	this->_depthImgHeader = std_msgs::Header();
+	this->_disparityImgHeader = std_msgs::Header();
+	this->_obsImgHeader = std_msgs::Header();
 
 	/** Initialize D415 Camera */
 	int rgb_resolution[2] = {color_width, color_height};
@@ -160,10 +178,10 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_rgb_info_msg.P[2] = _Prgb.at<double>(2);
 	this->_rgb_info_msg.P[6] = _Prgb.at<double>(6);
 
-	float fxd = _Kdepth.at<float>(0);
-	float fyd = _Kdepth.at<float>(4);
-	float pxd = _Kdepth.at<float>(2);
-	float pyd = _Kdepth.at<float>(5);
+	float fxd = (float)_Kdepth.at<double>(0);
+	float fyd = (float)_Kdepth.at<double>(4);
+	float pxd = (float)_Kdepth.at<double>(2);
+	float pyd = (float)_Kdepth.at<double>(5);
 	if(fxd == 0) this->_fxd = 1.0;
 	else this->_fxd = fxd;
 	if(fyd == 0) this->_fyd = 1.0;
@@ -187,6 +205,12 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_depth_info_msg.P[2] = _Pdepth.at<double>(2);
 	this->_depth_info_msg.P[6] = _Pdepth.at<double>(6);
 
+	this->_focal[0] = this->_fxd;
+	this->_focal[1] = this->_fyd;
+	this->_principle[0] = this->_pxd;
+	this->_principle[1] = this->_pyd;
+	this->_disparity2depth = 1.0;
+
 	/** Initialize VBOATS */
 	this->vb = new VBOATS();
 
@@ -209,6 +233,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 
 VboatsRos::~VboatsRos(){
 	this->stop();
+	// delete[] this->_focal;
+	// delete[] this->_principle;
 	delete this->_loop_rate;
 	delete this->vb;
 	delete this->cam;
@@ -231,9 +257,12 @@ void VboatsRos::cameraThreadFunction(){
 			this->_rgb = rgb.clone();
 			this->_depth = depth.clone();
 			disparity = this->cam->convert_to_disparity(depth,&cvtGain, &cvtRatio);
+			this->_disparity2depth = (float)cvtGain;
 			this->_disparity = disparity.clone();
 			this->_img_count++;
 			this->_lock.unlock();
+			if(this->_publish_tf) this->publish_tfs();
+			if(this->_publish_images) this->publish_images(rgb, depth, disparity);
 			count++;
 			if(debug_timing){
 				double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
@@ -242,7 +271,7 @@ void VboatsRos::cameraThreadFunction(){
 			}
 		}
 		// ros::spinOnce();
-		// this->_loop_rate->sleep();
+		// ros::Rate(this->_update_rate).sleep();
 	}
 	printf("[INFO] VboatsRos::cameraThreadFunction() ---- Exiting loop...\r\n");
 	this->_thread_started = false;
@@ -254,53 +283,114 @@ void VboatsRos::stop(){
           if(this->_cam_thread.joinable()){ this->_cam_thread.join(); }
      }
 }
-
 void VboatsRos::start(){
 	this->_stop_threads = false;
      this->_cam_thread = std::thread(&VboatsRos::cameraThreadFunction,this);
 }
 
-void VboatsRos::publish_image(const cv::Mat& image){
-	ros::Time time = ros::Time::now();
-	cv_bridge::CvImagePtr cv_ptr;
+void VboatsRos::initTfs(){
+	tf::Vector3 pNull(0.0, 0.0, 0.0);
+	tf::Quaternion qNull; qNull.setRPY(0.0, 0.0, 0.0);
+	tf::Quaternion qOptical; qOptical.setRPY(-M_PI/2.0, 0.0, -M_PI/2.0);
 
-	cv_ptr->encoding = "bgr8";
-	cv_ptr->header.stamp = time;
-	cv_ptr->header.seq = this->_img_count;
-	cv_ptr->header.frame_id = "/traj_output";
+	this->_tfOpticalBaseToCamBase = tf::Transform(qNull,pNull);
+	this->_tfOpticalToOpticalBase = tf::Transform(qOptical,pNull);
+}
+void VboatsRos::publish_tfs(){
+	ros::Time curTime = ros::Time::now();
 
-	cv_ptr->image = image;
-	// image_pub_.publish(cv_ptr->toImageMsg());
-
-    /**
-    rgbImgMsg = self.bridge.cv2_to_imgmsg(self.rgb, "bgr8")
-    if(self.use_float_depth): depthImgMsg = self.bridge.cv2_to_imgmsg(_depth*self.dscale, "32FC1")
-    else: depthImgMsg = self.bridge.cv2_to_imgmsg(self.depth, "8UC1")
-
-    rgbImgMsg.header.frame_id = self.aligned_base_tf
-    depthImgMsg.header.frame_id = self.aligned_base_tf
-
-    self.rgb_pub.publish(rgbImgMsg)
-    self.depth_pub.publish(depthImgMsg)
-
-    infoMsgRgb, infoMsgDepth = self.create_camera_info_msg()
-    infoMsgRgb.header.stamp = rgbImgMsg.header.stamp
-    infoMsgDepth.header.stamp = depthImgMsg.header.stamp
-
-    self.rgb_info_pub.publish(infoMsgRgb)
-    self.depth_info_pub.publish(infoMsgDepth)
-    */
-
+	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_rgb_optical_tf.c_str(),this->_rgb_base_tf.c_str());
+	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_rgb_base_tf.c_str(),this->_cam_base_tf.c_str());
+	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_depth_optical_tf.c_str(),this->_depth_base_tf.c_str());
+	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_depth_base_tf.c_str(),this->_cam_base_tf.c_str());
+	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_aligned_base_tf.c_str(),this->_cam_base_tf.c_str());
+	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_rgb_base_tf, this->_rgb_optical_tf));
+	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalBaseToCamBase, curTime, this->_cam_base_tf, this->_rgb_base_tf));
+	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_depth_base_tf, this->_depth_optical_tf));
+	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalBaseToCamBase, curTime, this->_cam_base_tf, this->_depth_base_tf));
+	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_cam_base_tf, this->_aligned_base_tf));
 }
 
-void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bool debug_timing){
+void VboatsRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity){
+	ros::Time time = ros::Time::now();
+	/** RGB Image */
+	if(!_rgb.empty()){
+		this->_rgbImgHeader.stamp = time;
+		this->_rgbImgHeader.seq = this->_img_count;
+		// this->_rgbImgHeader.frame_id = this->_rgb_optical_tf;
+		this->_rgbImgHeader.frame_id = this->_aligned_base_tf;
+
+		sensor_msgs::ImagePtr rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
+		this->_rgb_pub.publish(rgbImgMsg);
+		// Camera Info
+		this->_rgb_info_msg.header.stamp = time;
+		this->_rgb_info_msg.header.seq = this->_img_count;
+		this->_rgb_info_pub.publish(this->_rgb_info_msg);
+	}
+
+	/** Depth Image */
+	if(!_depth.empty()){
+		this->_depthImgHeader.stamp = time;
+		this->_depthImgHeader.seq = this->_img_count;
+		// this->_depthImgHeader.frame_id = this->_depth_optical_tf;
+		this->_depthImgHeader.frame_id = this->_aligned_base_tf;
+
+		sensor_msgs::ImagePtr depthImgMsg;
+		if(this->_use_float_depth){
+			cv::Mat tmp;
+			_depth.convertTo(tmp, CV_32F);
+			// tmp = tmp * this->_dscale;
+			// depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp).toImageMsg();
+			depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
+		} else{
+			// Convert depth image to uint8 if not already
+			if(_depth.type() != CV_8UC1){
+				cv::Mat depth8;
+				_depth.convertTo(depth8, CV_8UC1, (255.0/65535.0));
+				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
+			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
+		}
+		this->_depth_pub.publish(depthImgMsg);
+
+		// Publish Camera Info
+		this->_depth_info_msg.header.stamp = time;
+		this->_depth_info_msg.header.seq = this->_img_count;
+		this->_depth_info_pub.publish(this->_depth_info_msg);
+	}
+
+	/** Disparity Image */
+	if(!_disparity.empty()){
+		this->_disparityImgHeader.stamp = time;
+		this->_disparityImgHeader.seq = this->_img_count;
+		this->_disparityImgHeader.frame_id = this->_depth_optical_tf;
+
+		sensor_msgs::ImagePtr disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
+		this->_disparity_pub.publish(disparityImgMsg);
+	}
+}
+void VboatsRos::publish_obstacle_image(cv::Mat image){
+	ros::Time time = ros::Time::now();
+	/** Obstacles Image */
+	if(!image.empty()){
+		this->_obsImgHeader.stamp = time;
+		this->_obsImgHeader.seq = this->_img_count;
+		this->_obsImgHeader.frame_id = this->_depth_optical_tf;
+
+		sensor_msgs::ImagePtr obsImgMsg = cv_bridge::CvImage(this->_obsImgHeader, "bgr8", image).toImageMsg();
+		this->_obstacles_img_pub.publish(obsImgMsg);
+	}
+}
+
+void VboatsRos::update(const cv::Mat& image, float conversion_gain, bool is_disparity, bool verbose, bool debug_timing){
 	// boost::mutex::scoped_lock scoped_lock(_lock);
 	double t, t1, dt;
-	cv::Mat umap, vmap;
+	cv::Mat umap, vmap, clone;
 	vector<Obstacle> obs;
 
 	if(debug_timing) t = (double)cv::getTickCount();
-	this->vb->get_uv_map(image,&umap,&vmap);
+	genUVMap(image,&umap,&vmap);
+	// genUVMapThreaded(image,&umap,&vmap, 1.0);
+	// this->vb->get_uv_map(image,&umap,&vmap);
 	if(debug_timing){
 		dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 		printf("[INFO] VboatsRos::update() ---- UV-Map generation took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
@@ -312,61 +402,54 @@ void VboatsRos::update(const cv::Mat& image, bool is_disparity, bool verbose, bo
 	// this->_lock.unlock();
 
 	if(debug_timing) t1 = (double)cv::getTickCount();
-	this->vb->pipeline_disparity(image, umap, vmap, &obs);
+	int nObs = this->vb->pipeline_disparity(image, umap, vmap, &obs,nullptr);
 	// pipeline_disparity(disparity, umap, vmap, &obs, &element);
 	if(debug_timing){
 		dt = ((double)cv::getTickCount() - t1)/cv::getTickFrequency();
 		printf("[INFO] VboatsRos::update() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 	}
 
-	// cv::imshow("Umap", umap);
-	// cv::imshow("Vmap", vmap);
+	int n = 0;
+	if(this->_publish_obs_display) cv::cvtColor(image, clone, cv::COLOR_GRAY2BGR);
+	for(Obstacle ob : obs){
+          n++;
+          if(this->_verbose_obstacles) printf("Obstacle [%d]: ", n);
+		// ob.update(false);
+          // ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, conversion_gain, 1.0, this->_verbose_obstacles);
+          ob.update(false,0,0,nullptr,nullptr, conversion_gain, 1.0, this->_verbose_obstacles);
+          if(this->_publish_obs_display) cv::rectangle(clone, ob.minXY, ob.maxXY, cv::Scalar(255, 0, 255), 1);
+     }
+	if(this->_verbose_obstacles) printf(" --------- \r\n");
+	if(this->_publish_obs_display) this->publish_obstacle_image(clone);
+	// cv::namedWindow("obstacles", cv::WINDOW_AUTOSIZE ); cv::imshow("obstacles", clone);
 
-     // ros::Time curTime = ros::Time::now();
-
-     // sensor_msgs::Imu imuMsg;
-     // imuMsg.header.stamp = curTime;
-	// imuMsg.header.seq = _count;
-	// imuMsg.orientation.x = imu->quats[0];
-     // imu_pub.publish(imuMsg);
-
-     // geometry_msgs::Pose poseMsg;
-     // poseMsg.orientation = imuMsg.orientation;
-     // pose_pub.publish(poseMsg);
-
-     // float yaw = fmod((imu->euler[2]*M_RAD2DEG + 360.0),360.0);
-
-     // if(verbose){
-     //      printf("IMU DATA: \r\n");
-     //      printf("       Accelerations (m/s^2): %.4f        %.4f      %.4f\r\n", imu->accel[0], imu->accel[1], imu->accel[2]);
-     //      printf("       Angular Velocities (rad/sec): %.4f        %.4f      %.4f\r\n", imu->gyro[0], imu->gyro[1], imu->gyro[2]);
-     //      printf("       Magnetometer (μT): %.4f        %.4f      %.4f\r\n", imu->mag[0], imu->mag[1],imu-> mag[2]);
-     //      printf("       Fused Euler Angles (deg): %.4f        %.4f      %.4f\r\n", roll,pitch,yaw);
-     //      printf(" ===================================================== \r\n");
-     // }
+	cv::imshow("Umap", umap);
+	cv::imshow("Vmap", vmap);
 }
 
-int VboatsRos::run(bool verbose, bool debug_timing){
+int VboatsRos::run(bool verbose){
 	bool visualize = false;
 	this->start();
 	usleep(1 * 1000000);
 	cout << "Looping..." << endl;
 	int count = 0;
+	float cvt_gain;
 	cv::Mat rgb, depth, disparity;
 	double t = (double)cv::getTickCount();
      while(ros::ok()){
 		this->_lock.lock();
-		// rgb = this->_rgb.clone();
-		// depth = this->_depth.clone();
+		rgb = this->_rgb.clone();
+		depth = this->_depth.clone();
 		disparity = this->_disparity.clone();
+		cvt_gain = this->_disparity2depth;
 		this->_lock.unlock();
-		this->update(disparity);
+		this->update(disparity,cvt_gain);
 		// cvinfo(rgb,"rgb");
 		// cvinfo(depth,"depth");
 
-		if(debug_timing){
+		if(this->_verbose_timings){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-			printf("[INFO] VboatsRos::update() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+			printf("[INFO] VboatsRos::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
 		if(visualize){
@@ -374,6 +457,7 @@ int VboatsRos::run(bool verbose, bool debug_timing){
 			if(!depth.empty()) cv::imshow("Depth", depth);
 			if(!disparity.empty()) cv::imshow("Disparity", disparity);
 		}
+
           // ros::spinOnce();
           // this->_loop_rate->sleep();
 		cv::waitKey(10);

@@ -16,7 +16,10 @@ set( ROS_CXX_DEPENDENCIES
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
 find_package(OpenCV REQUIRED)
-find_package(realsense2 2.28.0 REQUIRED)
+# find_package(realsense2 REQUIRED)
+# find_package(realsense2 2.28.0 REQUIRED)
+find_package(realsense2 2.25.1 REQUIRED)
+
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/RoboCommander
 find_package(RoboCommander REQUIRED)

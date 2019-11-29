@@ -22,6 +22,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_use_tf_prefix = true;
 	bool flag_get_aligned = false;
 	bool flag_use_float_depth = true;
+	bool flag_use_8bit_depth = false;
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);
@@ -29,10 +30,12 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	p_nh.getParam("use_tf_prefix",flag_use_tf_prefix);
 	p_nh.getParam("use_aligned",flag_get_aligned);
 	p_nh.getParam("use_float_depth",flag_use_float_depth);
+	p_nh.getParam("use_8bit_depth",flag_use_8bit_depth);
 
 	this->_verbose_timings = flag_verbose_timings;
 	this->_publish_images = flag_publish_imgs;
 	this->_use_float_depth = flag_use_float_depth;
+	this->_use_8bit_depth = flag_use_8bit_depth;
 	this->_get_aligned = flag_get_aligned;
 	this->_publish_tf = flag_publish_tf;
 	/** Camera Parameter Configuration */
@@ -280,13 +283,20 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 			// tmp = tmp * this->_dscale;
 			// depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp).toImageMsg();
 			depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
-		} else{
+		} else if(this->_use_8bit_depth && !this->_use_float_depth){
 			// Convert depth image to uint8 if not already
 			if(_depth.type() != CV_8UC1){
 				cv::Mat depth8;
 				_depth.convertTo(depth8, CV_8UC1, (255.0/65535.0));
 				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
 			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
+		} else{
+			// Convert depth image to uint16 if not already
+			if(_depth.type() != CV_16UC1){
+				cv::Mat depth16;
+				_depth.convertTo(depth16, CV_16UC1, (65535.0/255.0));
+				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", depth16).toImageMsg();
+			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", _depth).toImageMsg();
 		}
 		this->_depth_pub.publish(depthImgMsg);
 

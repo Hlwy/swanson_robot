@@ -85,6 +85,7 @@ private:
      bool _verbose_timings;
      bool _publish_images;
      bool _use_float_depth;
+     bool _use_8bit_depth;
      bool _get_aligned;
      bool _publish_tf;
      /** Multi-threading objects */

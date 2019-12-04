@@ -39,7 +39,7 @@
           output="screen"
      /> -->
 
-     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" output="screen">
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node">
           <param name="serial_device" value="/dev/ttyS0"/>
           <param name="serial_baud" value="115200"/>
           <param name="left_claw_addr" value="128"/>
@@ -51,6 +51,40 @@
           <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
           <param name="update_rate" value="30"/>
      </node>
+
+     <!-- Load joystick nodes for manual control -->
+     <group if="$(arg use_android_app)">
+          <!-- <node pkg="swanson_teleop" type="android_interface_listener_node" name="android_teleop_node">
+               <param name="app_port" value="$(arg android_app_port)"/>
+               <param name="frontGimbalTargetTopic" value="camera_gimbal/target/front"/>
+               <param name="backGimbalTargetTopic" value="camera_gimbal/target/rear"/>
+               <param name="rightGimbalTargetTopic" value="camera_gimbal/target/right"/>
+               <param name="leftGimbalTargetTopic" value="camera_gimbal/target/left"/>
+               <param name="max_speed" value="$(arg maxVel)"/>
+               <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
+               <param name="update_rate" value="30"/>
+          </node> -->
+     </group>
+     <group unless="$(arg use_android_app)">
+          <!-- <node pkg="joy" type="joy_node" name="joy_node">
+               <param name="dev" value="$(arg dev_joy)"/>
+          </node> -->
+          <!-- Xbox -->
+          <!-- <node pkg="teleop_twist_joy" type="teleop_node" name="joy_controller_node">
+               <param name="enable_button" value="7"/>
+               <param name="axis_angular" value="2"/>
+               <param name="scale_linear" value="1"/>
+               <param name="scale_angular" value="1.5"/>
+          </node> -->
+
+          <!-- PS3 -->
+          <!-- <node pkg="teleop_twist_joy" type="teleop_node" name="joy_controller_node">
+               <param name="enable_button" value="11"/>
+               <param name="axis_angular" value="2"/>
+               <param name="scale_linear" value="1"/>
+               <param name="scale_angular" value="1.5"/>
+          </node> -->
+     </group>
 
 
      <!-- <node pkg="swanson_sensors" type="rtimu_ros_node" name="mpu9250_node">

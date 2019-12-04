@@ -7,6 +7,7 @@ set( ROS_CXX_DEPENDENCIES
      roscpp
      rospy
      roslaunch
+     tf
      std_msgs
      geometry_msgs
      sensor_msgs

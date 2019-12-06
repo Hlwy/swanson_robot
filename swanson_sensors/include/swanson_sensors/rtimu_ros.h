@@ -3,7 +3,8 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/Imu.h>
-#include <geometry_msgs/Pose.h>
+#include <sensor_msgs/MagneticField.h>
+#include <geometry_msgs/PoseStamped.h>
 
 #include <RoboCommander/base/definitions.h>
 #include <RoboCommander/sensors/generic_rtimu.h>
@@ -12,25 +13,36 @@ using namespace std;
 
 class RtImuRos{
 private:
+     float dt;
+     int _count;
+
+     /** ROS Objects */
      ros::NodeHandle m_nh;
 	ros::NodeHandle p_nh;
      ros::Rate* _loop_rate;
-
      ros::Publisher imu_pub;
+     ros::Publisher mag_pub;
      ros::Publisher pose_pub;
 
-     float dt;
-     int _count;
+     /** ROS Params */
+     bool _publishTf;
+     std::string _tf_prefix;
+     std::string _tf_imu;
+
+     /** ROS Msgs */
+     sensor_msgs::Imu imuMsg;
+     sensor_msgs::MagneticField magMsg;
+     geometry_msgs::PoseStamped poseMsg;
 public:
+     GenericRTIMU* imu;
+
      // Contructor/DeConstructor
      RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~RtImuRos();
 
-     GenericRTIMU* imu;
-
+     void init_rosmsgs();
      void update(bool verbose = false);
      int run(bool verbose = false);
 };
-
 
 #endif // RTIMU_ROS_H_

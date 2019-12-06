@@ -44,16 +44,19 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	p_nh.getParam("odom_topic",odom_topic);
 
 	/** ROS tf Config */
+	bool flag_publish_tf = true;
 	bool flag_use_tf_prefix = true;
 	std::string tf_prefix = "";
 	std::string odom_frame = "odom";
 	std::string base_frame = "base_link";
+	p_nh.getParam("publish_tf",flag_publish_tf);
 	p_nh.getParam("use_tf_prefix",flag_use_tf_prefix);
 	p_nh.getParam("tf_prefix",tf_prefix);
 	p_nh.getParam("odom_tf",odom_frame);
 	p_nh.getParam("base_tf",base_frame);
 
 	this->_tf_prefix = tf_prefix;
+	this->_publishTf = flag_publish_tf;
 	if(flag_use_tf_prefix){
 		this->_tf_odom = tf_prefix + odom_frame;
 		this->_tf_base = tf_prefix + base_frame;
@@ -158,11 +161,6 @@ void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
 
 	/** Update Robot's body transformations */
 	geometry_msgs::Quaternion quats = tf::createQuaternionMsgFromYaw(pose[2]);
-	// tf::Quaternion rot;
-	// tf::Vector3 trans(pose[0], pose[1], 0.0);
-	// tf::quaternionMsgToTF(quats, rot);
-	// this->_tfBaseToOdom = tf::Transform(rot,trans);
-	// this->_br.sendTransform(tf::StampedTransform(this->_tfBaseToOdom, curTime, this->_tf_base, this->_tf_odom));
 
 	geometry_msgs::TransformStamped odom_tf;
 	odom_tf.header = dataMsg.header;
@@ -173,7 +171,7 @@ void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
 	odom_tf.transform.translation.y = pose[1];
 	odom_tf.transform.translation.z = 0.0;
 	odom_tf.transform.rotation = quats;
-	this->_br.sendTransform(odom_tf);
+	if(this->_publishTf) this->_br.sendTransform(odom_tf);
 
 	/** Update Robot's dead-reckoned pose */
 	geometry_msgs::PoseStamped poseMsg;

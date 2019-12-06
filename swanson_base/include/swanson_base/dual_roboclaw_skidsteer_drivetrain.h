@@ -32,6 +32,7 @@ private:
 
      /** ROS Params */
      std::string _ns;
+     bool _publishTf;
      std::string _tf_prefix;
      std::string _tf_odom;
      std::string _tf_base;
@@ -51,6 +52,5 @@ public:
      void update(bool verbose = false);
      int run(bool verbose = false);
 };
-
 
 #endif // DUAL_ROBOCLAW_SKIDSTEER_DRIVETRAIN_H_

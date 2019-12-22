@@ -352,6 +352,7 @@ void CameraD415Ros::update(bool verbose){
 			if(!depth.empty()) cv::imshow("Depth", depth);
 			if(this->_calc_disparity)
 				if(!this->_disparity.empty()) cv::imshow("Disparity", this->_disparity);
+			cv::waitKey(10);
 		}
 	}
 }
@@ -368,7 +369,6 @@ int CameraD415Ros::run(bool verbose){
 			printf("[INFO] CameraD415Ros::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
-		cv::waitKey(10);
           ros::spinOnce();
           this->_loop_rate->sleep();
      }

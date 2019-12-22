@@ -23,6 +23,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_get_aligned = false;
 	bool flag_use_float_depth = true;
 	bool flag_use_8bit_depth = false;
+	bool flag_calc_disparity = false;
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);
@@ -31,6 +32,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	p_nh.getParam("use_aligned",flag_get_aligned);
 	p_nh.getParam("use_float_depth",flag_use_float_depth);
 	p_nh.getParam("use_8bit_depth",flag_use_8bit_depth);
+	p_nh.getParam("calculate_disparity",flag_calc_disparity);
 
 	this->_verbose_timings = flag_verbose_timings;
 	this->_publish_images = flag_publish_imgs;
@@ -38,6 +40,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_use_8bit_depth = flag_use_8bit_depth;
 	this->_get_aligned = flag_get_aligned;
 	this->_publish_tf = flag_publish_tf;
+	this->_calc_disparity = flag_calc_disparity;
 	/** Camera Parameter Configuration */
 	int depth_fps = 90;
 	int color_fps = 60;
@@ -70,11 +73,11 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	p_nh.getParam("color_image_topic",color_image_topic);
 	p_nh.getParam("disparity_image_topic",disparity_image_topic);
 
-	std::string _depth_info_topic = ns + camera_name + depth_info_topic;
-	std::string _depth_image_topic = ns + camera_name + depth_image_topic;
-	std::string _color_info_topic = ns + camera_name + color_info_topic;
-	std::string _color_image_topic = ns + camera_name + color_image_topic;
-	std::string _disparity_image_topic = ns + camera_name + disparity_image_topic;
+	std::string _depth_info_topic = ns + "/" + camera_name + depth_info_topic;
+	std::string _depth_image_topic = ns + "/" + camera_name + depth_image_topic;
+	std::string _color_info_topic = ns + "/" + camera_name + color_info_topic;
+	std::string _color_image_topic = ns + "/" + camera_name + color_image_topic;
+	std::string _disparity_image_topic = ns + "/" + camera_name + disparity_image_topic;
 
 	this->_ns = ns;
 	this->_camera_name = camera_name;
@@ -307,13 +310,15 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 	}
 
 	/** Disparity Image */
-	if(!_disparity.empty()){
-		this->_disparityImgHeader.stamp = time;
-		this->_disparityImgHeader.seq = this->_img_count;
-		this->_disparityImgHeader.frame_id = this->_depth_optical_tf;
+	if(this->_calc_disparity){
+		if(!_disparity.empty()){
+			this->_disparityImgHeader.stamp = time;
+			this->_disparityImgHeader.seq = this->_img_count;
+			this->_disparityImgHeader.frame_id = this->_depth_optical_tf;
 
-		sensor_msgs::ImagePtr disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
-		this->_disparity_pub.publish(disparityImgMsg);
+			sensor_msgs::ImagePtr disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
+			this->_disparity_pub.publish(disparityImgMsg);
+		}
 	}
 }
 
@@ -329,12 +334,14 @@ void CameraD415Ros::update(bool verbose){
 		this->_lock.lock();
 		this->_rgb = rgb.clone();
 		this->_depth = depth.clone();
-		cv::Mat disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
-		this->_disparity = disparity.clone();
+		if(this->_calc_disparity){
+			cv::Mat disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
+			this->_disparity = disparity.clone();
+		}
 		this->_img_count++;
 		this->_lock.unlock();
 		if(this->_publish_tf) this->publish_tfs();
-		if(this->_publish_images) this->publish_images(rgb, depth, disparity);
+		if(this->_publish_images) this->publish_images(rgb, depth, this->_disparity);
 		if(debug_timing){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 			printf("[INFO] CameraD415Ros::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
@@ -343,7 +350,8 @@ void CameraD415Ros::update(bool verbose){
 		if(visualize){
 			if(!rgb.empty()) cv::imshow("RGB", rgb);
 			if(!depth.empty()) cv::imshow("Depth", depth);
-			if(!disparity.empty()) cv::imshow("Disparity", disparity);
+			if(this->_calc_disparity)
+				if(!this->_disparity.empty()) cv::imshow("Disparity", this->_disparity);
 		}
 	}
 }

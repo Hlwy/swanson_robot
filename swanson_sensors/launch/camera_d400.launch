@@ -4,12 +4,11 @@
      <arg name="publish_tf" default="true"/>
      <arg name="publish_images" default="true"/>
      <arg name="use_aligned" default="true"/>
-     <arg name="use_float_depth" default="false"/>
+     <arg name="use_float_depth" default="true"/>
      <arg name="use_8bit_depth" default="false"/>
-     <arg name="cam_fps" default="30"/>
+     <arg name="cam_fps" default="15"/>
 
      <node pkg="swanson_sensors" type="camera_d415_node" name="d400_camera_node" output="screen">
-          <param name="update_rate" value="$(arg update_rate)"/>
           <param name="verbose_timings" value="$(arg verbose_timings)"/>
           <param name="publish_tf" value="$(arg publish_tf)"/>
           <param name="publish_images" value="$(arg publish_images)"/>
@@ -18,6 +17,7 @@
           <param name="use_8bit_depth" value="$(arg use_8bit_depth)"/>
           <param name="depth_fps" value="$(arg cam_fps)"/>
           <param name="color_fps" value="$(arg cam_fps)"/>
+          <param name="update_rate" value="$(arg update_rate)"/>
      </node>
 
 </launch>

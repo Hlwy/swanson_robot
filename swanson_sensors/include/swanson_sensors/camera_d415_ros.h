@@ -88,6 +88,7 @@ private:
      bool _use_8bit_depth;
      bool _get_aligned;
      bool _publish_tf;
+     bool _calc_disparity;
      /** Multi-threading objects */
      // boost::mutex _lock;
      std::mutex _lock;

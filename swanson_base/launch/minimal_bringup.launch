@@ -63,6 +63,8 @@
                <param name="pose_topic" value="imu/pose/raw"/>
           </node>
 
+          <include file="$(find swanson_sensors)/launch/imu_filter.launch" />
+
           <node pkg="tf" type="static_transform_publisher" name="tf_imu" args="0 0 0 0 0 0 base_link imu_link 100"/>
      </group>
      <group unless="$(arg use_rtimulib)">

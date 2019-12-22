@@ -1,0 +1,16 @@
+<launch>
+
+    <node pkg="imu_filter_madgwick" type="imu_filter_node" name="imu_filter_madgwick" output="screen" respawn="false" >
+         <param name="imu_topic" value="imu/data/raw" />
+         <!-- <remap from="imu/data_raw" to="imu/data/raw" /> -->
+         <remap from="imu/data" to="imu/data/filtered" />
+         <param name="world_frame" value="enu" />
+         <param name="fixed_frame" value="imu_link" />
+         <param name="reverse_tf" value="false" />
+         <param name="publish_tf" value="false" />
+         <param name="use_mag" value="false" />
+         <param name="gain" value="0.2" />
+         <param name="use_magnetic_field_msg" value="true" />
+    </node>
+
+</launch>

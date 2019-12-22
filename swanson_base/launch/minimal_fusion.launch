@@ -2,7 +2,7 @@
 <launch>
      <!-- Launch configuration settings -->
      <arg name="tf_parent"               default="base_link"/>
-     <arg name="imu_topic"               default="imu/data/raw" />
+     <arg name="imu_topic"               default="imu/data/filtered" />
      <arg name="odom_topic"              default="dead_reckoning" />
      <arg name="odom_frame"              default="odom" />
      <arg name="imu_ignore_acc"          default="true" />
@@ -21,6 +21,7 @@
           <param name="odom0" value="$(arg odom_topic)"/>
           <param name="imu0" value="$(arg imu_topic)"/>
           <param name="imu0_remove_gravitational_acceleration" value="$(arg imu_remove_gravitational_acceleration)"/>
+          <!-- <param name="imu0_relative" value="false"/> -->
 
           <!-- The order of the values is
                x, y, z,
@@ -37,29 +38,19 @@
                 false, false, false]
           </rosparam>
 
-          <!-- <rosparam     if="$(arg imu_ignore_acc)" param="imu0_config">
-               [false, false, false,
-               true,  true,  true,
-               false, false, false,
-               true,  true,  true,
-               false,  false,  false
-               ]
-          </rosparam> -->
           <rosparam     if="$(arg imu_ignore_acc)" param="imu0_config">
-               [false, false, false,
-               false,  false,  false,
-               false, false, false,
+               [false, false,  false,
                false,  false,  true,
-               true,  false,  false
-               ]
+               false,  false,  false,
+               false,  false,  true,
+               true,   false,  false]
           </rosparam>
           <rosparam unless="$(arg imu_ignore_acc)" param="imu0_config">
                [false, false, false,
                true,  true,  true,
                false, false, false,
                true,  true,  true,
-               true,  true,  true
-               ]
+               true,  true,  true]
           </rosparam>
 
           <!-- The values are ordered as
@@ -69,7 +60,26 @@
                vroll, vpitch, vyaw,
                ax, ay, az.
           -->
+          <!-- The order of the values is
+               x,    y,    z,    R,    P,    Y,   vx,    vy,    vz,    vR,   vP,   vY,  ax,   ay,   az. -->
           <rosparam param="process_noise_covariance">
+              [5e-2, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    5e-2, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    6e-2, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    3e-3, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    3e-3, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    3e-3, 0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    3e-6,  0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     3e-5,  0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     4e-3, 0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    1e-3, 0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    1e-3, 0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    5e-3, 0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    1e-1, 0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    1e-2, 0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    1.5e-3]
+          </rosparam>
+          <!-- <rosparam param="process_noise_covariance">
                [0.05, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0.05, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0,    0.06, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
@@ -85,7 +95,7 @@
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0.01, 0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0.001, 0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0.0015]
-          </rosparam>
+          </rosparam> -->
      </node>
 
 

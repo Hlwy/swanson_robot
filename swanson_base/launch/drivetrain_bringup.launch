@@ -19,9 +19,9 @@
           <param name="wheel_diameter" value="$(arg wheelDiameter)"/>
           <param name="max_speed" value="$(arg maxVel)"/>
           <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
-          <param name="update_rate" value="30"/>
           <param name="odom_tf" value="$(arg enc_odom_frame)"/>
           <param name="publish_tf" value="$(arg publish_tf)"/>
+          <param name="update_rate" value="10"/>
      </node>
 
 </launch>

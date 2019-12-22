@@ -99,6 +99,8 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 10);
 	pose_pub = m_nh.advertise<geometry_msgs::PoseStamped>(pose_topic, 10);
 	odom_pub = m_nh.advertise<nav_msgs::Odometry>(odom_topic, 10);
+	_reset_enc = m_nh.advertiseService("reset_odom", &DualClawSkidsteerDrivetrainInterface::reset_odometry, this);
+
 	_loop_rate = new ros::Rate(update_rate);
 	usleep(2 * 1000000);
 }
@@ -116,6 +118,12 @@ void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twis
 	float target_w = msg->angular.z;
 	// printf("[INFO] DualClawSkidsteerDrivetrainInterface::cmdCallback() ---- Recieved Cmds V,W: %.3f, %.3f\r\n",target_v,target_w);
 	claws->drive(target_v,target_w);
+}
+
+bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
+	ROS_DEBUG("Resetting Encoders");
+	this->claws->reset_encoders();
+	return true;
 }
 
 void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
@@ -217,10 +225,8 @@ int DualClawSkidsteerDrivetrainInterface::run(bool verbose){
 
      while(ros::ok()){
 		this->update(verbose);
-
           ros::spinOnce();
           _loop_rate->sleep();
      }
-
      return 0;
 }

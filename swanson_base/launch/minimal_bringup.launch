@@ -51,7 +51,7 @@
           <param name="wheel_diameter" value="$(arg wheelDiameter)"/>
           <param name="max_speed" value="$(arg maxVel)"/>
           <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
-          <param name="update_rate" value="30"/>
+          <param name="update_rate" value="10"/>
      </node>
 
      <group if="$(arg use_rtimulib)">

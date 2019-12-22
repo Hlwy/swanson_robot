@@ -8,6 +8,7 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Twist.h>
 #include <geometry_msgs/Pose.h>
+#include <std_srvs/Empty.h>
 #include <geometry_msgs/Quaternion.h>
 #include <swanson_msgs/DualClawInfo.h>
 
@@ -29,6 +30,7 @@ private:
      ros::Publisher pose_pub;
      ros::Publisher odom_pub;
      tf::TransformBroadcaster _br;
+     ros::ServiceServer _reset_enc;
 
      /** ROS Params */
      std::string _ns;
@@ -42,7 +44,7 @@ private:
 
      /** ROS Subscriber Callbacks */
      void cmdCallback(const geometry_msgs::Twist::ConstPtr& msg, const int topic_index);
-
+     bool reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
 public:
      DualClaw* claws;
      // Contructor/DeConstructor

@@ -16,10 +16,10 @@
      <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
      <arg name="approx_sync"             default="true"/>         <!-- if timestamps of the input topics are not synchronized -->
 
-     <arg name="rgb_topic"               default="/camera/color/image_raw" />
-     <arg name="depth_registered_topic"  default="/camera/depth/image_rect_raw" />
-     <arg name="camera_info_topic"       default="/camera/color/camera_info" />
-     <arg name="depth_camera_info_topic" default="/camera/depth/camera_info" />
+     <arg name="rgb_topic"               default="camera/color/image_raw" />
+     <arg name="depth_registered_topic"  default="camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"       default="camera/color/camera_info" />
+     <arg name="depth_camera_info_topic" default="camera/depth/camera_info" />
      <arg name="compressed"              default="false"/>
 
      <arg name="subscribe_scan"          default="false"/>         <!-- Assuming 2D scan if set, rtabmap will do 3DoF mapping instead of 6DoF -->
@@ -32,10 +32,11 @@
      <arg name="odom_topic"              default="/vo"/>         <!-- Odometry topic used if visual_odometry is false -->
      <arg name="odom_frame_id"           default=""/>              <!-- If set, TF is used to get odometry instead of the topic -->
 
-     <arg name="namespace"               default="rtabmap"/>
+     <!-- <arg name="namespace"               default="rtabmap"/> -->
+     <arg name="namespace"               default="/hytx"/>
      <arg name="wait_for_transform"      default="0.2"/>
      <arg name="depth_scale"             default="0.001"/>
-     <arg name="imu_topic"               default="/imu/data/filtered"/>          <!-- only used with VIO approaches -->
+     <arg name="imu_topic"               default="/swansonPi4/imu/data/filtered"/>          <!-- only used with VIO approaches -->
 
      <!-- <arg name="vo_frame_id"              default="$(arg odom_topic)"/> -->
      <arg name="publish_tf_odom"          default="false"/>

@@ -21,6 +21,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_publish_tf = true;
 	bool flag_use_tf_prefix = true;
 	bool flag_get_aligned = false;
+	bool flag_get_processed = true;
 	bool flag_use_float_depth = true;
 	bool flag_use_8bit_depth = false;
 	bool flag_calc_disparity = false;
@@ -30,6 +31,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	p_nh.getParam("publish_images",flag_publish_imgs);
 	p_nh.getParam("use_tf_prefix",flag_use_tf_prefix);
 	p_nh.getParam("use_aligned",flag_get_aligned);
+	p_nh.getParam("post_process",flag_get_processed);
 	p_nh.getParam("use_float_depth",flag_use_float_depth);
 	p_nh.getParam("use_8bit_depth",flag_use_8bit_depth);
 	p_nh.getParam("calculate_disparity",flag_calc_disparity);
@@ -39,6 +41,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_use_float_depth = flag_use_float_depth;
 	this->_use_8bit_depth = flag_use_8bit_depth;
 	this->_get_aligned = flag_get_aligned;
+	this->_post_process = flag_get_processed;
 	this->_publish_tf = flag_publish_tf;
 	this->_calc_disparity = flag_calc_disparity;
 	/** Camera Parameter Configuration */
@@ -215,8 +218,8 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_loop_rate = new ros::Rate(update_rate);
 
 	printf("[INFO] CameraD415Ros::CameraD415Ros() ---- Successfully Initialized!\r\n");
-	this->cam->enable_alignment();
-	this->cam->enable_filters();
+	if(this->_get_aligned) this->cam->enable_alignment();
+	if(this->_post_process) this->cam->enable_filters();
 	this->cam->start_thread();
 }
 

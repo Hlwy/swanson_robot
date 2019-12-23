@@ -2,7 +2,7 @@
      <arg name="verbose_timings" default="false"/>
      <arg name="publish_tf" default="true"/>
      <arg name="publish_images" default="true"/>
-     <arg name="use_aligned" default="true"/>
+     <arg name="use_aligned" default="false"/>
      <arg name="use_float_depth" default="false"/>
      <arg name="use_8bit_depth" default="false"/>
      <arg name="update_rate" default="30"/>

@@ -87,6 +87,7 @@ private:
      bool _use_float_depth;
      bool _use_8bit_depth;
      bool _get_aligned;
+     bool _post_process;
      bool _publish_tf;
      bool _calc_disparity;
      /** Multi-threading objects */

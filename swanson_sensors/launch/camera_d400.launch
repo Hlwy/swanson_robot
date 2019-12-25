@@ -5,8 +5,13 @@
      <arg name="use_aligned" default="false"/>
      <arg name="use_float_depth" default="false"/>
      <arg name="use_8bit_depth" default="false"/>
-     <arg name="update_rate" default="30"/>
      <arg name="cam_fps" default="30"/>
+     <arg name="update_rate" default="30"/>
+
+     <arg name="depth_width" default="848"/>
+     <arg name="depth_height" default="480"/>
+     <arg name="color_width" default="848"/>
+     <arg name="color_height" default="480"/>
 
      <node pkg="swanson_sensors" type="camera_d415_node" name="d400_camera_node" respawn="true" output="screen">
           <param name="verbose_timings" value="$(arg verbose_timings)"/>
@@ -16,7 +21,11 @@
           <param name="use_float_depth" value="$(arg use_float_depth)"/>
           <param name="use_8bit_depth" value="$(arg use_8bit_depth)"/>
           <param name="depth_fps" value="$(arg cam_fps)"/>
+          <param name="depth_width" value="$(arg depth_width)"/>
+          <param name="depth_height" value="$(arg depth_height)"/>
           <param name="color_fps" value="$(arg cam_fps)"/>
+          <param name="color_width" value="$(arg color_width)"/>
+          <param name="color_height" value="$(arg color_height)"/>
           <param name="update_rate" value="$(arg update_rate)"/>
      </node>
 

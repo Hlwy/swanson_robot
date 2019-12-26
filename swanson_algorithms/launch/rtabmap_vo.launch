@@ -44,7 +44,7 @@
           1 = Kalman Filtering
           2 = Particle Filtering
      -->
-     <arg name="odom_filter_method"  default="1"/>
+     <arg name="odom_filter_method"  default="0"/>
      <!--
      Odometry Estimating Method:
           0 = Frame-to-Map (F2M) (default)
@@ -75,12 +75,13 @@
                <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
 
                <!-- Misc settings -->
+               <param name="Vis/CorType"            value="0"/>
+               <param name="Reg/Force3DoF"          value="true" />
+               <param name="Odom/Holonomic"         type="bool" value="false"/>
+               <param name="Odom/ResetCountdown"    type="string" value="30"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
-               <param name="Odom/Holonomic"         type="bool" value="false"/>
-               <param name="Odom/ResetCountdown"    type="string" value="1"/>
-               <param name="Reg/Force3DoF"          value="true" />
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
                <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
           </node>

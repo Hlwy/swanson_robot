@@ -21,7 +21,7 @@
      <arg name="vo_frame_id"             default="odom"/>
 
      <!-- misc param config -->
-     <arg name="queue_size"              default="10"/>
+     <arg name="queue_size"              default="30"/>
      <arg name="wait_for_transform_dt"   default="0.2"/>
 
      <!-- Feature Extraction Method
@@ -77,13 +77,19 @@
                <!-- Misc settings -->
                <param name="Vis/CorType"            value="0"/>
                <param name="Reg/Force3DoF"          value="true" />
-               <param name="Odom/Holonomic"         type="bool" value="false"/>
                <param name="Odom/ResetCountdown"    type="string" value="30"/>
+               <param name="Odom/Holonomic"         type="bool" value="false"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
                <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
+
+               <param name="Odom/ImageBufferSize"           value="10"/> <!-- default = 1 -->
+               <param name="Odom/KalmanMeasurementNoise"    value="0.1"/> <!-- default = 0.01 -->
+               <param name="Odom/KalmanProcessNoise"        value="0.001"/> <!-- default = 0.001 -->
+               <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
+               <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 -->
           </node>
      </group>
 </launch>

@@ -2,7 +2,7 @@
 <launch>
      <!-- Launch configuration settings -->
      <arg name="tf_parent"               default="base_link"/>
-     <arg name="vo_topic"                default="/vo" />
+     <arg name="vo_topic"                default="/test_vo" />
      <arg name="imu_topic"               default="/swansonPi4/imu/data/filtered" />
      <arg name="odom_topic"              default="/swansonPi4/dead_reckoning" />
      <arg name="odom_frame"              default="odom" />
@@ -23,8 +23,13 @@
           <param name="imu0" value="$(arg imu_topic)"/>
           <param name="odom0" value="$(arg odom_topic)"/>
 
-          <!-- <param name="odom0_differential" value="true"/>
-          <param name="odom0_relative" value="true"/> -->
+          <!-- <rosparam param="imu0_config">
+               [ true, true,  false,
+                 false,  false,  true,
+                 false,  false,  false,
+                 false,  false,  true,
+                 true,   false,  false ]
+          </rosparam> -->
 
           <param name="odom1" value="$(arg vo_topic)"/>
           <param name="odom1_queue_size" value="5"/>
@@ -38,12 +43,19 @@
                vroll, vpitch, vyaw,
                ax, ay, az. -->
           <rosparam param="odom1_config">
+               [ false, false, false,
+                 false, false, true,
+                 false, false, false,
+                 false, false, true,
+                 false, false, false ]
+          </rosparam>
+          <!-- <rosparam param="odom1_config">
                [ true, true, false,
                  false, false, true,
                  true, true, true,
                  false, false, false,
                  false, false, false ]
-          </rosparam>
+          </rosparam> -->
 
           <!-- The values are ordered as
                x, y, z,
@@ -52,21 +64,31 @@
                vroll, vpitch, vyaw,
                ax, ay, az.
           -->
+          <!-- <rosparam param="odom0_config">
+               [ true, true, false,
+                 false, false, false,
+                 true, true, false,
+                 false, false, true,
+                 false, false, false ]
+          </rosparam>
+          <param name="odom0_differential" value="true"/> -->
+
+
           <!-- The order of the values is
                x,    y,    z,    R,    P,    Y,   vx,    vy,    vz,    vR,   vP,   vY,  ax,   ay,   az. -->
           <rosparam param="process_noise_covariance">
-              [5e-2, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
-               0,    5e-2, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+              [5e-3, 0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
+               0,    5e-3, 0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0,    6e-2, 0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0,    0,    3e-3, 0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0,    0,    0,    3e-3, 0,    0,     0,     0,    0,    0,    0,    0,    0,    0,
                0,    0,    0,    0,    0,    3e-3, 0,     0,     0,    0,    0,    0,    0,    0,    0,
-               0,    0,    0,    0,    0,    0,    3e-6,  0,     0,    0,    0,    0,    0,    0,    0,
-               0,    0,    0,    0,    0,    0,    0,     3e-5,  0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    5e-2,  0,     0,    0,    0,    0,    0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     5e-2,  0,    0,    0,    0,    0,    0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     4e-3, 0,    0,    0,    0,    0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    1e-3, 0,    0,    0,    0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    1e-3, 0,    0,    0,    0,
-               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    5e-3, 0,    0,    0,
+               0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    5e-2, 0,    0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    1e-1, 0,    0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    1e-2, 0,
                0,    0,    0,    0,    0,    0,    0,     0,     0,    0,    0,    0,    0,    0,    1.5e-3]

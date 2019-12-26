@@ -210,7 +210,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_depth_info_pub = m_nh.advertise<sensor_msgs::CameraInfo>(_depth_info_topic, 1);
 	this->_rgb_pub = m_nh.advertise<sensor_msgs::Image>(_color_image_topic, 1);
 	this->_depth_pub = m_nh.advertise<sensor_msgs::Image>(_depth_image_topic, 1);
-	this->_disparity_pub = m_nh.advertise<sensor_msgs::Image>(_disparity_image_topic, 1);
+	if(this->_calc_disparity) this->_disparity_pub = m_nh.advertise<sensor_msgs::Image>(_disparity_image_topic, 1);
 	// this->_rgb_pub = _it.advertise(_color_image_topic, 1);
 	// this->_depth_pub = _it.advertise(_depth_image_topic, 1);
 	// this->_disparity_pub = _it.advertise(_disparity_image_topic, 1);
@@ -225,8 +225,8 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 
 CameraD415Ros::~CameraD415Ros(){
 	this->stop();
-	delete this->_loop_rate;
 	delete this->cam;
+	delete this->_loop_rate;
 }
 
 void CameraD415Ros::stop(){
@@ -267,11 +267,13 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 		// this->_rgbImgHeader.frame_id = this->_rgb_optical_tf;
 		this->_rgbImgHeader.frame_id = this->_aligned_base_tf;
 
-		sensor_msgs::ImagePtr rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
-		this->_rgb_pub.publish(rgbImgMsg);
+		this->_rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
+		// sensor_msgs::ImagePtr rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
 		// Camera Info
 		this->_rgb_info_msg.header.stamp = time;
 		this->_rgb_info_msg.header.seq = this->_img_count;
+		this->_rgb_pub.publish(this->_rgbImgMsg);
+		// this->_rgb_pub.publish(rgbImgMsg);
 		this->_rgb_info_pub.publish(this->_rgb_info_msg);
 	}
 
@@ -282,33 +284,34 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 		// this->_depthImgHeader.frame_id = this->_depth_optical_tf;
 		this->_depthImgHeader.frame_id = this->_aligned_base_tf;
 
-		sensor_msgs::ImagePtr depthImgMsg;
+		// sensor_msgs::ImagePtr depthImgMsg;
 		if(this->_use_float_depth){
 			cv::Mat tmp;
 			_depth.convertTo(tmp, CV_32F);
 			// tmp = tmp * this->_dscale;
 			// depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp).toImageMsg();
-			depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
+			this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
 		} else if(this->_use_8bit_depth && !this->_use_float_depth){
 			// Convert depth image to uint8 if not already
 			if(_depth.type() != CV_8UC1){
 				cv::Mat depth8;
 				_depth.convertTo(depth8, CV_8UC1, (255.0/65535.0));
-				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
-			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
+				this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
+			} else this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
 		} else{
 			// Convert depth image to uint16 if not already
 			if(_depth.type() != CV_16UC1){
 				cv::Mat depth16;
 				_depth.convertTo(depth16, CV_16UC1, (65535.0/255.0));
-				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", depth16).toImageMsg();
-			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", _depth).toImageMsg();
+				this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", depth16).toImageMsg();
+			} else this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", _depth).toImageMsg();
 		}
-		this->_depth_pub.publish(depthImgMsg);
 
 		// Publish Camera Info
 		this->_depth_info_msg.header.stamp = time;
 		this->_depth_info_msg.header.seq = this->_img_count;
+		this->_depth_pub.publish(this->_depthImgMsg);
+		// this->_depth_pub.publish(depthImgMsg);
 		this->_depth_info_pub.publish(this->_depth_info_msg);
 	}
 

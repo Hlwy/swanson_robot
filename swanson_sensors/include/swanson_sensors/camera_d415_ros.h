@@ -73,6 +73,8 @@ private:
      /** Camera Info msg containers */
      sensor_msgs::CameraInfo _rgb_info_msg;
      sensor_msgs::CameraInfo _depth_info_msg;
+     sensor_msgs::ImagePtr _rgbImgMsg;
+     sensor_msgs::ImagePtr _depthImgMsg;
      /** TF Frame containers */
      tf::Transform _tfOpticalBaseToCamBase;
      tf::Transform _tfOpticalToOpticalBase;

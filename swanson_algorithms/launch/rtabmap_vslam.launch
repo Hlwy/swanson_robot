@@ -3,7 +3,8 @@
      <arg name="database_path"          default="~/.ros/rtabmap.db"/>
 
      <!-- roslaunch prefix args -->
-     <arg name="args"                   default="delete_db_on_start"/>
+     <!-- <arg name="args"                   default="delete_db_on_start"/> -->
+     <arg name="args"                   default=""/>
      <arg name="rtabmap_args"           default="$(arg args)"/>
      <arg name="output"                 default="screen"/>
      <arg name="launch_prefix"          default=""/>

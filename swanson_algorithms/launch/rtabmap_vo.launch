@@ -77,7 +77,7 @@
                <!-- Misc settings -->
                <param name="Vis/CorType"            value="0"/>
                <param name="Reg/Force3DoF"          value="true" />
-               <param name="Odom/ResetCountdown"    type="string" value="30"/>
+               <param name="Odom/ResetCountdown"    type="string" value="35"/>
                <param name="Odom/Holonomic"         type="bool" value="false"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
@@ -89,7 +89,10 @@
                <param name="Odom/KalmanMeasurementNoise"    value="0.1"/> <!-- default = 0.01 -->
                <param name="Odom/KalmanProcessNoise"        value="0.001"/> <!-- default = 0.001 -->
                <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
-               <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 -->
+               <param name="Optimizer/Strategy"             value="1"/> <!-- default = 1 -->
+               <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
+               <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
+               <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
           </node>
      </group>
 </launch>

@@ -2,7 +2,7 @@
 <launch>
      <!-- Launch configuration settings -->
      <arg name="tf_parent"               default="base_link"/>
-     <arg name="vo_topic"                default="/test_vo" />
+     <arg name="vo_topic"                default="/vo" />
      <arg name="imu_topic"               default="/swansonPi4/imu/data/filtered" />
      <arg name="odom_topic"              default="/swansonPi4/dead_reckoning" />
      <arg name="odom_frame"              default="odom" />

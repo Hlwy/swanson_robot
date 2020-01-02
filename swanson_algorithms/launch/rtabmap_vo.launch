@@ -1,7 +1,7 @@
 <launch>
      <arg name="namespace"               default="rtabmap"/>
      <!-- roslaunch prefix args -->
-     <arg name="args"                    default="delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
+     <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
      <arg name="odom_args"               default="$(arg args)"/>
      <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->

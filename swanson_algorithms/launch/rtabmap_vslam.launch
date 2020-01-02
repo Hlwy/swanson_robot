@@ -77,8 +77,13 @@
                <param name="Grid/3D"                   type="bool" value="true"/>
                <param name="Kp/DetectorStrategy"       type="string" value="$(arg feature_method)"/>
                <param name="RGBD/LoopCovLimited"       value="false"/> <!-- default = false -->
-               <param name="Rtabmap/DetectionRate"     value="2"/> <!-- default = 1 -->
                <param name="Optimizer/Strategy"        value="1"/> <!-- default = 2 -->
+               <param name="Rtabmap/DetectionRate"     value="2"/> <!-- default = 1 -->
+
+               <!-- Test Parameters -->
+               <param name="Rtabmap/LoopThr"                value="0.08"/> <!-- default = 0.11 -->
+               <param name="RGBD/LocalBundleOnLoopClosure"  value="true"/> <!-- default = false -->
+
           </node>
 
           <node if="$(arg viz)" pkg="rtabmap_ros" type="rtabmapviz" name="rtabmapviz" args="-d $(arg gui_cfg)" output="screen" launch-prefix="$(arg launch_prefix)">

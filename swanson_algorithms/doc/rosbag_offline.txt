@@ -1,0 +1,14 @@
+rosbag filter in.bag out.bag "topic == '/swansonPi4/cmd_vel' or topic == '/swansonPi4/dead_reckoning' or topic == '/swansonPi4/imu/data/filtered' or topic == '/swansonPi4/imu/data/raw' or topic == '/swansonPi4/imu/mag' or topic == '/swansonPi4/odometry/filtered' or topic == '/tf' or topic == '/vo' or topic == '/hytx/camera/color/camera_info' or topic == '/hytx/camera/color/image_raw' or topic == '/hytx/camera/depth/image_rect_raw' or topic ==  '/hytx/rtabmap/odom_info'"
+
+/hytx/camera/color/camera_info
+/hytx/camera/color/image_raw
+/hytx/camera/depth/image_rect_raw
+/hytx/rtabmap/odom_info
+/swansonPi4/cmd_vel
+/swansonPi4/dead_reckoning
+/swansonPi4/imu/data/filtered
+/swansonPi4/imu/data/raw
+/swansonPi4/imu/mag
+/swansonPi4/odometry/filtered
+/tf
+/vo

@@ -1,5 +1,6 @@
 <launch>
-     <arg name="namespace"               default="rtabmap"/>
+     <arg if="$(arg flag_test)"     name="namespace" default="/hytx/rtabmap"/>
+     <arg unless="$(arg flag_test)" name="namespace" default="rtabmap"/>
      <!-- roslaunch prefix args -->
      <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
@@ -12,7 +13,8 @@
      <arg name="publish_tf_odom"           default="false"/>
 
      <!-- ROS topics -->
-     <arg name="vo_topic"                default="/vo"/>          <!-- Visual Odometry topic name -->
+     <arg if="$(arg flag_test)"     name="vo_topic" default="/test_vo"/>
+     <arg unless="$(arg flag_test)" name="vo_topic" default="/vo"/>
      <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
      <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
      <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
@@ -57,7 +59,8 @@
           7 = LOAM
           8 = MSCKF-VIO
      -->
-     <arg name="odom_strategy"  default="1"/>
+     <arg if="$(arg flag_test)"     name="odom_strategy"  default="0"/>
+     <arg unless="$(arg flag_test)" name="odom_strategy"  default="0"/>
 
      <!-- RGB-D Odometry -->
      <group ns="$(arg namespace)">
@@ -83,9 +86,8 @@
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
-               <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
 
-               <param name="Odom/ImageBufferSize"           value="10"/> <!-- default = 1 -->
+               <param name="Odom/ImageBufferSize"           value="5"/> <!-- default = 1 -->
                <param name="Odom/KalmanMeasurementNoise"    value="0.1"/> <!-- default = 0.01 -->
                <param name="Odom/KalmanProcessNoise"        value="0.001"/> <!-- default = 0.001 -->
                <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
@@ -93,6 +95,16 @@
                <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
                <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
                <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
+
+               <param if="$(arg flag_test)" name="OdomF2M/MaxSize" value="2000"/>
+               <param if="$(arg flag_test)" name="Vis/MaxFeatures" value="2000"/>
+               <param if="$(arg flag_test)" name="g2o/Baseline"    value="0.014732"/>
+               <param if="$(arg flag_test)" name="Vis/RoiRatios"   value="0.1 0.0 0.0 0.0"/>
+               <!-- <param name="Grid/FootprintHeight"           value="0.26"/>
+               <param name="Grid/FootprintLength"           value="0.52"/>
+               <param name="Grid/FootprintWidth"            value="0.49"/>
+               <param name="Grid/MaxObstacleHeight"         value="0.5"/>
+               <param name="GridGlobal/FootprintRadius"     value="0.24"/> -->
           </node>
      </group>
 </launch>

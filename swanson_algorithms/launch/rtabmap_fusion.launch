@@ -13,7 +13,7 @@
 
      <!-- Odometry fusion (EKF), refer to demo launch file in robot_localization for more info -->
      <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization" clear_params="true" output="screen">
-          <rosparam command="load" file="$(find swanson_base)/config/encoder_imu_fusion.yaml" />
+          <rosparam command="load" file="$(find swanson_algorithms)/config/encoder_imu_fusion.yaml" />
 
           <param name="base_link_frame" value="$(arg tf_parent)"/>
           <param name="odom_frame" value="$(arg odom_frame)"/>

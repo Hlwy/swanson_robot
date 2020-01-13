@@ -1,0 +1,34 @@
+<launch>
+     <!-- ROS topics -->
+     <arg name="frame_id"               default="base_link"/>
+     <arg name="odom_frame_id"          default=""/>
+     <arg name="odom_topic"             default="/swansonPi4/odometry/filtered"/>
+     <arg name="imu_topic"              default="/swansonPi4/imu/data/filtered"/>
+     <arg name="rgb_topic"              default="/hytx/camera/color/image_raw" />
+     <arg name="depth_topic"            default="/hytx/camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"      default="/hytx/camera/color/camera_info" />
+
+     <!-- <group ns="$(arg namespace)"> -->
+
+     <!-- <remap from="openni_points" to="/planner_cloud"/> -->
+     <!-- <remap from="base_scan" to="/base_scan"/> -->
+     <!-- <remap from="map" to="/hytx/rtabmap/proj_map"/> -->
+     <!-- <remap from="move_base_simple/goal" to="/planner_goal"/> -->
+
+     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+          <rosparam file="$(find swanson_algorithms)/config/move_base/costmap_common_params.yaml" command="load" ns="global_costmap" />
+          <rosparam file="$(find swanson_algorithms)/config/move_base/costmap_common_params.yaml" command="load" ns="local_costmap" />
+          <rosparam file="$(find swanson_algorithms)/config/move_base/local_costmap_params_3d.yaml" command="load" />
+          <rosparam file="$(find swanson_algorithms)/config/move_base/global_costmap_params.yaml" command="load" ns="global_costmap"/>
+          <rosparam file="$(find swanson_algorithms)/config/move_base/base_local_planner_params.yaml" command="load" />
+
+          <remap from="cmd_vel" to="/swansonPi4/cmd_vel"/>
+          <remap from="odom" to="$(arg odom_topic)"/>
+     </node>
+
+     <!-- </group> -->
+
+     <!-- <group ns="planner">
+    </group> -->
+
+</launch>

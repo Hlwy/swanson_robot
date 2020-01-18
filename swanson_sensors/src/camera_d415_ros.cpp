@@ -19,7 +19,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_gen_pc = false;
 	bool flag_publish_imgs = true;
 	bool flag_publish_tf = true;
-	bool flag_use_tf_prefix = true;
+	bool flag_use_tf_prefix = false;
 	bool flag_get_aligned = false;
 	bool flag_get_processed = true;
 	bool flag_use_float_depth = true;

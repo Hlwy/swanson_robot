@@ -96,6 +96,10 @@
                <param name="Kp/MaxFeatures"                 value="1500"/>
                <param name="Vis/MaxFeatures"                value="1500"/>
                <param name="g2o/Baseline"                   value="0.014732"/>
+
+               <!-- Test Parameters -->
+               <param name="Rtabmap/LoopThr"                value="0.08"/> <!-- default = 0.11 -->
+               <param name="RGBD/LoopCovLimited"            value="false"/> <!-- default = false -->
           </node>
 
           <node if="$(arg viz)" pkg="rtabmap_ros" type="rtabmapviz" name="rtabmapviz" args="-d $(arg gui_cfg)" output="screen" launch-prefix="$(arg launch_prefix)">

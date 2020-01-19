@@ -1,18 +1,30 @@
 <launch>
      <arg name="verbose_obstacles" default="true"/>
      <arg name="verbose_timings" default="false"/>
-     <arg name="publish_tf" default="true"/>
      <arg name="publish_images" default="true"/>
-     <arg name="publish_obstacles_image" default="true"/>
-     <arg name="use_float_depth" default="true"/>
+     <arg name="show_images" default="false"/>
+     <arg name="update_rate" default="30"/>
+
+     <arg name="info_topic" default="/hytx/camera/depth/camera_info"/>
+     <arg name="image_topic" default="/hytx/camera/disparity/image_raw"/>
 
      <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen">
-          <param name="verbose_obstacles" value="$(arg verbose_obstacles)"/>
-          <param name="verbose_timings" value="$(arg verbose_timings)"/>
-          <param name="publish_tf" value="$(arg publish_tf)"/>
-          <param name="publish_images" value="$(arg publish_images)"/>
-          <param name="publish_obstacles_image" value="$(arg publish_obstacles_image)"/>
-          <param name="use_float_depth" value="$(arg use_float_depth)"/>
+          <param name="verbose_obstacles"     value="$(arg verbose_obstacles)"/>
+          <param name="verbose_timings"       value="$(arg verbose_timings)"/>
+          <param name="publish_images"        value="$(arg publish_images)"/>
+          <param name="show_images"           value="$(arg show_images)"/>
+          <param name="update_rate"           value="$(arg update_rate)"/>
+
+          <param name="camera_info_topic"     value="$(arg info_topic)"/>
+          <param name="disparity_image_topic" value="$(arg image_topic)"/>
+          <!-- <param name="umap_topic"            value="$(arg update_rate)"/>
+          <param name="vmap_topic"            value="$(arg update_rate)"/>
+          <param name="filtered_image_topic"  value="$(arg update_rate)"/>
+          <param name="obstacles_image_topic" value="$(arg update_rate)"/>
+          <param name="obstacles_info_topic"  value="$(arg update_rate)"/> -->
+
+          <param name="parent_frame"          value="base_link"/>
+          <param name="camera_base_frame"     value="camera_link"/>
      </node>
 
 </launch>

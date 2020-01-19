@@ -5,7 +5,7 @@
      <arg name="rgb_info" default="color/camera_info"/>
      <arg name="depth_info" default="depth/camera_info"/>
      <arg name="cloud_topic" default="depth_registered/points"/>
-     <arg name="flag_colored" default="true"/>
+     <arg name="flag_colored" default="false"/>
 
 
      <arg name="obstacle_detection"      default="false"/>
@@ -43,7 +43,7 @@
                <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
 
                <param name="voxel_size" type="double" value="0.05"/>
-               <param name="decimation" type="int" value="1"/>
+               <param name="decimation" type="int" value="4"/>
                <param name="max_depth" type="double" value="10"/>
           </node>
 

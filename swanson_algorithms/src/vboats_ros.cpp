@@ -8,6 +8,19 @@
 
 using namespace std;
 
+template<typename Pixel>
+struct ForEachPclOperator{
+     Pixel m_gain;
+     ForEachPclOperator(Pixel gain){
+          m_gain = gain;
+     }
+     void operator()(Pixel& pixel, const int * idx) const {
+          if(pixel != 0.0){
+               pixel = m_gain / pixel;
+          }
+     }
+};
+
 /** SECTION:
      CONSTRUCTOR & DECONSTRUCTOR
 */
@@ -193,6 +206,98 @@ void VboatsRos::publish_obstacle_image(cv::Mat image){
 }
 void VboatsRos::publish_obstacle_data(vector<Obstacle> obstacles){}
 
+int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const vector<Obstacle>& obstacles, float* line_params){
+	cv::Mat mask = cv::Mat::ones(disparity.size(), CV_8UC1);
+	int dband = 25;
+	int y0 = (int)(0 * line_params[0] + line_params[1]);
+	int y1 = y0 + dband;
+	int y1f = (int)(vmap.cols * line_params[0] + (line_params[1]+dband));
+	int y2 = y0 - dband - 10;
+	int y2f = (int)(vmap.cols * line_params[0] + (line_params[1]-dband-10));
+	printf("[INFO] VboatsRos::remove_ground() --- slope = %.2f, intercept = %d\r\n", line_params[0], (int)line_params[1]);
+
+	cv::Mat refImg = vmap.clone();
+	std::vector<cv::Point> cnt1;
+	cnt1.push_back(cv::Point(0,0));
+	cnt1.push_back(cv::Point(refImg.cols,0));
+	cnt1.push_back(cv::Point(refImg.cols,y2f));
+	cnt1.push_back(cv::Point(0,y2));
+	cnt1.push_back(cv::Point(0,0));
+
+	std::vector<cv::Point> cnt2;
+	cnt2.push_back(cv::Point(0,y1));
+	cnt2.push_back(cv::Point(refImg.cols,y1f));
+	cnt2.push_back(cv::Point(0,y1f));
+	cnt2.push_back(cv::Point(0,y1));
+
+	std::vector<std::vector<cv::Point> > fillContAll;
+	fillContAll.push_back(cnt1);
+	fillContAll.push_back(cnt2);
+	cv::fillPoly( refImg, fillContAll, cv::Scalar(0));
+
+	cv::Mat img = disparity.clone();
+	uchar* pix;
+	cv::Mat refRow;
+	cv::Mat refMask;
+	double minVal, maxVal;
+	cv::Point minValIdx, maxValIdx;
+
+	cv::Mat nonzero;
+	for(int v = y0; v < img.rows; ++v){
+	     pix = img.ptr<uchar>(v);
+	     refRow = refImg.row(v);
+		refMask = refRow > 0;
+		cv::findNonZero(refMask, nonzero);
+		int tmpx;
+		int minx = 1000, maxx = 0;
+		for(int i = 0; i < nonzero.total(); i++ ){
+			tmpx = nonzero.at<cv::Point>(i).x;
+			if(tmpx > maxx) maxx = tmpx;
+			if(tmpx < minx) minx = tmpx;
+		}
+		// cv::minMaxLoc(refRow, &minVal, &maxVal, &minValIdx, &maxValIdx,refMask);
+		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minX = %d |  maxIdx = %d\r\n", v, minx, maxx);
+		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minVal = %.2f (at %d) |  maxVal = %.2f (at %d)\r\n",
+		// 	v, minVal, minValIdx.x, maxVal, maxValIdx.x);
+	     for(int u = 0; u < img.cols; ++u){
+	          int dvalue = pix[u];
+	          // if( (dvalue >= maxx) && (dvalue <= minx) ){
+	          if( (dvalue >= minx) && (dvalue <= maxx) ){
+				mask.at<uchar>(v, u) = 0;
+				// pix[u] = ((float) gain / dvalue);
+			} else{}
+	     }
+	}
+
+	// ForEachPclOperator<float> initializer((float)gain);
+	// tmpMat.forEach<float>(initializer);
+
+	cv::Mat gndFilteredImg;
+	img.copyTo(gndFilteredImg, mask);
+	this->_filteredImgHeader.stamp = ros::Time::now();
+	this->_filteredImgHeader.seq = this->_count;
+	this->_filteredImgHeader.frame_id = this->_camera_tf;
+
+	sensor_msgs::ImagePtr filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "8UC1", gndFilteredImg).toImageMsg();
+	this->_new_img_pub.publish(filteredImgMsg);
+
+
+	if(this->_visualize_images){
+          cv::Mat display;
+		/** Visualize segmented image */
+		cv::applyColorMap(mask, display, cv::COLORMAP_JET);
+		cv::imshow("Ground Segmentation", display);
+
+		// cv::Mat nonzeroMask = refImg>0;
+		// cv::applyColorMap(nonzeroMask, display, cv::COLORMAP_JET);
+		// cv::imshow("Nonzero Mask", display);
+
+          cv::waitKey(10);
+     }
+
+	return 0;
+}
+
 int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles){
 	vector<float> vthreshs = {0.3, 0.3,0.25,0.4};
 	vector<float> uthreshs = {0.3,0.295,0.3,0.35};
@@ -206,10 +311,10 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
 	this->vb->filter_disparity_umap(uTmp, &uProcessed, &uthreshs);
 
 	/** Pre-filter Vmap: Approach 1 */
-     // cv::Mat vTmp, vProcessed;
-     // cv::cvtColor(vmap, vTmp, cv::COLOR_GRAY2BGR);
-     // cv::rectangle(vTmp, cv::Point(0,0), cv::Point(3,vmap.rows), cv::Scalar(0, 0, 0), -1);
-     // cv::cvtColor(vTmp, vTmp, cv::COLOR_BGR2GRAY);
+     cv::Mat vTmp, vProcessed;
+     cv::cvtColor(vmap, vTmp, cv::COLOR_GRAY2BGR);
+     cv::rectangle(vTmp, cv::Point(0,0), cv::Point(3,vmap.rows), cv::Scalar(0, 0, 0), -1);
+     cv::cvtColor(vTmp, vTmp, cv::COLOR_BGR2GRAY);
      // this->vb->filter_disparity_vmap(vTmp, &vProcessed, &vthreshs);
 
 	/** Pre-filter Vmap: Approach 2 - better highlight useful lines*/
@@ -232,11 +337,36 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
 
 	/** Find contours in Umap useful for obstacle filtering */
      vector<vector<cv::Point>> contours;
-     this->vb->find_contours(uProcessed, &contours, 1, 100, nullptr, -1, false, false);
+     this->vb->find_contours(uProcessed, &contours, 1, 50, nullptr, -1, false, this->_visualize_images);
 
 	/** Extract obstacles */
      vector<Obstacle> _obstacles;
      int nObs = this->vb->find_obstacles_disparity(vmap, contours, &_obstacles, line_params);
+
+	/** Ground segmentation */
+	if(gndPresent) this->remove_ground(disparity,vTmp, _obstacles,line_params);
+
+	if(this->_visualize_images){
+          cv::Mat display;
+		/** Visualize pre-filtered uv-maps */
+		cv::applyColorMap(uProcessed, display, cv::COLORMAP_JET);
+		cv::imshow("Pre-filtered Umap", display);
+          cv::applyColorMap(vTmp, display, cv::COLORMAP_JET);
+		cv::imshow("Pre-filtered Vmap", display);
+
+		/** Visualize estimated ground line */
+          cv::cvtColor(sobelV, display, cv::COLOR_GRAY2BGR);
+		int band = 25;
+          int yk = int(sobelV.cols * gndM) + gndB;
+          int yu = int(sobelV.cols * gndM) + (gndB-band);
+          int yl = int(sobelV.cols * gndM) + (gndB+band);
+		cv::line(display, cv::Point(0, gndB), cv::Point(sobelV.cols, yk), cv::Scalar(0,255,0), 2, cv::LINE_AA);
+		cv::line(display, cv::Point(0, (gndB-band)), cv::Point(sobelV.cols, yu), cv::Scalar(255,0,0), 2, cv::LINE_AA);
+		cv::line(display, cv::Point(0, (gndB+band)), cv::Point(sobelV.cols, yl), cv::Scalar(0,0,255), 2, cv::LINE_AA);
+		cv::imshow("Estimated Gnd", display);
+
+          cv::waitKey(10);
+     }
 
 	if(obstacles) *obstacles = _obstacles;
 	return nObs;

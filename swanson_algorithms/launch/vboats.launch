@@ -1,5 +1,5 @@
 <launch>
-     <arg name="verbose_obstacles" default="true"/>
+     <arg name="verbose_obstacles" default="false"/>
      <arg name="verbose_timings" default="false"/>
      <arg name="publish_images" default="true"/>
      <arg name="show_images" default="false"/>

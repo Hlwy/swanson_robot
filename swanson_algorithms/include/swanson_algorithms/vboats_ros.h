@@ -89,8 +89,10 @@ public:
      void publish_obstacle_image(cv::Mat image);
      void publish_obstacle_data(vector<Obstacle> obstacles);
 
+     int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const vector<Obstacle>& obstacles, float* line_params);
      int process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles);
      int update(bool verbose = false, bool debug_timing = true);
+
      // void update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose = false, bool debug_timing = false);
      int run(bool verbose = false);
 };

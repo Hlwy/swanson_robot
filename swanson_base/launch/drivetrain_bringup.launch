@@ -8,6 +8,7 @@
      <arg name="pulsesPerMeter" default="9596"/>
      <arg name="enc_odom_frame" default="odom"/>
      <arg name="publish_tf" default="false"/>
+     <arg name="update_rate" default="10"/>
 
      <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" output="screen">
           <param name="serial_device" value="/dev/ttyS0"/>
@@ -21,7 +22,7 @@
           <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
           <param name="odom_tf" value="$(arg enc_odom_frame)"/>
           <param name="publish_tf" value="$(arg publish_tf)"/>
-          <param name="update_rate" value="10"/>
+          <param name="update_rate" value="$(arg update_rate)"/>
      </node>
 
 </launch>

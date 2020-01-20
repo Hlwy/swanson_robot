@@ -1,0 +1,30 @@
+planner_frequency: 5
+controller_frequency: 2
+robot_radius: 0.23
+obstacle_range: 10.0
+raytrace_range: 10.0
+max_obstacle_height: 0.5
+footprint_padding: 0.02
+footprint: [[0.25,0.2],[-0.25,0.2],[-0.25,-0.2],[0.25,-0.2]]
+
+map_topic: map
+global_frame: map
+robot_base_frame: base_link
+subscribe_to_updates: true
+
+track_unknown_space: true
+
+observation_sources: point_cloud_sensor
+point_cloud_sensor: {
+     data_type: PointCloud2,
+     topic: obs_cloud,
+     expected_update_rate: 0.5,
+     marking: true,
+     clearing: true,
+     min_obstacle_height: -99999.0,
+     max_obstacle_height: 0.5
+}
+
+inflation_layer:
+     inflation_radius: 0.1
+     transform_tolerance: 2

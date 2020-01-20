@@ -8,27 +8,22 @@
      <arg name="depth_topic"            default="/hytx/camera/depth/image_rect_raw" />
      <arg name="camera_info_topic"      default="/hytx/camera/color/camera_info" />
 
-     <!-- <group ns="$(arg namespace)"> -->
-
      <!-- <remap from="openni_points" to="/planner_cloud"/> -->
      <!-- <remap from="base_scan" to="/base_scan"/> -->
      <!-- <remap from="map" to="/hytx/rtabmap/proj_map"/> -->
-     <!-- <remap from="move_base_simple/goal" to="/planner_goal"/> -->
+     <remap from="move_base_simple/goal" to="/move_base_simple/goal"/>
 
-     <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
-          <rosparam file="$(find swanson_algorithms)/config/move_base/costmap_common_params.yaml" command="load" ns="global_costmap" />
-          <rosparam file="$(find swanson_algorithms)/config/move_base/costmap_common_params.yaml" command="load" ns="local_costmap" />
-          <rosparam file="$(find swanson_algorithms)/config/move_base/local_costmap_params_3d.yaml" command="load" />
-          <rosparam file="$(find swanson_algorithms)/config/move_base/global_costmap_params.yaml" command="load" ns="global_costmap"/>
-          <rosparam file="$(find swanson_algorithms)/config/move_base/base_local_planner_params.yaml" command="load" />
+     <node pkg="move_base" type="move_base" respawn="true" name="move_base" output="screen">
+          <rosparam file="$(find swanson_base)/config/move_base/common_costmap_params.yaml" command="load" ns="local_costmap" />
+          <rosparam file="$(find swanson_base)/config/move_base/common_costmap_params.yaml" command="load" ns="global_costmap" />
+          <rosparam file="$(find swanson_base)/config/move_base/global_costmap_params.yaml" command="load"/>
+          <rosparam file="$(find swanson_base)/config/move_base/local_costmap_params.yaml"  command="load" />
+          <rosparam file="$(find swanson_base)/config/move_base/trajectory_planner.yaml"    command="load" />
 
           <remap from="cmd_vel" to="/swansonPi4/cmd_vel"/>
           <remap from="odom" to="$(arg odom_topic)"/>
+          <remap from="obs_cloud" to="/obs_cloud"/>
+          <!-- <param name="conservative_reset_dist" value="2.0"/> -->
      </node>
-
-     <!-- </group> -->
-
-     <!-- <group ns="planner">
-    </group> -->
 
 </launch>

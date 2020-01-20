@@ -1,32 +1,30 @@
 <launch>
+     <arg name="prefix" default="/"/>
+     <arg name="flag_colored" default="true"/>
+     <arg name="cloud_topic" default="cloudXYZ"/>
      <arg name="camera_name" default="camera"/>
      <arg name="depth_image" default="depth/image_rect_raw"/>
      <arg name="rgb_image" default="color/image_raw"/>
      <arg name="rgb_info" default="color/camera_info"/>
      <arg name="depth_info" default="depth/camera_info"/>
-     <arg name="cloud_topic" default="depth_registered/points"/>
-     <arg name="flag_colored" default="false"/>
+
+
+
 
      <!-- Nodelet manager for this pipeline -->
      <node pkg="nodelet" type="nodelet" args="manager" name="depth_proc_manager" output="screen"/>
 
      <!-- Convert it into a point cloud -->
      <node if="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyzrgb depth_proc_manager --no-bond">
-          <remap from="depth_registered/image_rect" to="/$(arg camera_name)/$(arg depth_image)"/>
-          <remap from="depth_registered/points" to="/$(arg camera_name)/$(arg cloud_topic)"/>
-          <remap from="rgb/image_rect_color" to="/$(arg camera_name)/$(arg rgb_image)"/>
-          <remap from="rgb/camera_info" to="/$(arg camera_name)/$(arg rgb_info)"/>
+          <remap from="depth_registered/image_rect" to="$(arg prefix)/$(arg camera_name)/$(arg depth_image)"/>
+          <remap from="rgb/image_rect_color" to="$(arg prefix)/$(arg camera_name)/$(arg rgb_image)"/>
+          <remap from="rgb/camera_info" to="$(arg prefix)/$(arg camera_name)/$(arg rgb_info)"/>
+          <remap from="depth_registered/points" to="$(arg prefix)/$(arg cloud_topic)"/>
      </node>
      <node unless="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyz depth_proc_manager --no-bond">
-          <remap from="image_rect" to="/$(arg camera_name)/$(arg depth_image)"/>
-          <remap from="camera_info" to="/$(arg camera_name)/$(arg depth_info)"/>
-          <remap from="points" to="/$(arg camera_name)/$(arg cloud_topic)"/>
+          <remap from="image_rect" to="$(arg prefix)/$(arg camera_name)/$(arg depth_image)"/>
+          <remap from="camera_info" to="$(arg prefix)/$(arg camera_name)/$(arg depth_info)"/>
+          <remap from="points" to="$(arg prefix)/$(arg cloud_topic)"/>
      </node>
-     <!-- <node name="depthimage_to_laserscan" pkg="depthimage_to_laserscan" type="depthimage_to_laserscan" >
-          <remap from="image" to="/$(arg camera_name)/$(arg depth_image)"/>
-          <remap from="scan" to="scandepth"/>
-          <param name="output_frame_id" value="base_link" />
-          <param name="scan_height" value="75" />
-     </node> -->
 
 </launch>

@@ -1,25 +1,30 @@
 <launch>
-     <arg name="verbose_timings" default="false"/>
-     <arg name="publish_tf" default="true"/>
-     <arg name="publish_images" default="true"/>
-     <arg name="use_aligned" default="false"/>
-     <arg name="use_float_depth" default="false"/>
-     <arg name="use_8bit_depth" default="false"/>
-     <arg name="update_rate" default="30"/>
-     <arg name="cam_fps" default="30"/>
+     <arg name="verbose_timings"   default="false"/>
+     <arg name="publish_tf"        default="true"/>
+     <arg name="use_tf_prefix"     default="false"/>
+     <arg name="publish_images"    default="true"/>
+     <arg name="use_aligned"       default="false"/>
+     <arg name="use_float_depth"   default="false"/>
+     <arg name="use_8bit_depth"    default="false"/>
+     <arg name="post_process"      default="false"/>
+     <arg name="cam_fps"           default="30"/>
+     <arg name="depth_width"       default="848"/>
+     <arg name="depth_height"      default="480"/>
+     <arg name="color_width"       default="848"/>
+     <arg name="color_height"      default="480"/>
 
-     <arg name="depth_width" default="848"/>
-     <arg name="depth_height" default="480"/>
-     <arg name="color_width" default="848"/>
-     <arg name="color_height" default="480"/>
+     <arg name="update_rate"       default="30"/>
+     <arg name="use_cam2pc"        default="false"/>
 
      <node pkg="swanson_sensors" type="camera_d415_node" name="d400_camera_node" respawn="true" output="screen">
           <param name="verbose_timings" value="$(arg verbose_timings)"/>
           <param name="publish_tf" value="$(arg publish_tf)"/>
+          <param name="use_tf_prefix" value="$(arg use_tf_prefix)"/>
           <param name="publish_images" value="$(arg publish_images)"/>
           <param name="use_aligned" value="$(arg use_aligned)"/>
           <param name="use_float_depth" value="$(arg use_float_depth)"/>
           <param name="use_8bit_depth" value="$(arg use_8bit_depth)"/>
+          <param name="post_process" value="$(arg post_process)"/>
           <param name="depth_fps" value="$(arg cam_fps)"/>
           <param name="depth_width" value="$(arg depth_width)"/>
           <param name="depth_height" value="$(arg depth_height)"/>
@@ -30,5 +35,9 @@
      </node>
 
      <node pkg="tf" type="static_transform_publisher" name="tf_cam_to_base" args="0.26 0 0 0 0 0 base_link camera_link 100"/>
+
+     <!-- <include if="$(arg use_cam2pc)" file="$(find swanson_sensors)/launch/depth_to_pc.launch">
+          <arg name="use_cam2pc"   value="$(arg use_cam2pc)"/>
+     </include> -->
 
 </launch>

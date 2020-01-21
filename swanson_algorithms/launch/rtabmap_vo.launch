@@ -18,7 +18,7 @@
      <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
      <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
      <!-- Frame ids -->
-     <arg name="frame_id"                default="base_link"/>
+     <arg name="frame_id"                default="base_footprint"/>
      <arg name="vo_frame_id"             default="odom"/>
 
      <!-- misc param config -->

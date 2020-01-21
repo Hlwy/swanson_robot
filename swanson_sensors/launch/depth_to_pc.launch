@@ -5,8 +5,9 @@
      <arg name="rgb_info" default="color/camera_info"/>
      <arg name="depth_info" default="depth/camera_info"/>
      <arg name="cloud_topic" default="depth_registered/points"/>
-     <arg name="flag_colored" default="false"/>
+     <arg name="flag_colored" default="true"/>
 
+     <arg name="filtered_depth_topic"    default="/vboats/disparity/image_filtered" />
 
      <arg name="obstacle_detection"      default="false"/>
      <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
@@ -22,12 +23,14 @@
           <!-- Convert it into a point cloud -->
           <node if="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyzrgb depth_proc_manager --no-bond">
                <remap from="depth_registered/image_rect" to="$(arg camera_name)/$(arg depth_image)"/>
+               <!-- <remap from="depth_registered/image_rect" to="$(arg filtered_depth_topic)"/> -->
                <remap from="depth_registered/points" to="$(arg cloud_topic)"/>
                <remap from="rgb/image_rect_color" to="$(arg camera_name)/$(arg rgb_image)"/>
                <remap from="rgb/camera_info" to="$(arg camera_name)/$(arg rgb_info)"/>
           </node>
           <node unless="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyz depth_proc_manager --no-bond">
-               <remap from="image_rect" to="$(arg camera_name)/$(arg depth_image)"/>
+               <!-- <remap from="image_rect" to="$(arg camera_name)/$(arg depth_image)"/> -->
+               <remap from="image_rect" to="$(arg filtered_depth_topic)"/>
                <remap from="camera_info" to="$(arg camera_name)/$(arg depth_info)"/>
                <remap from="points" to="$(arg cloud_topic)"/>
           </node>

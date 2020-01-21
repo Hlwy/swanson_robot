@@ -8,13 +8,46 @@
 
 using namespace std;
 
-template<typename Pixel>
+template<typename dtype>
+struct ForEachDepthConverter{
+     dtype m_gain;
+     ForEachDepthConverter(dtype gain){ m_gain = gain; }
+
+     void operator()(dtype& pixel, const int * idx) const {
+          if(pixel != 0.0){ pixel = m_gain / pixel; }
+     }
+};
+
+template<typename dtype>
+struct ForEachGndMaskGenerator{
+     int* m_mins;
+     int* m_maxs;
+	ForEachGndMaskGenerator(int* mins, int* maxs, int nelems){
+		m_mins = new int[nelems];
+		m_maxs = new int[nelems];
+		m_mins = mins;
+		m_maxs = maxs;
+     }
+     void operator()(dtype& pixel, const int * idx) const {
+		int tmpMin = m_mins[idx[1]];
+		int tmpMax = m_maxs[idx[1]];
+		// if(pixel != 0.0){
+		if((tmpMin >= 0) && (tmpMax >= 0)){
+			if( (pixel >= tmpMin) && (pixel <= tmpMax) ){
+				// m_mask.at<uchar>(idx[1], idx[0]) = 0;
+				pixel = 0;
+			}
+		}
+     }
+};
+
+template<typename dtype>
 struct ForEachPclOperator{
-     Pixel m_gain;
-     ForEachPclOperator(Pixel gain){
+     dtype m_gain;
+     ForEachPclOperator(dtype gain){
           m_gain = gain;
      }
-     void operator()(Pixel& pixel, const int * idx) const {
+     void operator()(dtype& pixel, const int * idx) const {
           if(pixel != 0.0){
                pixel = m_gain / pixel;
           }
@@ -30,6 +63,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	_img_count = 0;
 	_info_count = 0;
 	_recvd_cam_info = false;
+	_flag_depth_based = true;
 	this->_ns = m_nh.getNamespace();
 
 	/** Flag Configuration */
@@ -38,6 +72,10 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	bool flag_use_tf_prefix = false;
 	bool flag_publish_imgs = true;
 	bool visualize_imgs = false;
+	bool disparity_based = false;
+	bool publish_cloud = false;
+	bool publish_fitered_cloud = false;
+	float max_obs_height = 1.0;
 	int update_rate = 30;
 
 	p_nh.getParam("verbose_obstacles",flag_verbose_obstacles);
@@ -45,14 +83,23 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	p_nh.getParam("publish_images",flag_publish_imgs);
 	p_nh.getParam("show_images",visualize_imgs);
 	p_nh.getParam("update_rate",update_rate);
+	p_nh.getParam("use_disparity",disparity_based);
+	p_nh.getParam("publish_cloud",publish_cloud);
+	p_nh.getParam("publish_filtered_cloud",publish_fitered_cloud);
+	p_nh.getParam("max_obstacle_height",max_obs_height);
 
 	this->_verbose_obstacles = flag_verbose_obstacles;
 	this->_verbose_timings = flag_verbose_timings;
 	this->_publish_images = flag_publish_imgs;
 	this->_visualize_images = visualize_imgs;
 	this->_update_rate = update_rate;
+	this->_flag_depth_based = !disparity_based;
+	this->_flag_pub_cloud = publish_cloud;
+	this->_flag_pub_filtered_cloud = publish_fitered_cloud;
+	this->_max_obstacle_height = max_obs_height;
 
 	/** ROS Object Configuration */
+	std::string depth_image_topic = "/camera/depth/image_rect_raw";
 	std::string camera_info_topic = "/camera/depth/camera_info";
 	std::string disparity_image_topic = "/camera/disparity/image_raw";
 	std::string umap_topic = "/vboats/umap/image_raw";
@@ -60,6 +107,9 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	std::string filtered_image_topic = "/vboats/disparity/image_filtered";
 	std::string obstacles_image_topic = "/vboats/obstacles/image_raw";
 	std::string detected_obstacles_info_topic = "/vboats/obstacles/data";
+	std::string raw_cloud_topic = "/vboats/cloud/raw";
+	std::string filtered_cloud_topic = "/vboats/cloud/filtered";
+	p_nh.getParam("depth_image_topic",depth_image_topic);
 	p_nh.getParam("camera_info_topic",camera_info_topic);
 	p_nh.getParam("disparity_image_topic",disparity_image_topic);
 	p_nh.getParam("umap_topic",umap_topic);
@@ -67,15 +117,21 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	p_nh.getParam("filtered_image_topic",filtered_image_topic);
 	p_nh.getParam("obstacles_image_topic",obstacles_image_topic);
 	p_nh.getParam("obstacles_info_topic",detected_obstacles_info_topic);
+	p_nh.getParam("raw_cloud_topic",raw_cloud_topic);
+	p_nh.getParam("filtered_cloud_topic",filtered_cloud_topic);
 
 	/** Initialize ROS-Objects */
 	this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsRos::infoCallback,this,_1,1));
-	this->_disparity_sub = m_nh.subscribe<sensor_msgs::Image>(disparity_image_topic, 30, boost::bind(&VboatsRos::imageCallback,this,_1,100));
+	if(this->_flag_depth_based) this->_depth_sub = m_nh.subscribe<sensor_msgs::Image>(depth_image_topic, 30, boost::bind(&VboatsRos::depthCallback,this,_1,100));
+	else this->_disparity_sub = m_nh.subscribe<sensor_msgs::Image>(disparity_image_topic, 30, boost::bind(&VboatsRos::disparityCallback,this,_1,100));
 	this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
 	this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
 	this->_new_img_pub = m_nh.advertise<sensor_msgs::Image>(filtered_image_topic, 1);
 	this->_obstacles_img_pub = m_nh.advertise<sensor_msgs::Image>(obstacles_image_topic, 1);
 	this->_detected_obstacle_info_pub = m_nh.advertise<swanson_msgs::VboatsObstacles>(detected_obstacles_info_topic, 100);
+	// this->_cloud_pub = m_nh.advertise<sensor_msgs::PointCloud2>(filtered_cloud_topic, 1);
+	if(this->_flag_pub_cloud) this->_cloud_pub = m_nh.advertise<PointCloud>(raw_cloud_topic, 1);
+	if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub = m_nh.advertise<PointCloud>(filtered_cloud_topic, 1);
 
 	/** ROS tf frames Configuration */
 	std::string tf_prefix = "/";
@@ -98,7 +154,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_vmapImgHeader = std_msgs::Header();
 	this->_filteredImgHeader = std_msgs::Header();
 	this->_obsImgHeader = std_msgs::Header();
-	this->_disparity2depth = 1.0;
+	this->_depth2disparityFactor = 1.0;
 
 	/** Initialize VBOATS */
 	this->vb = new VBOATS();
@@ -126,11 +182,21 @@ void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const
 		this->_focal[1] = this->_fy;
 		this->_principle[0] = this->_px;
 		this->_principle[1] = this->_py;
+		this->_depth2disparityFactor = (this->_fx * this->_baseline) / this->_dscale;
 		this->_recvd_cam_info = true;
 	}
 	this->_info_count++;
 }
-void VboatsRos::imageCallback(const sensor_msgs::Image::ConstPtr& msg, const int value){
+void VboatsRos::depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value){
+	std::lock_guard<std::mutex> lock(_lock);
+
+	// cv::Mat depth;
+	cv::Mat image = cv_bridge::toCvCopy(msg)->image;
+	// this->_depth = depth.clone();
+	this->_depth = image;
+	this->_img_count++;
+}
+void VboatsRos::disparityCallback(const sensor_msgs::Image::ConstPtr& msg, const int value){
 	std::lock_guard<std::mutex> lock(_lock);
 
 	cv::Mat disparity;
@@ -146,6 +212,22 @@ void VboatsRos::imageCallback(const sensor_msgs::Image::ConstPtr& msg, const int
 	this->_img_count++;
 }
 
+void VboatsRos::depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, float gain){
+	cv::Mat _disparity, _disparity8;
+     if(depth.type() != CV_32F) depth.convertTo(_disparity, CV_32F);
+	else _disparity = depth.clone();
+
+	ForEachDepthConverter<float> converter(gain);
+     _disparity.forEach<float>(converter);
+
+	if(_disparity.type() != CV_8UC1){
+		double minVal, maxVal;
+	     cv::minMaxLoc(_disparity, &minVal, &maxVal);
+		_disparity.convertTo(_disparity8, CV_8UC1, (255.0/maxVal) );
+	} else _disparity8 = _disparity;
+
+	if(disparity) *disparity = _disparity8.clone();
+}
 
 void VboatsRos::publish_images(const cv::Mat& umap, const cv::Mat& vmap, const cv::Mat& filtered){
 	ros::Time time = ros::Time::now();
@@ -190,115 +272,222 @@ void VboatsRos::publish_obstacle_image(cv::Mat image){
 		sensor_msgs::ImagePtr obsImgMsg = cv_bridge::CvImage(this->_obsImgHeader, "bgr8", image).toImageMsg();
 		this->_obstacles_img_pub.publish(obsImgMsg);
 	}
-
-	// if(this->_img_count == value){
-	// 	cvinfo(this->_disparity,"disparity");
-	// } else if(this->_img_count >= value){
-	// 	cv::Mat display;
-	// 	cv::applyColorMap(disparity, display, cv::COLORMAP_JET);
-	//
-	// 	this->_filteredImgHeader.stamp = ros::Time::now();
-	// 	this->_filteredImgHeader.seq = this->_img_count;
-	// 	this->_filteredImgHeader.frame_id = this->_camera_tf;
-	// 	sensor_msgs::ImagePtr newImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "bgr8", display).toImageMsg();
-	// 	this->_new_img_pub.publish(newImgMsg);
-	// }
 }
 void VboatsRos::publish_obstacle_data(vector<Obstacle> obstacles){}
 
-int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const vector<Obstacle>& obstacles, float* line_params){
-	cv::Mat mask = cv::Mat::ones(disparity.size(), CV_8UC1);
-	int dband = 25;
-	int y0 = (int)(0 * line_params[0] + line_params[1]);
-	int y1 = y0 + dband;
-	int y1f = (int)(vmap.cols * line_params[0] + (line_params[1]+dband));
-	int y2 = y0 - dband - 10;
-	int y2f = (int)(vmap.cols * line_params[0] + (line_params[1]-dband-10));
-	printf("[INFO] VboatsRos::remove_ground() --- slope = %.2f, intercept = %d\r\n", line_params[0], (int)line_params[1]);
 
+
+void VboatsRos::generate_pointcloud(const cv::Mat& depth){
+	PointCloud::Ptr pointcloud_msg (new PointCloud);
+	// pointcloud_msg->header.stamp = ros::Time::now().toNSec();
+	pointcloud_msg->header.seq = this->_count;
+	pointcloud_msg->header.frame_id = this->_camera_tf;
+
+	pcl::PointXYZ pt;
+	for(int y = 0; y < depth.rows; y+=4){
+		for(int x = 0; x < depth.cols; x+=4){
+			float depthVal = (float) depth.at<short int>(cv::Point(x,y)) * this->_dscale;
+			if(depthVal > 0){
+				pt.x = (x - this->_px) * depthVal / this->_fx;
+				pt.y = (y - this->_py) * depthVal / this->_fy;
+				pt.z = depthVal;
+				pointcloud_msg->points.push_back(pt);
+			}
+		}
+	}
+	pointcloud_msg->height = 1;
+	pointcloud_msg->width = pointcloud_msg->points.size();
+
+	PointCloud::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::PassThrough<pcl::PointXYZ> pass;
+	pass.setInputCloud(pointcloud_msg);
+	pass.setFilterFieldName("y");
+	pass.setFilterLimits(-this->_max_obstacle_height, 1.0);
+	// pass.setFilterLimitsNegative(true);
+	pass.filter(*cloud_filtered);
+
+	PointCloud::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
+	pcl::VoxelGrid<pcl::PointXYZ> sor;
+	sor.setInputCloud(cloud_filtered);
+	sor.setLeafSize(0.05f, 0.05f, 0.05f);
+	sor.filter(*output);
+
+	if(this->_flag_pub_cloud) this->_cloud_pub.publish(pointcloud_msg);
+	if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub.publish(output);
+}
+
+int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params){
 	cv::Mat refImg = vmap.clone();
-	std::vector<cv::Point> cnt1;
-	cnt1.push_back(cv::Point(0,0));
-	cnt1.push_back(cv::Point(refImg.cols,0));
-	cnt1.push_back(cv::Point(refImg.cols,y2f));
-	cnt1.push_back(cv::Point(0,y2));
-	cnt1.push_back(cv::Point(0,0));
-
-	std::vector<cv::Point> cnt2;
-	cnt2.push_back(cv::Point(0,y1));
-	cnt2.push_back(cv::Point(refImg.cols,y1f));
-	cnt2.push_back(cv::Point(0,y1f));
-	cnt2.push_back(cv::Point(0,y1));
-
-	std::vector<std::vector<cv::Point> > fillContAll;
-	fillContAll.push_back(cnt1);
-	fillContAll.push_back(cnt2);
-	cv::fillPoly( refImg, fillContAll, cv::Scalar(0));
-
 	cv::Mat img = disparity.clone();
+	cv::Mat depthImg;
+	if(!depth.empty()) depthImg = depth.clone();
+	else depthImg = img.clone();
+	cv::Mat testImg = depthImg.clone();
+	cv::Mat mask = cv::Mat::zeros(disparity.size(), CV_8UC1);
+	// cv::Mat mask2 = cv::Mat::zeros(disparity.size(), CV_8UC1);
+
+	/** Calculate ROI limits based on estimated ground line coefficients */
+	int dband = 25;
+	float slope = line_params[0];
+	int b = (int) line_params[1];
+	int y0 = b;
+	int y1 = y0 + dband;
+	int y1f = (int)(vmap.cols * slope + (y1));
+	int y2 = y0 - dband - 2;
+	int y2f = (int)(vmap.cols * slope + (y2));
+	if(y0 < 0) y0 = 0;
+	// printf("[INFO] VboatsRos::remove_ground() --- slope = %.2f, intercept = %d\r\n", slope, b);
+
+	// std::vector<std::vector<cv::Point> > fillContAll;
+	// std::vector<cv::Point> cnt1;
+	// cnt1.push_back(cv::Point(0,0));
+	// cnt1.push_back(cv::Point(refImg.cols,0));
+	// cnt1.push_back(cv::Point(refImg.cols,y2f));
+	// cnt1.push_back(cv::Point(0,y2));
+	// cnt1.push_back(cv::Point(0,0));
+	// fillContAll.push_back(cnt1);
+	// cv::fillPoly( refImg, fillContAll, cv::Scalar(0));
+
+	// cv::Mat testRef = refImg.clone();
+	// // int limits[testRef.rows][2];
+	// cv::Mat mins = cv::Mat(testRef.rows, 1, CV_8SC1, cv::Scalar(-1));
+	// cv::Mat maxs = cv::Mat(testRef.rows, 1, CV_8SC1, cv::Scalar(-1));
+	// cv::Mat testMask = testRef > 0;
+	// cv::Mat testNonzero;
+	// cv::findNonZero(testMask, testNonzero);
+	//
+	// int testx, currow;
+	// int curmin, curmax;
+	// printf("[INFO] VboatsRos::remove_ground() --- testNonzero (x, y):\r\n\t");
+	// for(int j = 0; j < testNonzero.total(); j++ ){
+	// 	currow = testNonzero.at<cv::Point>(j).y;
+	// 	curmin = mins.at<int>(currow);
+	// 	curmax = maxs.at<int>(currow);
+	// 	testx = testNonzero.at<cv::Point>(j).x;
+	// 	if(testx > curmax){
+	// 		maxs.at<int>(currow) = testx;
+	// 		printf("new max for row [%d] = %d -- previous max = %d\r\n", currow, testx,curmax);
+	// 	}
+	// 	if(testx < curmin){
+	// 		mins.at<int>(currow) = testx;
+	// 		printf("new min for row [%d] = %d -- previous min = %d\r\n", currow, testx,curmin);
+	// 	}
+	// }
+	//
+	// printf("[INFO] VboatsRos::remove_ground() --- testNonzero: \r\n");
+	// // cout << "testNonzero " << endl << " "  << testNonzero << endl << endl;
+	// cvinfo(testNonzero,"\ttestNonzero");
+	// printf(" ----------------- \r\n");
+
 	uchar* pix;
 	cv::Mat refRow;
 	cv::Mat refMask;
-	double minVal, maxVal;
-	cv::Point minValIdx, maxValIdx;
-
 	cv::Mat nonzero;
+	double t, dt;
+	int minx, maxx, tmpx;
+	// int mins[img.rows];
+	// int maxs[img.rows];
+	// t = (double)cv::getTickCount();
+	// for(int row = 0; row < img.rows; ++row){
+	// 	if(row < y2){
+	// 		mins[row] = -1;
+	// 		maxs[row] = -1;
+	// 	}else{
+	// 		refRow = refImg.row(row);
+	// 		refMask = refRow > 0;
+	// 		cv::findNonZero(refMask, nonzero);
+	// 		int xlim = (int)((float)(row - y2) / slope);
+	// 		maxx = 0;
+	// 		minx = 1000;
+	// 		for(int i = 0; i < nonzero.total(); i++ ){
+	// 			tmpx = nonzero.at<cv::Point>(i).x;
+	// 			if(tmpx > xlim) continue;
+	// 			if(tmpx > maxx) maxx = tmpx;
+	// 			if(tmpx < minx) minx = tmpx;
+	// 		}
+	// 		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minX = %d |  maxIdx = %d | xLimit = %d \r\n", row, minx, maxx, xlim);
+	// 		mins[row] = minx;
+	// 		maxs[row] = maxx;
+	// 	}
+	// }
+	// ForEachGndMaskGenerator<uchar> initializer(mins, maxs, img.rows);//, disparity.size());
+	// testImg.forEach<uchar>(initializer);
+	// cv::Mat mask2 = initializer.m_mask;
+
+	// dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+	// printf("[INFO] VboatsRos::remove_ground() ---- Ground Mask Generation 1 took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+
+	t = (double)cv::getTickCount();
 	for(int v = y0; v < img.rows; ++v){
-	     pix = img.ptr<uchar>(v);
 	     refRow = refImg.row(v);
 		refMask = refRow > 0;
 		cv::findNonZero(refMask, nonzero);
-		int tmpx;
-		int minx = 1000, maxx = 0;
+		maxx = 0;
+		minx = 1000;
 		for(int i = 0; i < nonzero.total(); i++ ){
 			tmpx = nonzero.at<cv::Point>(i).x;
+			int xlim = (int)((float)(v - y2) / slope);
+			if(tmpx > xlim) continue;
 			if(tmpx > maxx) maxx = tmpx;
 			if(tmpx < minx) minx = tmpx;
 		}
-		// cv::minMaxLoc(refRow, &minVal, &maxVal, &minValIdx, &maxValIdx,refMask);
+		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d :\r\n", v);
+		// cvinfo(nonzero,"nonzero");
+		// cout << "nonzero " << endl << " "  << nonzero << endl << endl;
+		// printf(" ----------------- \r\n");
+		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minX = %d |  maxIdx = %d | TestminX = %d |  TestmaxIdx = %d\r\n", v, minx, maxx, mins.at<int>(v), maxs.at<int>(v));
 		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minX = %d |  maxIdx = %d\r\n", v, minx, maxx);
-		// printf("[INFO] VboatsRos::remove_ground() --- Scan Row %d -- minVal = %.2f (at %d) |  maxVal = %.2f (at %d)\r\n",
-		// 	v, minVal, minValIdx.x, maxVal, maxValIdx.x);
+
+		pix = img.ptr<uchar>(v);
 	     for(int u = 0; u < img.cols; ++u){
 	          int dvalue = pix[u];
-	          // if( (dvalue >= maxx) && (dvalue <= minx) ){
-	          if( (dvalue >= minx) && (dvalue <= maxx) ){
-				mask.at<uchar>(v, u) = 0;
-				// pix[u] = ((float) gain / dvalue);
-			} else{}
+	          if( (dvalue >= minx) && (dvalue <= maxx) ) mask.at<uchar>(v, u) = 255;
 	     }
 	}
 
-	// ForEachPclOperator<float> initializer((float)gain);
-	// tmpMat.forEach<float>(initializer);
 
+	cv::Mat maskInv;
+	cv::bitwise_not(mask,maskInv);
+	// cv::Mat maskInv2;
+	// cv::bitwise_not(mask2,maskInv2);
+	// cvinfo(maskInv,"maskInv");
+	// cvinfo(mask,"mask");
 	cv::Mat gndFilteredImg;
-	img.copyTo(gndFilteredImg, mask);
+	depthImg.copyTo(gndFilteredImg, maskInv);
+	{
+		// dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+		// printf("[INFO] VboatsRos::remove_ground() ---- Ground Mask Generation 2 took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+	}
+
 	this->_filteredImgHeader.stamp = ros::Time::now();
 	this->_filteredImgHeader.seq = this->_count;
 	this->_filteredImgHeader.frame_id = this->_camera_tf;
 
-	sensor_msgs::ImagePtr filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "8UC1", gndFilteredImg).toImageMsg();
+	sensor_msgs::ImagePtr filteredImgMsg;
+	if(gndFilteredImg.type() == CV_8UC1) filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "8UC1", gndFilteredImg).toImageMsg();
+	else if(gndFilteredImg.type() == CV_16UC1) filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "16UC1", gndFilteredImg).toImageMsg();
+	else if(gndFilteredImg.type() == CV_32F) filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "32FC1", gndFilteredImg).toImageMsg();
+	else if(gndFilteredImg.type() == CV_8UC3) filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "bgr8", gndFilteredImg).toImageMsg();
 	this->_new_img_pub.publish(filteredImgMsg);
 
+	if(this->_flag_pub_cloud) this->generate_pointcloud(gndFilteredImg);
 
 	if(this->_visualize_images){
+	// if(true)/{
           cv::Mat display;
 		/** Visualize segmented image */
 		cv::applyColorMap(mask, display, cv::COLORMAP_JET);
-		cv::imshow("Ground Segmentation", display);
-
-		// cv::Mat nonzeroMask = refImg>0;
-		// cv::applyColorMap(nonzeroMask, display, cv::COLORMAP_JET);
-		// cv::imshow("Nonzero Mask", display);
-
-          cv::waitKey(10);
+		cv::imshow("Ground Segmentation 1", display);
+		// cv::applyColorMap(testImg, display, cv::COLORMAP_JET);
+		// cv::imshow("Ground Segmentation 2", testImg);
+          // cv::waitKey(10);
      }
 
 	return 0;
 }
 
-int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles){
+int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles, const cv::Mat& depth){
+	int nObs = 0;
 	vector<float> vthreshs = {0.3, 0.3,0.25,0.4};
 	vector<float> uthreshs = {0.3,0.295,0.3,0.35};
 
@@ -335,16 +524,16 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
           line_params = &tmpParams[0];
      } else line_params = nullptr;
 
+	/** Ground segmentation */
+	if(gndPresent) this->remove_ground(disparity,vTmp, depth, line_params);
+
 	/** Find contours in Umap useful for obstacle filtering */
      vector<vector<cv::Point>> contours;
      this->vb->find_contours(uProcessed, &contours, 1, 50, nullptr, -1, false, this->_visualize_images);
 
 	/** Extract obstacles */
      vector<Obstacle> _obstacles;
-     int nObs = this->vb->find_obstacles_disparity(vmap, contours, &_obstacles, line_params);
-
-	/** Ground segmentation */
-	if(gndPresent) this->remove_ground(disparity,vTmp, _obstacles,line_params);
+     nObs = this->vb->find_obstacles_disparity(vmap, contours, &_obstacles, line_params);
 
 	if(this->_visualize_images){
           cv::Mat display;
@@ -376,22 +565,32 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
 int VboatsRos::update(bool verbose, bool debug_timing){
 	int nObs = 0;
 	vector<Obstacle> obs;
-	cv::Mat curDisparity, umap, vmap, display;
+	cv::Mat curDepth, curDisparity, umap, vmap, display;
+	/** Don't do any proessing if we haven't received valid camera info */
+	if(!this->_recvd_cam_info) return -1;
+
 	this->_lock.lock();
-	curDisparity = this->_disparity;
+	if(this->_flag_depth_based){
+		curDepth = this->_depth;
+		this->depth_to_disparity(curDepth,&curDisparity, this->_depth2disparityFactor);
+	} else curDisparity = this->_disparity;
 	this->_lock.unlock();
 	/** Don't do any proessing if disparity is empty */
 	if(curDisparity.empty()) return -1;
+
+	// /** Visualize pre-filtered uv-maps */
+	// cv::applyColorMap(curDisparity, display, cv::COLORMAP_JET);
+	// cv::imshow("Generated Disparity", display);
 
 	double t = (double)cv::getTickCount();
 
 	genUVMapThreaded(curDisparity,&umap,&vmap, 2.0);
 	// nObs = this->vb->pipeline_disparity(curDisparity, umap, vmap, &obs);
-	nObs = this->process(curDisparity, umap, vmap, &obs);
+	nObs = this->process(curDisparity, umap, vmap, &obs, curDepth);
 
 	if(debug_timing){
 		double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-		printf("[INFO] VboatsRos::update() ---- Found %d obstacles in %.4lf ms (%.2lf Hz)\r\n", nObs, dt*1000.0, (1.0/dt));
+		// printf("[INFO] VboatsRos::update() ---- Found %d obstacles in %.4lf ms (%.2lf Hz)\r\n", nObs, dt*1000.0, (1.0/dt));
 	}
 
 	if(this->_publish_images) cv::cvtColor(curDisparity, display, cv::COLOR_GRAY2BGR);
@@ -432,32 +631,6 @@ int VboatsRos::run(bool verbose){
 	double t = (double)cv::getTickCount();
      while(ros::ok()){
 		this->update();
-		// this->_lock.lock();
-		// // disparity = this->_disparity.clone();
-		// // umap = this->_umap.clone();
-		// // vmap = this->_vmap.clone();
-		// // cvt_gain = this->_disparity2depth;
-		// this->_lock.unlock();
-		// genUVMapThreaded(disparity,&umap,&vmap, 2.0);
-		// this->_umap = umap.clone();
-		// this->_vmap = vmap.clone();
-		// // this->update(disparity,umap, vmap,cvt_gain);
-		// // cvinfo(depth,"depth");
-		//
-		// if(this->_verbose_timings){
-		// 	double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-		// 	printf("[INFO] VboatsRos::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
-		// 	t = (double)cv::getTickCount();
-		// }
-		// if(this->_visualize_images){
-			// if(!rgb.empty()) cv::imshow("RGB", rgb);
-			// if(!depth.empty()) cv::imshow("Depth", depth);
-			// if(!disparity.empty()) cv::imshow("Disparity", disparity);
-			// if(!umap.empty()) cv::imshow("Umap", umap);
-			// if(!vmap.empty()) cv::imshow("Vmap", vmap);
-			// cv::waitKey(10);
-		// }
-
           ros::spinOnce();
           this->_loop_rate->sleep();
      }

@@ -9,7 +9,7 @@ footprint: [[0.25,0.2],[-0.25,0.2],[-0.25,-0.2],[0.25,-0.2]]
 
 map_topic: map
 global_frame: map
-robot_base_frame: base_link
+robot_base_frame: base_footprint
 subscribe_to_updates: true
 
 track_unknown_space: true

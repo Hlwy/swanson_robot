@@ -139,7 +139,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	/** Initialize D415 Camera */
 	int rgb_resolution[2] = {color_width, color_height};
 	int depth_resolution[2] = {depth_width, depth_height};
-	this->cam = new CameraD415(color_fps, rgb_resolution, depth_fps, depth_resolution);
+	this->cam = new CameraD415(color_fps, rgb_resolution, depth_fps, depth_resolution, true);
 
 	this->cam->get_intrinsics(RS2_STREAM_COLOR, &_Krgb, &_Prgb, true);
 	this->cam->get_intrinsics(RS2_STREAM_DEPTH, &_Kdepth, &_Pdepth, true);
@@ -221,7 +221,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	printf("[INFO] CameraD415Ros::CameraD415Ros() ---- Successfully Initialized!\r\n");
 	if(this->_get_aligned) this->cam->enable_alignment();
 	if(this->_post_process) this->cam->enable_filters();
-	this->cam->start_thread();
+	// this->cam->start_thread();
 }
 
 CameraD415Ros::~CameraD415Ros(){
@@ -341,8 +341,9 @@ void CameraD415Ros::update(bool verbose){
 	double cvtGain, cvtRatio;
 	double t = (double)cv::getTickCount();
 	int err = this->cam->get_processed_queued_images(&rgb, &depth);
+	// int err = this->cam->read(&rgb, &depth);
 	if(err >= 0){
-		this->_lock.lock();
+		// this->_lock.lock();
 		// this->_rgb = rgb.clone();
 		// this->_depth = depth.clone();
 		if(this->_calc_disparity){
@@ -350,7 +351,7 @@ void CameraD415Ros::update(bool verbose){
 			// this->_disparity = disparity.clone();
 		}
 		this->_img_count++;
-		this->_lock.unlock();
+		// this->_lock.unlock();
 		if(this->_publish_tf) this->publish_tfs();
 		if(this->_publish_images) this->publish_images(rgb, depth, disparity);
 		if(debug_timing){

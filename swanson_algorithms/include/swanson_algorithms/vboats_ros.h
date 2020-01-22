@@ -83,9 +83,13 @@ private:
      bool _verbose_obstacles;
      bool _verbose_timings;
      bool _publish_images;
+     bool _publish_aux_images;
      bool _visualize_images;
      bool _recvd_cam_info;
      bool _flag_depth_based;
+     bool _detect_obstacles;
+     bool _filter_ground;
+     bool _filter_cloud;
      bool _flag_pub_cloud;
      bool _flag_pub_filtered_cloud;
      float _max_obstacle_height;
@@ -106,7 +110,7 @@ public:
 
      void publish_images(const cv::Mat& umap, const cv::Mat& vmap, const cv::Mat& filtered);
      void publish_obstacle_image(cv::Mat image);
-     void publish_obstacle_data(vector<Obstacle> obstacles);
+     void publish_obstacle_data(vector<Obstacle>& obstacles, const cv::Mat& dImage);
 
      int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params);
      void generate_pointcloud(const cv::Mat& depth);

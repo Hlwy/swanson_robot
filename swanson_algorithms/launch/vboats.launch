@@ -1,22 +1,28 @@
 <launch>
-     <arg name="verbose_obstacles" default="false"/>
-     <arg name="verbose_timings"   default="false"/>
-     <arg name="publish_images"    default="true"/>
-     <arg name="show_images"       default="false"/>
-     <arg name="update_rate"       default="10"/>
-     <arg name="use_disparity"     default="false"/>
-     <arg name="publish_cloud"     default="true"/>
+     <arg name="verbose_obstacles"  default="false"/>
+     <arg name="verbose_timings"    default="false"/>
+     <arg name="publish_images"     default="true"/>
+     <arg name="publish_aux_images" default="true"/>
+     <arg name="show_images"        default="false"/>
+     <arg name="use_disparity"      default="false"/>
+
+     <arg name="detect_obstacles"       default="true"/>
+     <arg name="filter_ground"          default="true"/>
+     <arg name="publish_cloud"          default="true"/>
+     <arg name="filtered_cloud"         default="true"/>
      <arg name="publish_filtered_cloud" default="true"/>
-     <arg name="max_obstacle_height" default="0.5"/>
 
      <arg name="info_topic"        default="/hytx/camera/depth/camera_info"/>
      <arg name="depth_topic"       default="/hytx/camera/depth/image_rect_raw"/>
      <arg name="disparity_topic"   default="/hytx/camera/disparity/image_raw"/>
+     <arg name="max_obstacle_height" default="0.5"/>
+     <arg name="update_rate"       default="15"/>
 
      <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen">
           <param name="verbose_obstacles"     value="$(arg verbose_obstacles)"/>
           <param name="verbose_timings"       value="$(arg verbose_timings)"/>
           <param name="publish_images"        value="$(arg publish_images)"/>
+          <param name="publish_aux_images"    value="$(arg publish_aux_images)"/>
           <param name="show_images"           value="$(arg show_images)"/>
           <param name="update_rate"           value="$(arg update_rate)"/>
           <param name="use_disparity"         value="$(arg use_disparity)"/>
@@ -30,9 +36,12 @@
           <param name="obstacles_image_topic" value="$(arg update_rate)"/>
           <param name="obstacles_info_topic"  value="$(arg update_rate)"/> -->
 
-          <param name="parent_frame"          value="base_link"/>
+          <param name="parent_frame"          value="base_footprint"/>
           <param name="camera_base_frame"     value="camera_aligned_depth_to_color_frame"/>
 
+          <param name="detect_obstacles"       value="$(arg detect_obstacles)"/>
+          <param name="filter_ground"          value="$(arg filter_ground)"/>
+          <param name="filtered_cloud"         value="$(arg filtered_cloud)"/>
           <param name="publish_cloud"          value="$(arg publish_cloud)"/>
           <param name="publish_filtered_cloud" value="$(arg publish_filtered_cloud)"/>
           <param name="max_obstacle_height"    value="$(arg max_obstacle_height)"/>

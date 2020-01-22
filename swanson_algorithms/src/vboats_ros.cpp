@@ -71,8 +71,12 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	bool flag_verbose_timings = false;
 	bool flag_use_tf_prefix = false;
 	bool flag_publish_imgs = true;
+	bool publish_aux_images = false;
 	bool visualize_imgs = false;
 	bool disparity_based = false;
+	bool flag_detect_obstacles = false;
+	bool flag_filter_ground = true;
+	bool flag_filter_cloud = false;
 	bool publish_cloud = false;
 	bool publish_fitered_cloud = false;
 	float max_obs_height = 1.0;
@@ -81,9 +85,14 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	p_nh.getParam("verbose_obstacles",flag_verbose_obstacles);
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("publish_images",flag_publish_imgs);
+	p_nh.getParam("publish_aux_images",publish_aux_images);
 	p_nh.getParam("show_images",visualize_imgs);
 	p_nh.getParam("update_rate",update_rate);
 	p_nh.getParam("use_disparity",disparity_based);
+
+	p_nh.getParam("detect_obstacles",flag_detect_obstacles);
+	p_nh.getParam("filter_ground",flag_filter_ground);
+	p_nh.getParam("filtered_cloud",flag_filter_cloud);
 	p_nh.getParam("publish_cloud",publish_cloud);
 	p_nh.getParam("publish_filtered_cloud",publish_fitered_cloud);
 	p_nh.getParam("max_obstacle_height",max_obs_height);
@@ -91,9 +100,13 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_verbose_obstacles = flag_verbose_obstacles;
 	this->_verbose_timings = flag_verbose_timings;
 	this->_publish_images = flag_publish_imgs;
+	this->_publish_aux_images = publish_aux_images;
 	this->_visualize_images = visualize_imgs;
 	this->_update_rate = update_rate;
 	this->_flag_depth_based = !disparity_based;
+	this->_detect_obstacles = flag_detect_obstacles;
+	this->_filter_ground = flag_filter_ground;
+	this->_filter_cloud = flag_filter_cloud;
 	this->_flag_pub_cloud = publish_cloud;
 	this->_flag_pub_filtered_cloud = publish_fitered_cloud;
 	this->_max_obstacle_height = max_obs_height;
@@ -124,8 +137,10 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
 	this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsRos::infoCallback,this,_1,1));
 	if(this->_flag_depth_based) this->_depth_sub = m_nh.subscribe<sensor_msgs::Image>(depth_image_topic, 30, boost::bind(&VboatsRos::depthCallback,this,_1,100));
 	else this->_disparity_sub = m_nh.subscribe<sensor_msgs::Image>(disparity_image_topic, 30, boost::bind(&VboatsRos::disparityCallback,this,_1,100));
-	this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
-	this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
+	if(this->_publish_aux_images){
+		this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
+		this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
+	}
 	this->_new_img_pub = m_nh.advertise<sensor_msgs::Image>(filtered_image_topic, 1);
 	this->_obstacles_img_pub = m_nh.advertise<sensor_msgs::Image>(obstacles_image_topic, 1);
 	this->_detected_obstacle_info_pub = m_nh.advertise<swanson_msgs::VboatsObstacles>(detected_obstacles_info_topic, 100);
@@ -252,14 +267,14 @@ void VboatsRos::publish_images(const cv::Mat& umap, const cv::Mat& vmap, const c
 	}
 
 	/** Filtered Disparity */
-	if(!filtered.empty()){
-		this->_filteredImgHeader.stamp = time;
-		this->_filteredImgHeader.seq = this->_count;
-		this->_filteredImgHeader.frame_id = this->_camera_tf;
-
-		sensor_msgs::ImagePtr filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "8UC1", filtered).toImageMsg();
-		this->_new_img_pub.publish(filteredImgMsg);
-	}
+	// if(!filtered.empty()){
+	// 	this->_filteredImgHeader.stamp = time;
+	// 	this->_filteredImgHeader.seq = this->_count;
+	// 	this->_filteredImgHeader.frame_id = this->_camera_tf;
+	//
+	// 	sensor_msgs::ImagePtr filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "8UC1", filtered).toImageMsg();
+	// 	this->_new_img_pub.publish(filteredImgMsg);
+	// }
 }
 void VboatsRos::publish_obstacle_image(cv::Mat image){
 	ros::Time time = ros::Time::now();
@@ -273,7 +288,34 @@ void VboatsRos::publish_obstacle_image(cv::Mat image){
 		this->_obstacles_img_pub.publish(obsImgMsg);
 	}
 }
-void VboatsRos::publish_obstacle_data(vector<Obstacle> obstacles){}
+void VboatsRos::publish_obstacle_data(vector<Obstacle>& obstacles, const cv::Mat& dImage){
+	cv::Mat display = dImage.clone();
+	if(this->_publish_images) cv::cvtColor(display, display, cv::COLOR_GRAY2BGR);
+	int n = 0;
+	swanson_msgs::VboatsObstacles obsMsg;
+	obsMsg.header.stamp = ros::Time::now();
+	obsMsg.header.frame_id = this->_camera_tf;
+	for(Obstacle ob : obstacles){
+          if(this->_verbose_obstacles) printf("Obstacle [%d]: ", n+1);
+          ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, 1.0, 1.0, this->_verbose_obstacles);
+
+		swanson_msgs::VboatsObstacle tmpOb;
+		tmpOb.header.seq = n;
+		tmpOb.header.stamp = obsMsg.header.stamp;
+		tmpOb.header.frame_id = obsMsg.header.frame_id;
+		tmpOb.distance = ob.distance;
+		tmpOb.angle = ob.angle;
+		tmpOb.position.x = ob.location.x;
+		tmpOb.position.y = ob.location.y;
+		tmpOb.position.z = ob.location.z;
+		obsMsg.obstacles.push_back(tmpOb);
+
+          if(this->_publish_images) cv::rectangle(display, ob.minXY, ob.maxXY, cv::Scalar(255, 0, 255), 1);
+		n++;
+     }
+	this->_detected_obstacle_info_pub.publish(obsMsg);
+	if(this->_publish_images) this->publish_obstacle_image(display);
+}
 
 
 
@@ -297,23 +339,25 @@ void VboatsRos::generate_pointcloud(const cv::Mat& depth){
 	}
 	pointcloud_msg->height = 1;
 	pointcloud_msg->width = pointcloud_msg->points.size();
-
-	PointCloud::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::PassThrough<pcl::PointXYZ> pass;
-	pass.setInputCloud(pointcloud_msg);
-	pass.setFilterFieldName("y");
-	pass.setFilterLimits(-this->_max_obstacle_height, 1.0);
-	// pass.setFilterLimitsNegative(true);
-	pass.filter(*cloud_filtered);
-
-	PointCloud::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
-	pcl::VoxelGrid<pcl::PointXYZ> sor;
-	sor.setInputCloud(cloud_filtered);
-	sor.setLeafSize(0.05f, 0.05f, 0.05f);
-	sor.filter(*output);
-
 	if(this->_flag_pub_cloud) this->_cloud_pub.publish(pointcloud_msg);
-	if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub.publish(output);
+
+	if(this->_filter_cloud){
+		PointCloud::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
+		pcl::PassThrough<pcl::PointXYZ> pass;
+		pass.setInputCloud(pointcloud_msg);
+		pass.setFilterFieldName("y");
+		pass.setFilterLimits(-this->_max_obstacle_height, 1.0);
+		// pass.setFilterLimitsNegative(true);
+		pass.filter(*cloud_filtered);
+
+		PointCloud::Ptr output(new pcl::PointCloud<pcl::PointXYZ>);
+		pcl::VoxelGrid<pcl::PointXYZ> sor;
+		sor.setInputCloud(cloud_filtered);
+		sor.setLeafSize(0.05f, 0.05f, 0.05f);
+		sor.filter(*output);
+		if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub.publish(output);
+	}
+
 }
 
 int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params){
@@ -470,7 +514,7 @@ int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, cons
 	else if(gndFilteredImg.type() == CV_8UC3) filteredImgMsg = cv_bridge::CvImage(this->_filteredImgHeader, "bgr8", gndFilteredImg).toImageMsg();
 	this->_new_img_pub.publish(filteredImgMsg);
 
-	if(this->_flag_pub_cloud) this->generate_pointcloud(gndFilteredImg);
+	if((this->_flag_pub_cloud) || (this->_flag_pub_filtered_cloud)) this->generate_pointcloud(gndFilteredImg);
 
 	if(this->_visualize_images){
 	// if(true)/{
@@ -525,15 +569,17 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
      } else line_params = nullptr;
 
 	/** Ground segmentation */
-	if(gndPresent) this->remove_ground(disparity,vTmp, depth, line_params);
+	if((gndPresent) && (this->_filter_ground)) this->remove_ground(disparity,vTmp, depth, line_params);
 
-	/** Find contours in Umap useful for obstacle filtering */
      vector<vector<cv::Point>> contours;
-     this->vb->find_contours(uProcessed, &contours, 1, 50, nullptr, -1, false, this->_visualize_images);
-
-	/** Extract obstacles */
-     vector<Obstacle> _obstacles;
-     nObs = this->vb->find_obstacles_disparity(vmap, contours, &_obstacles, line_params);
+	vector<Obstacle> _obstacles;
+	if(this->_detect_obstacles){
+		/** Find contours in Umap useful for obstacle filtering */
+		this->vb->find_contours(uProcessed, &contours, 1, 50, nullptr, -1, false, this->_visualize_images);
+		/** Extract obstacles */
+		nObs = this->vb->find_obstacles_disparity(vmap, contours, &_obstacles, line_params);
+		this->publish_obstacle_data(_obstacles, disparity);
+	}
 
 	if(this->_visualize_images){
           cv::Mat display;
@@ -578,14 +624,8 @@ int VboatsRos::update(bool verbose, bool debug_timing){
 	/** Don't do any proessing if disparity is empty */
 	if(curDisparity.empty()) return -1;
 
-	// /** Visualize pre-filtered uv-maps */
-	// cv::applyColorMap(curDisparity, display, cv::COLORMAP_JET);
-	// cv::imshow("Generated Disparity", display);
-
 	double t = (double)cv::getTickCount();
-
 	genUVMapThreaded(curDisparity,&umap,&vmap, 2.0);
-	// nObs = this->vb->pipeline_disparity(curDisparity, umap, vmap, &obs);
 	nObs = this->process(curDisparity, umap, vmap, &obs, curDepth);
 
 	if(debug_timing){
@@ -593,33 +633,33 @@ int VboatsRos::update(bool verbose, bool debug_timing){
 		// printf("[INFO] VboatsRos::update() ---- Found %d obstacles in %.4lf ms (%.2lf Hz)\r\n", nObs, dt*1000.0, (1.0/dt));
 	}
 
-	if(this->_publish_images) cv::cvtColor(curDisparity, display, cv::COLOR_GRAY2BGR);
-	swanson_msgs::VboatsObstacles obsMsg;
-	obsMsg.header.stamp = ros::Time::now();
-	obsMsg.header.frame_id = this->_camera_tf;
-	int n = 0;
-	for(Obstacle ob : obs){
-          if(this->_verbose_obstacles) printf("Obstacle [%d]: ", n+1);
-          ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, 1.0, 1.0, this->_verbose_obstacles);
-
-		swanson_msgs::VboatsObstacle tmpOb;
-		tmpOb.header.seq = n;
-		tmpOb.header.stamp = obsMsg.header.stamp;
-		tmpOb.header.frame_id = obsMsg.header.frame_id;
-		tmpOb.distance = ob.distance;
-		tmpOb.angle = ob.angle;
-		tmpOb.position.x = ob.location.x;
-		tmpOb.position.y = ob.location.y;
-		tmpOb.position.z = ob.location.z;
-		obsMsg.obstacles.push_back(tmpOb);
-
-          if(this->_publish_images) cv::rectangle(display, ob.minXY, ob.maxXY, cv::Scalar(255, 0, 255), 1);
-		n++;
-     }
-	// if(this->_verbose_obstacles) printf(" --------- \r\n");
-	this->_detected_obstacle_info_pub.publish(obsMsg);
-	if(this->_publish_images){
-		this->publish_obstacle_image(display);
+	// if(this->_publish_images) cv::cvtColor(curDisparity, display, cv::COLOR_GRAY2BGR);
+	// swanson_msgs::VboatsObstacles obsMsg;
+	// obsMsg.header.stamp = ros::Time::now();
+	// obsMsg.header.frame_id = this->_camera_tf;
+	// int n = 0;
+	// for(Obstacle ob : obs){
+     //      if(this->_verbose_obstacles) printf("Obstacle [%d]: ", n+1);
+     //      ob.update(false,this->_baseline, this->_dscale, this->_focal, this->_principle, 1.0, 1.0, this->_verbose_obstacles);
+	//
+	// 	swanson_msgs::VboatsObstacle tmpOb;
+	// 	tmpOb.header.seq = n;
+	// 	tmpOb.header.stamp = obsMsg.header.stamp;
+	// 	tmpOb.header.frame_id = obsMsg.header.frame_id;
+	// 	tmpOb.distance = ob.distance;
+	// 	tmpOb.angle = ob.angle;
+	// 	tmpOb.position.x = ob.location.x;
+	// 	tmpOb.position.y = ob.location.y;
+	// 	tmpOb.position.z = ob.location.z;
+	// 	obsMsg.obstacles.push_back(tmpOb);
+	//
+     //      if(this->_publish_images) cv::rectangle(display, ob.minXY, ob.maxXY, cv::Scalar(255, 0, 255), 1);
+	// 	n++;
+     // }
+	// // if(this->_verbose_obstacles) printf(" --------- \r\n");
+	// this->_detected_obstacle_info_pub.publish(obsMsg);
+	if(this->_publish_aux_images){
+		// this->publish_obstacle_image(display);
 		this->publish_images(umap, vmap, cv::Mat());
 	}
 

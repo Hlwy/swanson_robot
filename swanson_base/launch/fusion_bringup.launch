@@ -9,39 +9,7 @@
      <arg name="use_rtimulib"           default="true"/>
      <arg name="razor_config_file"      default="$(find razor_imu_9dof)/config/razor.yaml"/>
 
-     <!-- Robot pose-->
-     <!-- <arg name="x" default="-0.4"/>
-     <arg name="y" default="-0.3"/>
-     <arg name="z" default="0.175"/>
-     <arg name="roll" default="0"/>
-     <arg name="pitch" default="0"/>
-     <arg name="yaw" default="0"/> -->
-
-     <!-- Launch configuration settings -->
-     <!-- <arg name="use_android_app" default="true"/>
-     <arg name="android_app_port" default="14500"/>
-     <arg name="dev_joy" default="/dev/input/js0"/> -->
-
-     <!-- <arg name="bot_model" default="swanson_base.urdf.xacro" />
-     <param name="robot_description" command="$(find xacro)/xacro $(find swanson_description)/robots/$(arg bot_model)" />
-
-     <node pkg="robot_state_publisher" type="state_publisher" name="robot_state_publisher">
-          <param name="publish_frequency" type="double" value="200.0"/>
-          <param name="tf_prefix"         value="/"/>
-          <param name="robot_description" value="/robot_description"/>
-     </node>
-
-     <node name="joint_state_publisher" pkg="joint_state_publisher" type="joint_state_publisher">
-		<param name="rate" type="double" value="50.0"/>
-	</node>
-
-     <node name="spawn_swanson" pkg="gazebo_ros" type="spawn_model"
-          args="-x $(arg x) -y $(arg y) -z $(arg z) -R $(arg roll)
-         -P $(arg pitch) -Y $(arg yaw) -urdf -param robot_description -model Swanson"
-          output="screen"
-     /> -->
-
-     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" respawn="true" output="screen">
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" output="screen">
           <param name="serial_device" value="/dev/ttyS0"/>
           <param name="serial_baud" value="115200"/>
           <param name="left_claw_addr" value="128"/>
@@ -56,7 +24,7 @@
      </node>
 
      <group if="$(arg use_rtimulib)">
-          <node pkg="swanson_sensors" type="rtimu_ros_node" name="imu_node" respawn="true">
+          <node pkg="swanson_sensors" type="rtimu_ros_node" name="imu_node">
                <param name="root_path" value="$(find swanson_sensors)/config"/>
                <param name="config_file" value="razor_m0_imu"/>
                <param name="imu_topic" value="imu/data/raw"/>
@@ -65,9 +33,11 @@
           </node>
 
           <include file="$(find swanson_sensors)/launch/imu_filter.launch" />
+          <include file="$(find swanson_base)/launch/minimal_fusion.launch" />
 
           <node pkg="tf" type="static_transform_publisher" name="tf_imu" args="0 0 0 0 0 0 base_link imu_link 100"/>
      </group>
+
      <group unless="$(arg use_rtimulib)">
           <node pkg="razor_imu_9dof" type="imu_node.py" name="imu_node" output="screen">
                <rosparam file="$(arg razor_config_file)" command="load"/>

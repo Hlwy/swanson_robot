@@ -23,6 +23,7 @@
           <remap from="cmd_vel" to="/swansonPi4/cmd_vel"/>
           <remap from="odom" to="$(arg odom_topic)"/>
           <remap from="obs_cloud" to="/vboats/cloud/filtered"/>
+          <remap from="base_scan" to="/swansonPi4/sweep/scan"/>
           <!-- <param name="conservative_reset_dist" value="2.0"/> -->
      </node>
 

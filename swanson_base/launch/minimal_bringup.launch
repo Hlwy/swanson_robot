@@ -9,8 +9,8 @@
      <!-- Sensor bringup params -->
      <arg name="use_rtimulib"           default="true"/>
      <arg name="razor_config_file"      default="$(find razor_imu_9dof)/config/razor.yaml"/>
-     <arg name="use_rs_cam"             default="false"/>
      <arg name="use_sweep"              default="false"/>
+     <arg name="use_rs_cam"             default="false"/>
      <arg name="cam_fps"                default="30"/>
      <arg name="cam_width"              default="848"/>
      <arg name="cam_height"             default="480"/>

@@ -1,30 +1,66 @@
 <launch>
-     <arg name="prefix" default="/"/>
-     <arg name="flag_colored" default="true"/>
-     <arg name="cloud_topic" default="cloudXYZ"/>
      <arg name="camera_name" default="camera"/>
      <arg name="depth_image" default="depth/image_rect_raw"/>
      <arg name="rgb_image" default="color/image_raw"/>
      <arg name="rgb_info" default="color/camera_info"/>
      <arg name="depth_info" default="depth/camera_info"/>
+     <arg name="cloud_topic" default="depth_registered/points"/>
+     <arg name="flag_colored" default="true"/>
 
+     <arg name="filtered_depth_topic"    default="/vboats/disparity/image_filtered" />
 
+     <arg name="obstacle_detection"      default="false"/>
+     <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
+     <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
+     <!-- Frame ids -->
+     <arg name="frame_id"                default="base_link"/>
 
+     <group unless="$(arg obstacle_detection)">
+          <!-- Nodelet manager for this pipeline -->
+          <node pkg="nodelet" type="nodelet" args="manager" name="depth_proc_manager" output="screen"/>
 
-     <!-- Nodelet manager for this pipeline -->
-     <node pkg="nodelet" type="nodelet" args="manager" name="depth_proc_manager" output="screen"/>
+          <!-- Convert it into a point cloud -->
+          <node if="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyzrgb depth_proc_manager --no-bond">
+               <remap from="depth_registered/image_rect" to="$(arg camera_name)/$(arg depth_image)"/>
+               <!-- <remap from="depth_registered/image_rect" to="$(arg filtered_depth_topic)"/> -->
+               <remap from="depth_registered/points" to="$(arg cloud_topic)"/>
+               <remap from="rgb/image_rect_color" to="$(arg camera_name)/$(arg rgb_image)"/>
+               <remap from="rgb/camera_info" to="$(arg camera_name)/$(arg rgb_info)"/>
+          </node>
+          <node unless="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyz depth_proc_manager --no-bond">
+               <!-- <remap from="image_rect" to="$(arg camera_name)/$(arg depth_image)"/> -->
+               <remap from="image_rect" to="$(arg filtered_depth_topic)"/>
+               <remap from="camera_info" to="$(arg camera_name)/$(arg depth_info)"/>
+               <remap from="points" to="$(arg cloud_topic)"/>
+          </node>
+     </group>
 
-     <!-- Convert it into a point cloud -->
-     <node if="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyzrgb depth_proc_manager --no-bond">
-          <remap from="depth_registered/image_rect" to="$(arg prefix)/$(arg camera_name)/$(arg depth_image)"/>
-          <remap from="rgb/image_rect_color" to="$(arg prefix)/$(arg camera_name)/$(arg rgb_image)"/>
-          <remap from="rgb/camera_info" to="$(arg prefix)/$(arg camera_name)/$(arg rgb_info)"/>
-          <remap from="depth_registered/points" to="$(arg prefix)/$(arg cloud_topic)"/>
-     </node>
-     <node unless="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyz depth_proc_manager --no-bond">
-          <remap from="image_rect" to="$(arg prefix)/$(arg camera_name)/$(arg depth_image)"/>
-          <remap from="camera_info" to="$(arg prefix)/$(arg camera_name)/$(arg depth_info)"/>
-          <remap from="points" to="$(arg prefix)/$(arg cloud_topic)"/>
-     </node>
+     <group if="$(arg obstacle_detection)">
+          <node pkg="nodelet" type="nodelet" name="vo_nodelet"  args="manager"/>
+
+          <node pkg="nodelet" type="nodelet" name="depth2cloud" args="load rtabmap_ros/point_cloud_xyzrgb vo_nodelet">
+               <remap from="cloud"                to="cloudXYZ"/>
+               <remap from="rgb/image"            to="$(arg rgb_topic)"/>
+               <remap from="depth/image"          to="$(arg depth_topic)"/>
+               <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
+
+               <param name="voxel_size" type="double" value="0.05"/>
+               <param name="decimation" type="int" value="4"/>
+               <param name="max_depth" type="double" value="10"/>
+          </node>
+
+          <node pkg="nodelet" type="nodelet" name="obstacles_detection" args="load rtabmap_ros/obstacles_detection vo_nodelet">
+               <remap from="cloud" to="cloudXYZ"/>
+               <remap from="obstacles" to="/obs_cloud"/>
+
+               <param name="frame_id" type="string" value="base_link"/>
+               <param name="map_frame_id" type="string" value="map"/>
+               <param name="wait_for_transform" type="bool" value="true"/>
+               <param name="Grid/MinClusterSize" type="int" value="10"/>
+               <param name="Grid/MaxObstacleHeight" type="double" value="0.5"/>
+          </node>
+     </group>
+
 
 </launch>

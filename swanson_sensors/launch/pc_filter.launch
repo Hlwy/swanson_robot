@@ -1,0 +1,46 @@
+<launch>
+     <arg name="camera_name" default="camera"/>
+     <arg name="depth_image" default="depth/image_rect_raw"/>
+     <arg name="rgb_image" default="color/image_raw"/>
+     <arg name="rgb_info" default="color/camera_info"/>
+     <arg name="depth_info" default="depth/camera_info"/>
+     <arg name="cloud_topic" default="depth_registered/points"/>
+     <arg name="flag_colored" default="true"/>
+
+     <arg name="obstacle_detection"      default="true"/>
+     <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
+     <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
+     <!-- Frame ids -->
+     <arg name="frame_id"                default="base_link"/>
+
+     <!-- Nodelet manager for this pipeline -->
+     <!-- <node pkg="nodelet" type="nodelet" args="manager" name="depth_proc_manager" output="screen"/> -->
+     <node pkg="nodelet" type="nodelet" args="manager" name="depth_proc_manager" output="screen"/>
+
+     <!-- <node pkg="nodelet" type="nodelet" name="pcl_manager" args="load pcl/PassThrough manager" output="screen" /> -->
+
+     <!-- Convert it into a point cloud -->
+     <node if="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyzrgb depth_proc_manager --no-bond">
+          <remap from="depth_registered/image_rect" to="$(arg camera_name)/$(arg depth_image)"/>
+          <remap from="depth_registered/points" to="$(arg cloud_topic)"/>
+          <remap from="rgb/image_rect_color" to="$(arg camera_name)/$(arg rgb_image)"/>
+          <remap from="rgb/camera_info" to="$(arg camera_name)/$(arg rgb_info)"/>
+     </node>
+     <node unless="$(arg flag_colored)" pkg="nodelet" type="nodelet" name="depth_to_cloud" args="load depth_image_proc/point_cloud_xyz depth_proc_manager --no-bond">
+          <remap from="image_rect" to="$(arg camera_name)/$(arg depth_image)"/>
+          <remap from="camera_info" to="$(arg camera_name)/$(arg depth_info)"/>
+          <remap from="points" to="$(arg cloud_topic)"/>
+     </node>
+     <!-- Run a passthrough filter to clean NaNs -->
+     <node pkg="nodelet" type="nodelet" name="passthrough" args="load pcl/PassThrough depth_proc_manager" output="screen">
+          <remap from="~input" to="$(arg cloud_topic)" />
+          <rosparam>
+               filter_field_name: y
+               filter_limit_min: -0.5
+               filter_limit_max: 1.5
+               filter_limit_negative: False
+          </rosparam>
+     </node>
+
+</launch>

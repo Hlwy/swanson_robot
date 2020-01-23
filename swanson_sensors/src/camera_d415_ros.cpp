@@ -21,10 +21,11 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_publish_tf = true;
 	bool flag_use_tf_prefix = false;
 	bool flag_get_aligned = false;
-	bool flag_get_processed = false;
+	bool flag_get_processed = true;
 	bool flag_use_float_depth = true;
 	bool flag_use_8bit_depth = false;
 	bool flag_calc_disparity = false;
+	p_nh.getParam("ns",ns);
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);
@@ -34,7 +35,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	p_nh.getParam("post_process",flag_get_processed);
 	p_nh.getParam("use_float_depth",flag_use_float_depth);
 	p_nh.getParam("use_8bit_depth",flag_use_8bit_depth);
-	p_nh.getParam("calculate_disparity",flag_calc_disparity);
+	p_nh.getParam("get_disparity",flag_calc_disparity);
 
 	this->_verbose_timings = flag_verbose_timings;
 	this->_publish_images = flag_publish_imgs;
@@ -139,7 +140,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	/** Initialize D415 Camera */
 	int rgb_resolution[2] = {color_width, color_height};
 	int depth_resolution[2] = {depth_width, depth_height};
-	this->cam = new CameraD415(color_fps, rgb_resolution, depth_fps, depth_resolution);
+	this->cam = new CameraD415(color_fps, rgb_resolution, depth_fps, depth_resolution, true);
 
 	this->cam->get_intrinsics(RS2_STREAM_COLOR, &_Krgb, &_Prgb, true);
 	this->cam->get_intrinsics(RS2_STREAM_DEPTH, &_Kdepth, &_Pdepth, true);
@@ -190,14 +191,15 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_depth_info_msg.width = depth_width;
 	this->_depth_info_msg.height = depth_height;
 	this->_depth_info_msg.distortion_model = "plumb_bob";
-	this->_depth_info_msg.D = {0.0, 0.0, 0.0, 0.0, 0.0};
+	this->_depth_info_msg.D = {this->_dscale, 0.0, 0.0, 0.0, 0.0};
 	this->_depth_info_msg.K[0] = _Kdepth.at<double>(0);
 	this->_depth_info_msg.K[4] = _Kdepth.at<double>(4);
 	this->_depth_info_msg.K[2] = _Kdepth.at<double>(2);
 	this->_depth_info_msg.K[5] = _Kdepth.at<double>(5);
 	this->_depth_info_msg.P[0] = _Pdepth.at<double>(0);
-	this->_depth_info_msg.P[5] = _Pdepth.at<double>(5);
 	this->_depth_info_msg.P[2] = _Pdepth.at<double>(2);
+	this->_depth_info_msg.P[3] = (double)-this->_fxd*this->_baseline;
+	this->_depth_info_msg.P[5] = _Pdepth.at<double>(5);
 	this->_depth_info_msg.P[6] = _Pdepth.at<double>(6);
 
 	this->_focal[0] = this->_fxd;
@@ -220,13 +222,13 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	printf("[INFO] CameraD415Ros::CameraD415Ros() ---- Successfully Initialized!\r\n");
 	if(this->_get_aligned) this->cam->enable_alignment();
 	if(this->_post_process) this->cam->enable_filters();
-	this->cam->start_thread();
+	// this->cam->start_thread();
 }
 
 CameraD415Ros::~CameraD415Ros(){
 	this->stop();
-	delete this->cam;
 	delete this->_loop_rate;
+	delete this->cam;
 }
 
 void CameraD415Ros::stop(){
@@ -267,8 +269,6 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 		// this->_rgbImgHeader.frame_id = this->_rgb_optical_tf;
 		this->_rgbImgHeader.frame_id = this->_aligned_base_tf;
 
-		// this->_rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
-		// this->_rgb_pub.publish(this->_rgbImgMsg);
 		sensor_msgs::ImagePtr rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
 		this->_rgb_pub.publish(rgbImgMsg);
 		// Camera Info
@@ -290,29 +290,23 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 			_depth.convertTo(tmp, CV_32F);
 			// tmp = tmp * this->_dscale;
 			// depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp).toImageMsg();
-			// this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
 			depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
 		} else if(this->_use_8bit_depth && !this->_use_float_depth){
 			// Convert depth image to uint8 if not already
 			if(_depth.type() != CV_8UC1){
 				cv::Mat depth8;
 				_depth.convertTo(depth8, CV_8UC1, (255.0/65535.0));
-				// this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
 				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", depth8).toImageMsg();
 			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
-			// } else this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "8UC1", _depth).toImageMsg();
 		} else{
 			// Convert depth image to uint16 if not already
 			if(_depth.type() != CV_16UC1){
 				cv::Mat depth16;
 				_depth.convertTo(depth16, CV_16UC1, (65535.0/255.0));
-				this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", depth16).toImageMsg();
 				depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", depth16).toImageMsg();
 			} else depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", _depth).toImageMsg();
-			// } else this->_depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "16UC1", _depth).toImageMsg();
 		}
 		this->_depth_pub.publish(depthImgMsg);
-		// this->_depth_pub.publish(this->_depthImgMsg);
 
 		// Publish Camera Info
 		this->_depth_info_msg.header.stamp = time;
@@ -327,7 +321,14 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 			this->_disparityImgHeader.seq = this->_img_count;
 			this->_disparityImgHeader.frame_id = this->_depth_optical_tf;
 
-			sensor_msgs::ImagePtr disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
+			sensor_msgs::ImagePtr disparityImgMsg;
+			if(_disparity.type() == CV_16UC1){
+				disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "16UC1", _disparity).toImageMsg();
+			} else if(_disparity.type() == CV_8UC1){
+				disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
+			}else if(_disparity.type() == CV_32F){
+			    disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "32FC1", _disparity).toImageMsg();
+		    	}
 			this->_disparity_pub.publish(disparityImgMsg);
 		}
 	}
@@ -335,24 +336,25 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 
 void CameraD415Ros::update(bool verbose){
 	// boost::mutex::scoped_lock scoped_lock(_lock);
-	cv::Mat rgb, depth;
+	cv::Mat rgb, depth, disparity;
 	bool visualize = false;
 	bool debug_timing = false;
 	double cvtGain, cvtRatio;
 	double t = (double)cv::getTickCount();
 	int err = this->cam->get_processed_queued_images(&rgb, &depth);
+	// int err = this->cam->read(&rgb, &depth);
 	if(err >= 0){
-		this->_lock.lock();
-		this->_rgb = rgb.clone();
-		this->_depth = depth.clone();
+		// this->_lock.lock();
+		// this->_rgb = rgb.clone();
+		// this->_depth = depth.clone();
 		if(this->_calc_disparity){
-			cv::Mat disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
-			this->_disparity = disparity.clone();
+			disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
+			// this->_disparity = disparity.clone();
 		}
 		this->_img_count++;
-		this->_lock.unlock();
+		// this->_lock.unlock();
 		if(this->_publish_tf) this->publish_tfs();
-		if(this->_publish_images) this->publish_images(rgb, depth, this->_disparity);
+		if(this->_publish_images) this->publish_images(rgb, depth, disparity);
 		if(debug_timing){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 			printf("[INFO] CameraD415Ros::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
@@ -362,7 +364,7 @@ void CameraD415Ros::update(bool verbose){
 			if(!rgb.empty()) cv::imshow("RGB", rgb);
 			if(!depth.empty()) cv::imshow("Depth", depth);
 			if(this->_calc_disparity)
-				if(!this->_disparity.empty()) cv::imshow("Disparity", this->_disparity);
+				if(!disparity.empty()) cv::imshow("Disparity", disparity);
 			cv::waitKey(10);
 		}
 	}

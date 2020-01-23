@@ -44,17 +44,20 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	p_nh.getParam("odom_topic",odom_topic);
 
 	/** ROS tf Config */
+	bool verbose = false;
 	bool flag_publish_tf = true;
 	bool flag_use_tf_prefix = true;
 	std::string tf_prefix = "";
 	std::string odom_frame = "odom";
 	std::string base_frame = "base_link";
+	p_nh.getParam("verbose",verbose);
 	p_nh.getParam("publish_tf",flag_publish_tf);
 	p_nh.getParam("use_tf_prefix",flag_use_tf_prefix);
 	p_nh.getParam("tf_prefix",tf_prefix);
 	p_nh.getParam("odom_tf",odom_frame);
 	p_nh.getParam("base_tf",base_frame);
 
+	this->_verbose = verbose;
 	this->_tf_prefix = tf_prefix;
 	this->_publishTf = flag_publish_tf;
 	if(flag_use_tf_prefix){
@@ -114,6 +117,7 @@ DualClawSkidsteerDrivetrainInterface::~DualClawSkidsteerDrivetrainInterface(){
 }
 
 void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twist::ConstPtr& msg, const int topic_index){
+	std::lock_guard<std::mutex> lock(this->_lock);
 	float target_v = msg->linear.x;
 	float target_w = msg->angular.z;
 	// printf("[INFO] DualClawSkidsteerDrivetrainInterface::cmdCallback() ---- Recieved Cmds V,W: %.3f, %.3f\r\n",target_v,target_w);
@@ -126,8 +130,9 @@ bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Reque
 	return true;
 }
 
-void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
+void DualClawSkidsteerDrivetrainInterface::update(){
 	_count++;
+	this->_lock.lock();
 	claws->update_status();
      claws->update_encoders();
 
@@ -165,6 +170,7 @@ void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
 	dataMsg.estimated_pose.x = pose[0];
 	dataMsg.estimated_pose.y = pose[1];
 	dataMsg.estimated_pose.theta = pose[2];
+	this->_lock.unlock();
 	data_pub.publish(dataMsg);
 
 	/** Update Robot's body transformations */
@@ -209,7 +215,7 @@ void DualClawSkidsteerDrivetrainInterface::update(bool verbose){
 	odomMsg.twist.covariance = odomMsg.pose.covariance;
 	odom_pub.publish(odomMsg);
 
-	if(verbose){
+	if(this->_verbose){
 		printf("Motor Speeds (m/s):  %.3f | %.3f  | %.3f  | %.3f \r\n",spds[0],spds[1],spds[2],spds[3]);
 		printf("Encoder Positions (qpps): %d | %d | %d | %d\r\n",positions[0],positions[1],positions[2],positions[3]);
 		printf("Δdistance, ΔYaw, ΔX, ΔY,: %.3f, %.3f, %.3f, %.3f\r\n",dOdom[0], dOdom[1],dOdom[2],dOdom[3]);
@@ -224,7 +230,7 @@ int DualClawSkidsteerDrivetrainInterface::run(bool verbose){
      cout << "Looping..." << endl;
 
      while(ros::ok()){
-		this->update(verbose);
+		this->update();
           ros::spinOnce();
           _loop_rate->sleep();
      }

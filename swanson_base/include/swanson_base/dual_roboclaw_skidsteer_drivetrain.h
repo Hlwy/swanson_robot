@@ -1,6 +1,7 @@
 #ifndef DUAL_ROBOCLAW_SKIDSTEER_DRIVETRAIN_H_
 #define DUAL_ROBOCLAW_SKIDSTEER_DRIVETRAIN_H_
 
+#include <mutex>
 #include <pigpiod_if2.h>
 #include <RoboCommander/drivetrains/dual_roboclaw.h>
 
@@ -20,6 +21,7 @@ class DualClawSkidsteerDrivetrainInterface{
 private:
      int pi;
      int _count;
+     std::mutex _lock;
 
      /** ROS Objects */
      ros::NodeHandle m_nh;
@@ -35,6 +37,7 @@ private:
      /** ROS Params */
      std::string _ns;
      bool _publishTf;
+     bool _verbose;
      std::string _tf_prefix;
      std::string _tf_odom;
      std::string _tf_base;
@@ -51,7 +54,7 @@ public:
      DualClawSkidsteerDrivetrainInterface(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~DualClawSkidsteerDrivetrainInterface();
 
-     void update(bool verbose = false);
+     void update();
      int run(bool verbose = false);
 };
 

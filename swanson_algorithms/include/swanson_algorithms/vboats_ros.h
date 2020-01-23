@@ -17,6 +17,16 @@
 #include <RoboCommander/sensors/camera_d415.h>
 #include <RoboCommander/algorithms/vboats/vboats.h>
 
+#include <pcl_ros/point_cloud.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/passthrough.h>
+
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+
+
 using namespace std;
 
 class VboatsRos{
@@ -29,98 +39,86 @@ private:
      int _update_rate;
      ros::Rate* _loop_rate;
 
-     ros::Publisher _rgb_info_pub;
-     ros::Publisher _depth_info_pub;
-     ros::Publisher _rgb_pub;
-     ros::Publisher _depth_pub;
-     ros::Publisher _disparity_pub;
+     ros::Subscriber _depth_sub;
+     ros::Subscriber _cam_info_sub;
+     ros::Subscriber _disparity_sub;
+     ros::Publisher _umap_pub;
+     ros::Publisher _vmap_pub;
+     ros::Publisher _new_img_pub;
      ros::Publisher _obstacles_img_pub;
-     // image_transport::Publisher _rgb_pub;
-     // image_transport::Publisher _depth_pub;
-     // image_transport::Publisher _disparity_pub;
-     // image_transport::Publisher _obstacles_img_pub;
      ros::Publisher _detected_obstacle_info_pub;
+     ros::Publisher _cloud_pub;
+     ros::Publisher _filtered_cloud_pub;
 
      /** ROS topics and tf frames */
      std::string _ns;
-     std::string _camera_name;
-     std::string _tf_prefix;
      std::string _parent_tf;
-	std::string _cam_base_tf;
-	std::string _rgb_base_tf;
-	std::string _rgb_optical_tf;
-	std::string _depth_base_tf;
-	std::string _depth_optical_tf;
-	std::string _aligned_base_tf;
+	std::string _camera_tf;
 
      /** Internally Stored Images */
-     cv::Mat _rgb;
-     cv::Mat _depth;
-     cv::Mat _disparity;
      cv::Mat _umap;
      cv::Mat _vmap;
+     cv::Mat _depth;
+     cv::Mat _disparity;
      /** Camera Intrinsic/Extrinsic Properties */
      float _dscale;
      float _baseline;
-     float _fxd, _fyd, _pxd, _pyd;
-	float _fxc, _fyc, _pxc, _pyc;
-     cv::Mat _Krgb;
-     cv::Mat _Prgb;
-     cv::Mat _Kdepth;
-     cv::Mat _Pdepth;
+     float _fx, _fy, _px, _py;
      float _focal[2];
      float _principle[2];
-     float _disparity2depth;
+     float _depth2disparityFactor;
 
      /** Published Image Msg Header containers */
-     std_msgs::Header _rgbImgHeader;
-     std_msgs::Header _depthImgHeader;
-     std_msgs::Header _disparityImgHeader;
+     std_msgs::Header _umapImgHeader;
+     std_msgs::Header _vmapImgHeader;
+     std_msgs::Header _filteredImgHeader;
      std_msgs::Header _obsImgHeader;
-
-     /** Camera Info msg containers */
-     sensor_msgs::CameraInfo _rgb_info_msg;
-     sensor_msgs::CameraInfo _depth_info_msg;
-     /** TF Frame containers */
-     tf::Transform _tfOpticalBaseToCamBase;
-     tf::Transform _tfOpticalToOpticalBase;
 
      /** Counters and Timers */
      float dt;
      int _count;
      int _img_count;
+     int _info_count;
      /** Flags */
      bool _verbose_obstacles;
      bool _verbose_timings;
      bool _publish_images;
-     bool _use_float_depth;
-     bool _get_aligned;
-     bool _publish_tf;
-     bool _publish_obs_display;
+     bool _publish_aux_images;
+     bool _visualize_images;
+     bool _recvd_cam_info;
+     bool _flag_depth_based;
+     bool _detect_obstacles;
+     bool _filter_ground;
+     bool _filter_cloud;
+     bool _flag_pub_cloud;
+     bool _flag_pub_filtered_cloud;
+     float _max_obstacle_height;
      /** Multi-threading objects */
-     // boost::mutex _lock;
      std::mutex _lock;
-     std::thread _cam_thread;
-     std::atomic_bool _stop_threads;
-     std::atomic_bool _thread_started;
+
+     /** ROS Subscriber Callbacks */
+     void infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value);
+     void depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
+     void disparityCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
+     void depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, float gain);
 public:
      // Contructor/DeConstructor
      VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~VboatsRos();
 
-     CameraD415* cam;
      VBOATS* vb;
-     void cameraThreadFunction();
-     void start();
-     void stop();
 
-     void initTfs();
-     void publish_tfs();
-     void publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity);
+     void publish_images(const cv::Mat& umap, const cv::Mat& vmap, const cv::Mat& filtered);
      void publish_obstacle_image(cv::Mat image);
-     void publish_obstacle_data(vector<Obstacle> obstacles);
-     void update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose = false, bool debug_timing = false);
-     // void update(const cv::Mat& image, float conversion_gain, bool is_disparity = true, bool verbose = false, bool debug_timing = false);
+     void publish_obstacle_data(vector<Obstacle>& obstacles, const cv::Mat& dImage);
+
+     int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params);
+     void generate_pointcloud(const cv::Mat& depth);
+
+     int process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles, const cv::Mat& depth);
+     int update(bool verbose = false, bool debug_timing = true);
+
+     // void update(const cv::Mat& image, const cv::Mat& umap, const cv::Mat& vmap, float conversion_gain, bool verbose = false, bool debug_timing = false);
      int run(bool verbose = false);
 };
 

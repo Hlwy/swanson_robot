@@ -9,6 +9,9 @@ using namespace std;
 DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh){
      // Declare constants
 	_count = 0;
+	_cmd_count = 0;
+	_target_vel = 0.0;
+     _target_rot = 0.0;
 	_ns = m_nh.getNamespace();
 
 	/** Robot Hardware Interface */
@@ -121,7 +124,10 @@ void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twis
 	float target_v = msg->linear.x;
 	float target_w = msg->angular.z;
 	// printf("[INFO] DualClawSkidsteerDrivetrainInterface::cmdCallback() ---- Recieved Cmds V,W: %.3f, %.3f\r\n",target_v,target_w);
-	claws->drive(target_v,target_w);
+	// this->_cmds = this->claws->get_target_speeds(target_v, target_w);
+	this->_target_vel = target_v;
+	this->_target_rot = target_w;
+	this->_cmd_count++;
 }
 
 bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
@@ -134,15 +140,15 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 	_count++;
 	this->_lock.lock();
 	claws->update_status();
-     claws->update_encoders();
+	claws->update_encoders();
 
 	vector<float> currents = claws->get_currents();
-     vector<float> voltages = claws->get_voltages();
-     vector<uint32_t> positions = claws->get_encoder_positions();
-     vector<float> spds = claws->get_encoder_speeds();
-     vector<float> dOdom = claws->get_odom_deltas();
-     vector<float> pose = claws->get_pose();
-     vector<float> vels = claws->get_velocities();
+	vector<float> voltages = claws->get_voltages();
+	vector<uint32_t> positions = claws->get_encoder_positions();
+	vector<float> spds = claws->get_encoder_speeds();
+	vector<float> dOdom = claws->get_odom_deltas();
+	vector<float> pose = claws->get_pose();
+	vector<float> vels = claws->get_velocities();
 
 	ros::Time curTime = ros::Time::now();
 	/** Update Roboclaw Data */
@@ -170,7 +176,6 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 	dataMsg.estimated_pose.x = pose[0];
 	dataMsg.estimated_pose.y = pose[1];
 	dataMsg.estimated_pose.theta = pose[2];
-	this->_lock.unlock();
 	data_pub.publish(dataMsg);
 
 	/** Update Robot's body transformations */
@@ -214,6 +219,7 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 	odomMsg.twist.twist.angular.z = vels[1];
 	odomMsg.twist.covariance = odomMsg.pose.covariance;
 	odom_pub.publish(odomMsg);
+	this->_lock.unlock();
 
 	if(this->_verbose){
 		printf("Motor Speeds (m/s):  %.3f | %.3f  | %.3f  | %.3f \r\n",spds[0],spds[1],spds[2],spds[3]);
@@ -228,9 +234,13 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 
 int DualClawSkidsteerDrivetrainInterface::run(bool verbose){
      cout << "Looping..." << endl;
-
+	int curCount = 0;
      while(ros::ok()){
 		this->update();
+		if(curCount != this->_cmd_count){
+			this->claws->drive(this->_target_vel,this->_target_rot);
+			curCount = this->_cmd_count;
+		}
           ros::spinOnce();
           _loop_rate->sleep();
      }

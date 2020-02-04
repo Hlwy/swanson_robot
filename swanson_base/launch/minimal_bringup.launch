@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
      <!-- Base Platform and Drivetrain Constants -->
+     <arg name="verbose_drivetrain"     default="true"/>
      <arg name="maxVel"                 default="2.0"/>
      <arg name="maxTurnRadius"          default="0.381"/>
      <arg name="baseWidth"              default="0.219"/>
@@ -10,8 +11,9 @@
      <arg name="use_rtimulib"           default="true"/>
      <arg name="razor_config_file"      default="$(find razor_imu_9dof)/config/razor.yaml"/>
      <arg name="use_sweep"              default="false"/>
-     <arg name="use_rs_cam"             default="false"/>
-     <arg name="cam_fps"                default="30"/>
+     <arg name="sweep_rate"             default="5"/>
+     <arg name="use_rs_cam"             default="true"/>
+     <arg name="cam_fps"                default="15"/>
      <arg name="cam_width"              default="848"/>
      <arg name="cam_height"             default="480"/>
      <!-- Teleop bringup params -->
@@ -19,6 +21,7 @@
 
      <!-- Bringup swanson's motion drivers for motor control -->
      <include file="$(find swanson_base)/launch/drivetrain_bringup.launch">
+          <arg name="verbose"           value="$(arg verbose_drivetrain)"/>
           <arg name="maxVel"            value="$(arg maxVel)"/>
           <arg name="maxTurnRadius"     value="$(arg maxTurnRadius)"/>
           <arg name="baseWidth"         value="$(arg baseWidth)"/>
@@ -32,6 +35,7 @@
           <arg name="razor_config_file" value="$(arg razor_config_file)"/>
           <arg name="use_rs_cam"        value="$(arg use_rs_cam)"/>
           <arg name="use_sweep"         value="$(arg use_sweep)"/>
+          <arg name="sweep_rate"        value="$(arg sweep_rate)"/>
           <arg name="cam_fps"           value="$(arg cam_fps)"/>
           <arg name="cam_width"         value="$(arg cam_width)"/>
           <arg name="cam_height"        value="$(arg cam_height)"/>

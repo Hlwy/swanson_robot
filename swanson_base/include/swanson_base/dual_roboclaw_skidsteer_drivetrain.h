@@ -21,7 +21,11 @@ class DualClawSkidsteerDrivetrainInterface{
 private:
      int pi;
      int _count;
+     int _cmd_count;
      std::mutex _lock;
+     float _target_vel;
+     float _target_rot;
+     std::vector<int32_t> _cmds;
 
      /** ROS Objects */
      ros::NodeHandle m_nh;

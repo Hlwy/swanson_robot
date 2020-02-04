@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <launch>
      <!-- Base Platform and Drivetrain Constants -->
+     <arg name="verbose" default="false"/>
      <arg name="maxVel" default="2.0"/>
      <arg name="maxTurnRadius" default="0.381"/>
      <arg name="baseWidth" default="0.219"/>
@@ -10,8 +11,10 @@
      <arg name="publish_tf" default="false"/>
      <arg name="update_rate" default="10"/>
 
-     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" output="screen">
-          <param name="serial_device" value="/dev/ttyS0"/>
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" clear_params="true" output="screen">
+          <param name="verbose" value="$(arg verbose)"/>
+          <param name="serial_device" value="/dev/ttyAMA0"/>
+          <!-- <param name="serial_device" value="/dev/ttyS0"/> -->
           <param name="serial_baud" value="115200"/>
           <param name="left_claw_addr" value="128"/>
           <param name="right_claw_addr" value="129"/>

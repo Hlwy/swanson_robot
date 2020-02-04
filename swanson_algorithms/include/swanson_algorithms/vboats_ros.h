@@ -17,14 +17,16 @@
 #include <RoboCommander/sensors/camera_d415.h>
 #include <RoboCommander/algorithms/vboats/vboats.h>
 
-#include <pcl_ros/point_cloud.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/conversions.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl_ros/point_cloud.h>
+
+typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
 
 
 using namespace std;
@@ -86,6 +88,7 @@ private:
      bool _publish_aux_images;
      bool _visualize_images;
      bool _recvd_cam_info;
+     bool _recvd_image;
      bool _flag_depth_based;
      bool _detect_obstacles;
      bool _filter_ground;

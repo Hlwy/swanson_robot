@@ -19,7 +19,7 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
 find_package(realsense2 REQUIRED)
 
 # For proper linkage use:
@@ -72,7 +72,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ###########
 
 add_library(vboatsRos src/vboats_ros.cpp)
-target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
+target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES} ${OpenCV_LIBS})
 add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_ros_node src/vboats_ros_node.cpp)

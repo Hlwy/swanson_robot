@@ -46,8 +46,11 @@ private:
      std::string _tf_odom;
      std::string _tf_base;
 
-     /** Transforms */
-     tf::Transform _tfBaseToOdom;
+     /** Pre-initialize ROS Topic Messages */
+     nav_msgs::Odometry _odomMsg;
+     geometry_msgs::PoseStamped _poseMsg;
+     geometry_msgs::TransformStamped _odom_tf;
+
 
      /** ROS Subscriber Callbacks */
      void cmdCallback(const geometry_msgs::Twist::ConstPtr& msg, const int topic_index);

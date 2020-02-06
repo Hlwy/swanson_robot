@@ -472,8 +472,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           return -1;
      }
      cv::Mat disparityImg = disparity.clone();
-     cv::Mat disparityMask = disparity.clone();
-     cv::Mat depthMask = cv::Mat::zeros(disparityImg.size(), CV_8UC1);
+     cv::Mat depthMask = cv::Mat::zeros(disparity.size(), CV_8UC1);
 
      /** Image-dependent variable initialization */
      int h = vmap.rows, w = vmap.cols;
@@ -509,7 +508,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           dmin = dLims.at(0);
           dmax = dLims.at(1);
           dmid = (int)( (float)(dmin + dmax) / 2.0 );
-          yf = (int)( (float)dmid * slope) + b;
+          yf = (int)( (float)dmid * slope) + b - this->_gnd_upper_offset;
           if(yf >= h) yf = h;
           // printf("[INFO] VboatsRos::remove_objects() --- Contour[%d]: dmin, dmid, dmax = (%d, %d, %d) |  ROI Rect = (%d, %d) -> (%d, %d)\r\n", i, dmin, dmid, dmax, dmin,y0, dmax,yf);
 
@@ -520,7 +519,6 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
 
           if(debug_viz) cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1);
      }
-
      if(debug_viz){
           if(!vmask.empty()){
                cv::Mat display;
@@ -528,37 +526,28 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
                cv::imshow("Vmask", display);
           }
           cv::imshow("ROI's ", roiDisplay);
-          cv::waitKey(10);
+          cv::waitKey(0);
      }
 
-     cv::Mat nonzero;
-     std::vector< std::vector<int> > validVals;
-     for(int v = 0; v < vmask.rows; ++v){
-          cv::Mat refRow = vmask.row(v);
-          cv::findNonZero(refRow, nonzero);
-          std::vector<int> validValsRow;
-          for(int i = 0; i < nonzero.total(); i++ ){
-               int tmpx = nonzero.at<cv::Point>(i).x;
-               validValsRow.push_back(tmpx);
-          }
-          validVals.push_back(validValsRow);
-     }
+     // cv::Mat nonzero;
+     // for(int r = 0; r < disparityImg.rows; r++){
+     //      cv::Mat refRow = vmask.row(r);
+     //      cv::findNonZero(refRow, nonzero);
+     //      for(int c = 0; c < disparityImg.cols; c++){
+     //           for(int idx = 0; idx < nonzero.total(); idx++){
+     //                if(disparityImg.at<uchar>(r, c) == nonzero.at<cv::Point>(idx).x){
+     //                     depthMask.at<uchar>(r,c) = 255;
+     //                     break;
+     //                }
+     //           }
+     //      }
+     // }
 
-     for(int r = 0; r < disparityMask.rows; ++r){
-          std::vector<int> tmpvec = validVals[r];
-          for(int c = 0; c < disparityMask.cols; ++c){
-               for(int idx = 0; idx < tmpvec.size(); idx++){
-                    if(disparityMask.at<uchar>(r, c) == tmpvec[idx]){
-                         depthMask.at<uchar>(r,c) = 255;
-                         continue;
-                    }
-               }
-          }
-     }
      /** Experimental:
-     ForEachObsMaskGenerator<int> masker(validVals);
-     disparityMask.forEach<int>(masker);
      */
+     ForEachObsMaskGenerator<uchar> masker(vmask);
+     cv::Mat dMask = disparityImg.clone();
+     dMask.forEach<uchar>(masker);
 
      /** Experimental:
      if(!disparityMask.empty()){
@@ -568,7 +557,8 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
      }*/
      if(!depthMask.empty()){
           cv::Mat obsFilteredImg;
-          depthImg.copyTo(obsFilteredImg, depthMask);
+          depthImg.copyTo(obsFilteredImg, dMask);
+          // depthImg.copyTo(obsFilteredImg, depthMask);
           if(filtered_img) *filtered_img = obsFilteredImg.clone();
      }
      else{

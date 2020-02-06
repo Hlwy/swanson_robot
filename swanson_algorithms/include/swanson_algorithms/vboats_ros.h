@@ -44,24 +44,49 @@ struct ForEachDepthConverter{
 
 template<typename dtype>
 struct ForEachObsMaskGenerator{
-     std::vector< std::vector<int> > goodVals;
-     ForEachObsMaskGenerator(std::vector< std::vector<int> > table){
-          for(int i = 0; i < table.size(); i++){
-               std::vector<int> tmpvec = table.at(i);
-               goodVals.push_back(tmpvec);
+     // std::vector< std::vector<int> > m_table;
+     cv::Mat m_table;
+     ForEachObsMaskGenerator(const cv::Mat& input_mask){
+          cv::Mat nonzero;
+          cv::Mat tmptable = cv::Mat::zeros(input_mask.rows, 256, CV_8UC1);
+          for(int v = 0; v < input_mask.rows; v++){
+               cv::Mat refRow = input_mask.row(v);
+               cv::findNonZero(refRow, nonzero);
+               // std::vector<int> tmpvec;
+               for(int i = 0; i < nonzero.total(); i++){
+                    int tmpx = nonzero.at<cv::Point>(i).x;
+                    tmptable.at<uchar>(v,tmpx) = 255;
+                    // tmpvec.push_back(tmpx);
+               }
+               // m_table.push_back(tmpvec);
+          }
+          m_table = tmptable.clone();
+          if(!m_table.empty()){
+               cv::Mat display;
+               cv::applyColorMap(m_table, display, cv::COLORMAP_JET);
+               cv::imshow("m_table", display);
+               cv::waitKey(0);
           }
      }
-
      void operator()(dtype& pixel, const int * position) const {
-          bool matched = false;
-          int currow = position[0];
-          std::vector<int> tmpVals = goodVals.at(currow);
-          for(int idx = 0; idx < tmpVals.size(); idx++){
-               if(matched) continue;
-               if((int) pixel == tmpVals[idx]) matched = true;
-          }
-          if(matched) pixel = (dtype) 255;
-          else pixel = 0;
+          // int r = 0, c = 0;             // Counters
+          // int n = position[0];          // Target Row
+          // dtype setVal = 0;             // Default pixel value to set to
+          // int curPixel = (int) pixel;   // Current Pixel value
+          //
+          // for(std::vector< std::vector<int> >::const_iterator it = m_table.begin(); it != m_table.end(); ++it, r++){
+          //      if(r == n){
+          //           for(std::vector<int>::const_iterator jt = it->begin(); jt != it->end(); ++jt, c++){
+          //                if( curPixel == (*jt) ){
+          //                     setVal = (dtype) 255;
+          //                     break;
+          //                }
+          //           }
+          //      }
+          // }
+          // pixel = setVal;
+          const
+          pixel = (dtype) m_table.at<uchar>(position[0],pixel);
      }
 };
 

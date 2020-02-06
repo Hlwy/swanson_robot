@@ -1,6 +1,13 @@
 <?xml version="1.0"?>
 <launch>
      <!-- Base Platform and Drivetrain Constants -->
+     <arg name="single_drivetrain_comm" default="false"/>
+     <arg name="drivetrain_baud"        default="115200"/>
+     <arg name="drivetrain_left_addr"   default="128"/>
+     <arg name="drivetrain_left_dev"    default="/dev/ttyACM1"/>
+     <arg name="drivetrain_right_addr"  default="129"/>
+     <arg name="drivetrain_right_dev"   default="/dev/ttyACM0"/>
+
      <arg name="verbose_drivetrain"     default="true"/>
      <arg name="maxVel"                 default="2.0"/>
      <arg name="maxTurnRadius"          default="0.381"/>
@@ -21,6 +28,13 @@
 
      <!-- Bringup swanson's motion drivers for motor control -->
      <include file="$(find swanson_base)/launch/drivetrain_bringup.launch">
+          <arg name="single_comm_dev"   value="$(arg single_drivetrain_comm)"/>
+          <arg name="serial_baud"       value="$(arg drivetrain_baud)"/>
+          <arg name="left_serial_addr"  value="$(arg drivetrain_left_addr)"/>
+          <arg name="left_serial_dev"   value="$(arg drivetrain_left_dev)"/>
+          <arg name="right_serial_addr" value="$(arg drivetrain_right_addr)"/>
+          <arg name="right_serial_dev"  value="$(arg drivetrain_right_dev)"/>
+
           <arg name="verbose"           value="$(arg verbose_drivetrain)"/>
           <arg name="maxVel"            value="$(arg maxVel)"/>
           <arg name="maxTurnRadius"     value="$(arg maxTurnRadius)"/>

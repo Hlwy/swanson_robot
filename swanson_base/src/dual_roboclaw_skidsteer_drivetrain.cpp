@@ -15,12 +15,16 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	_ns = m_nh.getNamespace();
 
 	/** Robot Hardware Interface */
-	std::string ser_dev = "/dev/ttyS0";
+	bool single_com_dev = false;
+	std::string ser_dev_left = "/dev/ttyS0";
+	std::string ser_dev_right = "/dev/ttyS1";
 	int ser_baud = 115200;
 	int left_claw_addr = 128;
 	int right_claw_addr = 129;
-	p_nh.getParam("serial_device",ser_dev);
+	p_nh.getParam("use_single_serial_device",single_com_dev);
 	p_nh.getParam("serial_baud",ser_baud);
+	p_nh.getParam("left_serial_device",ser_dev_left);
+	p_nh.getParam("right_serial_device",ser_dev_right);
 	p_nh.getParam("left_claw_addr",left_claw_addr);
 	p_nh.getParam("right_claw_addr",right_claw_addr);
 
@@ -71,13 +75,8 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 		this->_tf_base = base_frame;
 	}
 
-	/** Initialize tf transform */
-	tf::Vector3 pNull(0.0, 0.0, 0.0);
-	tf::Quaternion qNull; qNull.setRPY(0.0, 0.0, 0.0);
-	this->_tfBaseToOdom = tf::Transform(qNull,pNull);
-
 	/** ROS Misc Elements Config */
-	float update_rate = 20;
+	int update_rate = 20;
 	p_nh.getParam("update_rate",update_rate);
 
 	/* Connect to Pi. */
@@ -89,7 +88,10 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 
 	/** Initialize Dual RoboClaws */
 	this->claws = new DualClaw(this->pi);
-	int err = this->claws->init(ser_dev.c_str(), ser_baud, left_claw_addr, right_claw_addr);
+	int err = 0;
+	if(single_com_dev) err = this->claws->init(ser_dev_left.c_str(), ser_baud, left_claw_addr, right_claw_addr);
+	else err = this->claws->init(ser_baud, ser_dev_left.c_str(), ser_dev_right.c_str(), left_claw_addr, right_claw_addr);
+
 	if(err < 0){
 		printf("[ERROR] Could not establish serial communication with DualClaws. Error Code = %d\r\n", err);
 		exit(0);
@@ -100,15 +102,33 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	this->claws->set_qpps_per_meter(qpps_per_meter);
 	this->claws->set_wheel_diameter(wheel_diameter);
 
+	/** Pre-initialize ROS messages */
+	this->_odom_tf.header.frame_id = this->_tf_odom;
+	this->_odom_tf.child_frame_id = this->_tf_base;
+	this->_odom_tf.transform.translation.z = 0.0;
+
+	this->_poseMsg.header.frame_id = this->_tf_odom;
+	this->_poseMsg.pose.position.z = 0.0;
+
+	this->_odomMsg.header.frame_id = this->_tf_odom;
+	this->_odomMsg.child_frame_id = this->_tf_base;
+	this->_odomMsg.pose.covariance[0] = 0.01;
+	this->_odomMsg.pose.covariance[7] = 0.01;
+	this->_odomMsg.pose.covariance[14] = 99999;
+	this->_odomMsg.pose.covariance[21] = 99999;
+	this->_odomMsg.pose.covariance[28] = 99999;
+	this->_odomMsg.pose.covariance[35] = 0.01;
+	this->_odomMsg.twist.twist.linear.y = 0.0;
+	this->_odomMsg.twist.covariance = this->_odomMsg.pose.covariance;
 	/** Initialize ROS Objects */
-	cmd_sub = m_nh.subscribe<geometry_msgs::Twist>(cmd_vel_topic, 50, boost::bind(&DualClawSkidsteerDrivetrainInterface::cmdCallback,this,_1,0));
-	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 10);
-	pose_pub = m_nh.advertise<geometry_msgs::PoseStamped>(pose_topic, 10);
-	odom_pub = m_nh.advertise<nav_msgs::Odometry>(odom_topic, 10);
+	cmd_sub = m_nh.subscribe<geometry_msgs::Twist>(cmd_vel_topic, 10, boost::bind(&DualClawSkidsteerDrivetrainInterface::cmdCallback,this,_1,0));
+	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 1);
+	pose_pub = m_nh.advertise<geometry_msgs::PoseStamped>(pose_topic, 1);
+	odom_pub = m_nh.advertise<nav_msgs::Odometry>(odom_topic, 1);
 	_reset_enc = m_nh.advertiseService("reset_odom", &DualClawSkidsteerDrivetrainInterface::reset_odometry, this);
+	this->claws->reset_encoders();
 
 	_loop_rate = new ros::Rate(update_rate);
-	usleep(2 * 1000000);
 }
 
 DualClawSkidsteerDrivetrainInterface::~DualClawSkidsteerDrivetrainInterface(){
@@ -123,13 +143,9 @@ void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twis
 	std::lock_guard<std::mutex> lock(this->_lock);
 	float target_v = msg->linear.x;
 	float target_w = msg->angular.z;
-	// printf("[INFO] DualClawSkidsteerDrivetrainInterface::cmdCallback() ---- Recieved Cmds V,W: %.3f, %.3f\r\n",target_v,target_w);
-	// this->_cmds = this->claws->get_target_speeds(target_v, target_w);
-	this->_target_vel = target_v;
-	this->_target_rot = target_w;
+	this->claws->drive(target_v,target_w);
 	this->_cmd_count++;
 }
-
 bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
 	ROS_DEBUG("Resetting Encoders");
 	this->claws->reset_encoders();
@@ -138,29 +154,34 @@ bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Reque
 
 void DualClawSkidsteerDrivetrainInterface::update(){
 	_count++;
-	this->_lock.lock();
-	claws->update_status();
-	claws->update_encoders();
-
-	vector<float> currents = claws->get_currents();
-	vector<float> voltages = claws->get_voltages();
-	vector<uint32_t> positions = claws->get_encoder_positions();
-	vector<float> spds = claws->get_encoder_speeds();
-	vector<float> dOdom = claws->get_odom_deltas();
-	vector<float> pose = claws->get_pose();
-	vector<float> vels = claws->get_velocities();
-
 	ros::Time curTime = ros::Time::now();
+
+	this->_lock.lock();
+	this->claws->update_odometry();
+	float ppm = this->claws->get_qpps_per_meter();
+	float wheelbase = this->claws->get_base_width();
+	float wheel_diamter = this->claws->get_wheel_diameter();
+	float max_claw_speed = this->claws->get_max_speed();
+	vector<uint32_t> positions = this->claws->get_encoder_positions();
+	vector<float> spds = this->claws->get_motor_speeds();
+	vector<float> dOdom = this->claws->get_odom_deltas();
+	vector<float> pose = this->claws->get_pose();
+	vector<float> vels = this->claws->get_velocities();
+	this->claws->update_status(true);
+	vector<float> currents = this->claws->get_currents();
+	vector<float> voltages = this->claws->get_voltages();
+	this->_lock.unlock();
+
 	/** Update Roboclaw Data */
 	swanson_msgs::DualClawInfo dataMsg;
-	dataMsg.header.stamp = curTime;
 	dataMsg.header.seq = _count;
+	dataMsg.header.stamp = curTime;
 	dataMsg.left_roboclaw_voltage = voltages[0];
 	dataMsg.right_roboclaw_voltage = voltages[1];
-	dataMsg.qpps_per_meter = claws->get_qpps_per_meter();
-	dataMsg.max_speed = claws->get_max_speed();
-	dataMsg.wheel_diameter = claws->get_wheel_diameter();
-	dataMsg.base_width = claws->get_base_width();
+	dataMsg.qpps_per_meter = ppm;
+	dataMsg.base_width = wheelbase;
+	dataMsg.wheel_diameter = wheel_diamter;
+	dataMsg.max_speed = max_claw_speed;
 	dataMsg.left_motor_currents[0] = currents[0];
 	dataMsg.left_motor_currents[1] = currents[1];
 	dataMsg.right_motor_currents[0] = currents[2];
@@ -181,45 +202,28 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 	/** Update Robot's body transformations */
 	geometry_msgs::Quaternion quats = tf::createQuaternionMsgFromYaw(pose[2]);
 
-	geometry_msgs::TransformStamped odom_tf;
-	odom_tf.header = dataMsg.header;
-	odom_tf.header.frame_id = this->_tf_odom;
-	odom_tf.child_frame_id = this->_tf_base;
-
-	odom_tf.transform.translation.x = pose[0];
-	odom_tf.transform.translation.y = pose[1];
-	odom_tf.transform.translation.z = 0.0;
-	odom_tf.transform.rotation = quats;
-	if(this->_publishTf) this->_br.sendTransform(odom_tf);
+	this->_odom_tf.header.seq = _count;
+	this->_odom_tf.header.stamp = curTime;
+	this->_odom_tf.transform.translation.x = pose[0];
+	this->_odom_tf.transform.translation.y = pose[1];
+	this->_odom_tf.transform.rotation = quats;
+	if(this->_publishTf) this->_br.sendTransform(this->_odom_tf);
 
 	/** Update Robot's dead-reckoned pose */
-	geometry_msgs::PoseStamped poseMsg;
-	poseMsg.header = odom_tf.header;
-	poseMsg.pose.position.x = pose[0];
-	poseMsg.pose.position.y = pose[1];
-	poseMsg.pose.position.z = 0.0;
-	poseMsg.pose.orientation = quats;
-	pose_pub.publish(poseMsg);
+	this->_poseMsg.header.seq = _count;
+	this->_poseMsg.header.stamp = curTime;
+	this->_poseMsg.pose.position.x = pose[0];
+	this->_poseMsg.pose.position.y = pose[1];
+	this->_poseMsg.pose.orientation = quats;
+	this->pose_pub.publish(this->_poseMsg);
 
 	/** Update Robot's dead-reckoned odometry */
-	nav_msgs::Odometry odomMsg;
-	odomMsg.header = odom_tf.header;
-	odomMsg.child_frame_id = odom_tf.child_frame_id;
-
-	odomMsg.pose.pose = poseMsg.pose;
-	odomMsg.pose.covariance[0] = 0.01;
-	odomMsg.pose.covariance[7] = 0.01;
-	odomMsg.pose.covariance[14] = 99999;
-	odomMsg.pose.covariance[21] = 99999;
-	odomMsg.pose.covariance[28] = 99999;
-	odomMsg.pose.covariance[35] = 0.01;
-
-	odomMsg.twist.twist.linear.x = vels[0];
-	odomMsg.twist.twist.linear.y = 0.0;
-	odomMsg.twist.twist.angular.z = vels[1];
-	odomMsg.twist.covariance = odomMsg.pose.covariance;
-	odom_pub.publish(odomMsg);
-	this->_lock.unlock();
+	this->_odomMsg.header.seq = _count;
+	this->_odomMsg.header.stamp = curTime;
+	this->_odomMsg.pose.pose = this->_poseMsg.pose;
+	this->_odomMsg.twist.twist.linear.x = vels[0];
+	this->_odomMsg.twist.twist.angular.z = vels[1];
+	this->odom_pub.publish(this->_odomMsg);
 
 	if(this->_verbose){
 		printf("Motor Speeds (m/s):  %.3f | %.3f  | %.3f  | %.3f \r\n",spds[0],spds[1],spds[2],spds[3]);
@@ -227,7 +231,7 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 		printf("Δdistance, ΔYaw, ΔX, ΔY,: %.3f, %.3f, %.3f, %.3f\r\n",dOdom[0], dOdom[1],dOdom[2],dOdom[3]);
 		printf("Current Pose [X (m), Y (m), Yaw (rad)]: %.3f     |    %.3f   |       %.3f\r\n",pose[0],pose[1],pose[2]);
 		printf("Battery Voltages:     %.3f |    %.3f\r\n",voltages[0], voltages[1]);
-	     printf("Motor Currents:     %.3f |    %.3f |    %.3f |    %.3f\r\n",currents[0], currents[1], currents[2], currents[3]);
+		printf("Motor Currents:     %.3f |    %.3f |    %.3f |    %.3f\r\n",currents[0], currents[1], currents[2], currents[3]);
 		printf(" =========================================== \r\n");
 	}
 }
@@ -237,12 +241,8 @@ int DualClawSkidsteerDrivetrainInterface::run(bool verbose){
 	int curCount = 0;
      while(ros::ok()){
 		this->update();
-		if(curCount != this->_cmd_count){
-			this->claws->drive(this->_target_vel,this->_target_rot);
-			curCount = this->_cmd_count;
-		}
           ros::spinOnce();
-          _loop_rate->sleep();
+          this->_loop_rate->sleep();
      }
      return 0;
 }

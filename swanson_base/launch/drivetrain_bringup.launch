@@ -3,7 +3,7 @@
      <!-- Base Platform and Drivetrain Constants -->
      <arg name="maxVel"            default="2.0"/>
      <arg name="maxTurnRadius"     default="0.381"/>
-     <arg name="baseWidth"         default="0.219"/>
+     <arg name="baseWidth"         default="0.42"/>
      <arg name="wheelDiameter"     default="0.1905"/>
      <arg name="pulsesPerMeter"    default="9596"/>
      <arg name="enc_odom_frame"    default="odom"/>
@@ -16,12 +16,14 @@
 
      <arg name="left_serial_addr"  default="128"/>
      <arg name="right_serial_addr" default="129"/>
-     <!-- <arg name="left_serial_dev"   default="/dev/ttyACM0"/> -->
-     <!-- <arg name="right_serial_dev"  default="/dev/ttyACM1"/> -->
-     <arg name="left_serial_dev"   default="/dev/ttyACM2"/>
-     <arg name="right_serial_dev"  default="/dev/ttyACM3"/>
+     <arg name="left_serial_dev"   default="/dev/ttyClawLeft"/>
+     <arg name="right_serial_dev"  default="/dev/ttyClawRight"/>
 
-     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" clear_params="true" output="screen">
+     <arg name="gdb"                default="false"/>
+     <arg unless="$(arg gdb)" name="launch_args" default=""/>
+     <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
+
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" clear_params="true" output="screen" launch-prefix="$(arg launch_args)">
           <param name="verbose"                   value="$(arg verbose)"/>
           <param name="use_single_serial_device"  value="$(arg single_comm_dev)"/>
           <param name="serial_baud"               value="$(arg serial_baud)"/>

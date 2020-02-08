@@ -4,9 +4,9 @@
      <arg name="single_drivetrain_comm" default="false"/>
      <arg name="drivetrain_baud"        default="115200"/>
      <arg name="drivetrain_left_addr"   default="128"/>
-     <arg name="drivetrain_left_dev"    default="/dev/ttyACM1"/>
+     <arg name="drivetrain_left_dev"    default="/dev/ttyClawLeft"/>
      <arg name="drivetrain_right_addr"  default="129"/>
-     <arg name="drivetrain_right_dev"   default="/dev/ttyACM0"/>
+     <arg name="drivetrain_right_dev"   default="/dev/ttyClawRight"/>
 
      <arg name="verbose_drivetrain"     default="true"/>
      <arg name="maxVel"                 default="2.0"/>

@@ -20,8 +20,8 @@
      <arg name="max_obstacle_height" default="0.5"/>
      <arg name="update_rate"       default="5"/>
 
-     <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
      <arg unless="$(arg gdb)" name="launch_args" default=""/>
+     <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
 
      <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen" launch-prefix="$(arg launch_args)">
           <param name="verbose_obstacles"     value="$(arg verbose_obstacles)"/>

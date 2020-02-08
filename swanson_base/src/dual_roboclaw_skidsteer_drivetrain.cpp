@@ -3,8 +3,7 @@
 
 using namespace std;
 
-/** SECTION:
-     CONSTRUCTOR & DECONSTRUCTOR
+/** SECTION: Constructors / Deconstructors
 */
 DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh){
      // Declare constants
@@ -12,6 +11,8 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	_cmd_count = 0;
 	_target_vel = 0.0;
      _target_rot = 0.0;
+	_was_cmd_dir_flipped = false;
+	_was_odom_dir_flipped = false;
 	_ns = m_nh.getNamespace();
 
 	/** Robot Hardware Interface */
@@ -39,6 +40,11 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	p_nh.getParam("qpps_per_meter",qpps_per_meter);
 	p_nh.getParam("wheel_diameter",wheel_diameter);
 	p_nh.getParam("max_turn_radius",max_turn_radius);
+	this->_max_speed = max_speed;
+	this->_base_width = base_width;
+	this->_wheel_diameter = wheel_diameter;
+	this->_max_turn_radius = max_turn_radius;
+	this->_qpps_per_meter = qpps_per_meter;
 
 	/** ROS Topic Config */
 	std::string cmd_vel_topic = "cmd_vel";
@@ -101,6 +107,7 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	this->claws->set_base_width(base_width);
 	this->claws->set_qpps_per_meter(qpps_per_meter);
 	this->claws->set_wheel_diameter(wheel_diameter);
+	// this->claws->set_max_turn_radius(max_turn_radius);
 
 	/** Pre-initialize ROS messages */
 	this->_odom_tf.header.frame_id = this->_tf_odom;
@@ -125,12 +132,13 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 	data_pub = m_nh.advertise<swanson_msgs::DualClawInfo>(data_topic, 1);
 	pose_pub = m_nh.advertise<geometry_msgs::PoseStamped>(pose_topic, 1);
 	odom_pub = m_nh.advertise<nav_msgs::Odometry>(odom_topic, 1);
+
 	_reset_enc = m_nh.advertiseService("reset_odom", &DualClawSkidsteerDrivetrainInterface::reset_odometry, this);
-	this->claws->reset_encoders();
+	this->_cfg_f = boost::bind(&DualClawSkidsteerDrivetrainInterface::cfgCallback, this, _1, _2);
+	this->_cfg_server.setCallback(this->_cfg_f);
 
 	_loop_rate = new ros::Rate(update_rate);
 }
-
 DualClawSkidsteerDrivetrainInterface::~DualClawSkidsteerDrivetrainInterface(){
 	printf("[INFO] Shutting Down DualClawSkidsteerDrivetrainInterface...\r\n");
 	delete this->claws;
@@ -139,6 +147,70 @@ DualClawSkidsteerDrivetrainInterface::~DualClawSkidsteerDrivetrainInterface(){
 	pigpio_stop(this->pi);
 }
 
+/** SECTION: ROS Callbacks
+*
+*/
+bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
+	ROS_DEBUG("Resetting Encoders");
+	this->claws->reset_odometry();
+	return true;
+}
+void DualClawSkidsteerDrivetrainInterface::cfgCallback(swanson_base::DrivetrainConfig &config, uint32_t level){
+	int cmd_dir = 1, odom_dir = 1;
+	/** Flip the commanded angular direction only if previously flipped */
+	if(config.flip_cmd_turn_direction){
+		cmd_dir = -1;
+		this->claws->set_command_turn_direction(cmd_dir);
+		this->_was_cmd_dir_flipped = true;
+	} else{
+		if(this->_was_cmd_dir_flipped){
+			cmd_dir = 1;
+			this->claws->set_command_turn_direction(cmd_dir);
+			this->_was_cmd_dir_flipped = false;
+		}
+	}
+
+	/** Flip the sensed angular direction only if previously flipped */
+	if(config.flip_sensed_turn_direction){
+		odom_dir = -1;
+		this->claws->set_odom_turn_direction(odom_dir);
+		this->_was_odom_dir_flipped = true;
+	} else{
+		if(this->_was_odom_dir_flipped){
+			odom_dir = 1;
+			this->claws->set_odom_turn_direction(odom_dir);
+			this->_was_odom_dir_flipped = false;
+		}
+	}
+
+	/** Update Variables only if they are different from current settings */
+	if(config.max_speed != this->_max_speed){
+		this->claws->set_max_speed(config.max_speed);
+		this->_max_speed = config.max_speed;
+	}
+	if(config.base_width != this->_base_width){
+		this->claws->set_base_width(config.base_width);
+		this->_base_width = config.base_width;
+	}
+	if(config.wheel_diameter != this->_wheel_diameter){
+		this->claws->set_wheel_diameter(config.wheel_diameter);
+		this->_wheel_diameter = config.wheel_diameter;
+	}
+	if(config.max_turn_radius != this->_max_turn_radius){
+		// this->claws->set_max_turn_radius(config.max_turn_radius);
+		this->_max_turn_radius = config.max_turn_radius;
+	}
+	if(config.qpps_per_meter != this->_qpps_per_meter){
+		this->claws->set_qpps_per_meter(config.qpps_per_meter);
+		this->_qpps_per_meter = config.qpps_per_meter;
+	}
+
+	ROS_DEBUG("Reconfigure Request: \r\n\tMax Vel = %.3f \r\n\tBaseWidth = %.3f \r\n\tWheel Diameter = %.3f \r\n\tMax Turn Radius = %.3f \r\n\tQPPS/m = %d \r\n\tCmd Dir = %d \r\n\tSensed Dir = %d",
+               config.max_speed, config.base_width,
+               config.wheel_diameter, config.max_turn_radius,
+               config.qpps_per_meter, cmd_dir, odom_dir
+	);
+}
 void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twist::ConstPtr& msg, const int topic_index){
 	std::lock_guard<std::mutex> lock(this->_lock);
 	float target_v = msg->linear.x;
@@ -146,17 +218,16 @@ void DualClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs::Twis
 	this->claws->drive(target_v,target_w);
 	this->_cmd_count++;
 }
-bool DualClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
-	ROS_DEBUG("Resetting Encoders");
-	this->claws->reset_encoders();
-	return true;
-}
 
+/** SECTION: Exection Functions
+*
+*/
 void DualClawSkidsteerDrivetrainInterface::update(){
 	_count++;
 	ros::Time curTime = ros::Time::now();
 
 	this->_lock.lock();
+	this->claws->update_status();
 	this->claws->update_odometry();
 	float ppm = this->claws->get_qpps_per_meter();
 	float wheelbase = this->claws->get_base_width();
@@ -167,7 +238,6 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 	vector<float> dOdom = this->claws->get_odom_deltas();
 	vector<float> pose = this->claws->get_pose();
 	vector<float> vels = this->claws->get_velocities();
-	this->claws->update_status(true);
 	vector<float> currents = this->claws->get_currents();
 	vector<float> voltages = this->claws->get_voltages();
 	this->_lock.unlock();
@@ -235,14 +305,13 @@ void DualClawSkidsteerDrivetrainInterface::update(){
 		printf(" =========================================== \r\n");
 	}
 }
-
 int DualClawSkidsteerDrivetrainInterface::run(bool verbose){
-     cout << "Looping..." << endl;
+	cout << "Looping..." << endl;
 	int curCount = 0;
-     while(ros::ok()){
+	while(ros::ok()){
 		this->update();
-          ros::spinOnce();
-          this->_loop_rate->sleep();
-     }
-     return 0;
+		ros::spinOnce();
+		this->_loop_rate->sleep();
+	}
+	return 0;
 }

@@ -4,9 +4,13 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <string>
+#include <vector>
+#include <bits/stdc++.h> // For memset
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/version.hpp>
+#include <RoboCommander/algorithms/vboats/vboats.h>
 
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
@@ -23,98 +27,59 @@
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 #include <tf/transform_broadcaster.h>
+#include <dynamic_reconfigure/server.h>
+
 #include <pcl_ros/point_cloud.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include <RoboCommander/algorithms/vboats/vboats.h>
+#include <swanson_algorithms/VboatsConfig.h>
 
 typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
 
 using namespace std;
 
+/** Templated struct for fast conversion of depth image into disparity */
 template<typename dtype>
 struct ForEachDepthConverter{
      dtype m_gain;
      ForEachDepthConverter(dtype gain){ m_gain = gain; }
 
-     void operator()(dtype& pixel, const int * idx) const {
+     void operator()(dtype& pixel, const int * idx) const{
           if(pixel != 0.0){ pixel = m_gain / pixel; }
      }
 };
 
-template<typename dtype>
+/** Templated structure for fast generation of object segmentation mask */
 struct ForEachObsMaskGenerator{
-     // std::vector< std::vector<int> > m_table;
-     cv::Mat m_table;
-     ForEachObsMaskGenerator(const cv::Mat& input_mask){
+     int ** m_table;
+     const size_t m_rows;
+     const size_t m_cols;
+     ForEachObsMaskGenerator(const cv::Mat& input_mask, int num_rows, int num_cols) : m_rows(num_rows), m_cols(num_cols){
           cv::Mat nonzero;
-          cv::Mat tmptable = cv::Mat::zeros(input_mask.rows, 256, CV_8UC1);
-          for(int v = 0; v < input_mask.rows; v++){
+          m_table = new int*[num_rows]();
+          for(int v = 0; v < num_rows; v++){
+               if(m_table[v]) delete[] m_table[v];
+               m_table[v] = new int[num_cols]();
+               memset(m_table[v], 0, num_cols*sizeof(int));
                cv::Mat refRow = input_mask.row(v);
                cv::findNonZero(refRow, nonzero);
-               // std::vector<int> tmpvec;
-               for(int i = 0; i < nonzero.total(); i++){
-                    int tmpx = nonzero.at<cv::Point>(i).x;
-                    tmptable.at<uchar>(v,tmpx) = 255;
-                    // tmpvec.push_back(tmpx);
+               for(int u = 0; u < nonzero.total(); ++u){
+                    int tmpx = nonzero.at<cv::Point>(u).x;
+                    m_table[v][tmpx] = 255;
                }
-               // m_table.push_back(tmpvec);
-          }
-          m_table = tmptable.clone();
-          if(!m_table.empty()){
-               cv::Mat display;
-               cv::applyColorMap(m_table, display, cv::COLORMAP_JET);
-               cv::imshow("m_table", display);
-               cv::waitKey(0);
           }
      }
-     void operator()(dtype& pixel, const int * position) const {
-          // int r = 0, c = 0;             // Counters
-          // int n = position[0];          // Target Row
-          // dtype setVal = 0;             // Default pixel value to set to
-          // int curPixel = (int) pixel;   // Current Pixel value
-          //
-          // for(std::vector< std::vector<int> >::const_iterator it = m_table.begin(); it != m_table.end(); ++it, r++){
-          //      if(r == n){
-          //           for(std::vector<int>::const_iterator jt = it->begin(); jt != it->end(); ++jt, c++){
-          //                if( curPixel == (*jt) ){
-          //                     setVal = (dtype) 255;
-          //                     break;
-          //                }
-          //           }
-          //      }
-          // }
-          // pixel = setVal;
-          const
-          pixel = (dtype) m_table.at<uchar>(position[0],pixel);
+     void remove(){
+          for(auto i = 0; i < m_rows; i++){
+               if(m_table[i]) delete[] m_table[i];
+               m_table[i] = nullptr;
+          }
+          if(m_table) delete[] m_table;
+          m_table = nullptr;
      }
-};
 
-template<typename dtype>
-struct ForEachPclOperator{
-     float m_scale;
-     float m_fx;
-     float m_fy;
-     float m_px;
-     float m_py;
-     cloudxyz_t::Ptr m_cloud;
-     ForEachPclOperator(float dscale, float px, float py, float fx, float fy){
-          m_scale = dscale;
-          m_px = px;
-          m_py = py;
-          m_fx = fx;
-          m_fy = fy;
-          m_cloud.reset(new cloudxyz_t);
-     }
-     void operator()(dtype& pixel, const int * idx) const {
-          float tmpVal = (float)pixel * m_scale;
-          if(tmpVal > 0.0){
-               pcl::PointXYZ pt;
-               pt.x = ((float)idx[0] - m_px) * tmpVal / m_fx;
-               pt.y = ((float)idx[1] - m_py) * tmpVal / m_fy;
-               pt.z = tmpVal;
-               m_cloud->points.push_back(pt);
-          }
+     void operator()(uchar& pixel, const int * position) const {
+          if((position[0] < m_rows) && (pixel < m_cols)){ pixel = (uchar) m_table[position[0]][pixel]; }
      }
 };
 
@@ -123,11 +88,7 @@ private:
      /** ROS Objects */
      ros::NodeHandle m_nh;
      ros::NodeHandle p_nh;
-     tf::TransformBroadcaster _br;
-     image_transport::ImageTransport _it;
      ros::Rate* _loop_rate;
-     int _update_rate;
-
      ros::Subscriber _depth_sub;
      ros::Subscriber _cam_info_sub;
      ros::Subscriber _disparity_sub;
@@ -138,6 +99,11 @@ private:
      ros::Publisher _detected_obstacle_info_pub;
      ros::Publisher _cloud_pub;
      ros::Publisher _filtered_cloud_pub;
+     tf::TransformBroadcaster _br;
+
+     image_transport::ImageTransport _it;
+     dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig> _cfg_server;
+     dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig>::CallbackType _cfg_f;
 
      /** ROS topics and tf frames */
      std::string _ns;
@@ -174,7 +140,6 @@ private:
      bool _publish_images;
      bool _publish_aux_images;
      bool _visualize_images;
-     bool _use_gnd_meth;
      bool _recvd_cam_info;
      bool _recvd_image;
      bool _flag_depth_based;
@@ -184,6 +149,9 @@ private:
      bool _flag_pub_cloud;
      bool _flag_pub_filtered_cloud;
      /** Configurable Parameters */
+     bool _use_gnd_meth;
+     int _contourFiltMeth;
+     float _contourFiltMinThresh;
      float _max_obstacle_height;
      float _min_obstacle_height;
      float _max_obstacle_range;
@@ -195,10 +163,13 @@ private:
      int _gnd_lower_offset;
      int _sor_min_neighbors;
      float _sor_dist_thresh;
+     vector<float> _uThreshs;
+     vector<float> _vThreshs;
      /** Multi-threading objects */
      std::mutex _lock;
 
      /** ROS Subscriber Callbacks */
+     void cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level);
      void infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value);
      void depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
      void disparityCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
@@ -214,7 +185,7 @@ public:
      void publish_obstacle_image(cv::Mat image);
      void publish_obstacle_data(vector<Obstacle>& obstacles, const cv::Mat& dImage);
 
-     void generate_pointcloud(const cv::Mat& depth);
+     void generate_pointcloud(cv::Mat& depth);
      int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params, cv::Mat* filtered_img);
      int remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, const cv::Mat& depth, const vector<vector<cv::Point>>& contours, float* line_params, cv::Mat* filtered_img);
 

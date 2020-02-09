@@ -15,6 +15,7 @@ set( ROS_CXX_DEPENDENCIES
      message_generation
      swanson_msgs
      pcl_ros
+     dynamic_reconfigure
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
@@ -57,6 +58,10 @@ link_directories(
      ${PCL_LIBRARIES}
 )
 
+generate_dynamic_reconfigure_options(
+     cfg/Vboats.cfg
+)
+
 catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_algorithms
@@ -73,7 +78,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 
 add_library(vboatsRos src/vboats_ros.cpp)
 target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES} ${OpenCV_LIBS})
-add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_ros_node src/vboats_ros_node.cpp)
 target_link_libraries(vboats_ros_node vboatsRos)

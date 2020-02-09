@@ -1,8 +1,10 @@
 #include <iostream>
 #include "swanson_algorithms/vboats_ros.h"
 
-#include <RoboCommander/algorithms/vboats/uvmap_utils.h>
+#include <RoboCommander/utilities/utils.h>
+#include <RoboCommander/utilities/image_utils.h>
 #include <RoboCommander/utilities/cv_utils.h>
+#include <RoboCommander/algorithms/vboats/uvmap_utils.h>
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 
@@ -60,7 +62,6 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_publish_images = flag_publish_imgs;
      this->_publish_aux_images = publish_aux_images;
      this->_visualize_images = visualize_imgs;
-     this->_update_rate = update_rate;
      this->_use_gnd_meth = gnd_method;
      this->_flag_depth_based = !disparity_based;
      this->_detect_obstacles = flag_detect_obstacles;
@@ -104,6 +105,10 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_gnd_lower_offset = gnd_buffer_lower_offset;
      this->_sor_min_neighbors = sor_mink;
      this->_sor_dist_thresh = sor_thresh;
+     this->_contourFiltMeth = 1;
+     this->_contourFiltMinThresh = 50.0;
+     this->_uThreshs = {0.3,0.295,0.275,0.3};
+     this->_vThreshs = {0.3, 0.3,0.25,0.4};
 
      /** ROS Object Configuration */
      std::string depth_image_topic = this->_ns + "/camera/depth/image_rect_raw";
@@ -168,6 +173,9 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->vb = new VBOATS();
 
      printf("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!\r\n");
+     this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
+     this->_cfg_server.setCallback(this->_cfg_f);
+
      this->_loop_rate = new ros::Rate(update_rate);
 }
 VboatsRos::~VboatsRos(){
@@ -178,6 +186,75 @@ VboatsRos::~VboatsRos(){
 /** SECTION:
      ROS CALLBACKS
 */
+void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level){
+     std::lock_guard<std::mutex> lock(_lock);
+     /** Update Variables only if they are different from current settings */
+     if(config.gnd_seg_method != this->_use_gnd_meth){
+          this->_use_gnd_meth = config.gnd_seg_method;
+     }
+     if(config.filter_gnd != this->_filter_ground){
+          this->_filter_ground = config.filter_gnd;
+     }
+     if(config.visualize_debug_imgs != this->_visualize_images){
+          this->_visualize_images = config.visualize_debug_imgs;
+     }
+     if(config.contourFiltMeth != this->_contourFiltMeth){
+          this->_contourFiltMeth = config.contourFiltMeth;
+     }
+     if(config.contourFiltMinThresh != this->_contourFiltMinThresh){
+          this->_contourFiltMinThresh = config.contourFiltMinThresh;
+     }
+     if(config.max_obstacle_height != this->_max_obstacle_height){
+          this->_max_obstacle_height = config.max_obstacle_height;
+     }
+     if(config.min_obstacle_height != this->_min_obstacle_height){
+          this->_min_obstacle_height = config.min_obstacle_height;
+     }
+     if(config.max_obstacle_range != this->_max_obstacle_range){
+          this->_max_obstacle_range = config.max_obstacle_range;
+     }
+     if(config.min_obstacle_range != this->_min_obstacle_range){
+          this->_min_obstacle_range = config.min_obstacle_range;
+     }
+     if(config.voxel_res_x != this->_voxel_res_x){
+          this->_voxel_res_x = config.voxel_res_x;
+     }
+     if(config.voxel_res_y != this->_voxel_res_y){
+          this->_voxel_res_y = config.voxel_res_y;
+     }
+     if(config.voxel_res_z != this->_voxel_res_z){
+          this->_voxel_res_z = config.voxel_res_z;
+     }
+     if(config.gnd_upper_offset != this->_gnd_upper_offset){
+          this->_gnd_upper_offset = config.gnd_upper_offset;
+     }
+     if(config.gnd_lower_offset != this->_gnd_lower_offset){
+          this->_gnd_lower_offset = config.gnd_lower_offset;
+     }
+     if(config.sor_min_neighbors != this->_sor_min_neighbors){
+          this->_sor_min_neighbors = config.sor_min_neighbors;
+     }
+     if(config.sor_dist_thresh != this->_sor_dist_thresh){
+          this->_sor_dist_thresh = config.sor_dist_thresh;
+     }
+
+     vector<float> uthreshs = extractFloatStringList(config.uThreshsStr, ",");
+     vector<float> vthreshs = extractFloatStringList(config.vThreshsStr, ",");
+     this->_uThreshs.assign(uthreshs.begin(), uthreshs.end());
+     this->_vThreshs.assign(vthreshs.begin(), vthreshs.end());
+
+     ROS_INFO("Reconfigure Request:");
+     ROS_INFO("\t Using Ground Line-based object segmentation = %s", this->_use_gnd_meth?"True":"False");
+     ROS_INFO("\t Contour Filter Method = %d", this->_contourFiltMeth);
+     ROS_INFO("\t Contour Min Thresh = %.3f", this->_contourFiltMinThresh);
+     ROS_INFO("\t Cloud Height Limits = %.4f, %.4f", this->_max_obstacle_height, this->_min_obstacle_height);
+     ROS_INFO("\t Cloud Range Limits = %.4f, %.4f", this->_min_obstacle_height, this->_max_obstacle_range);
+     ROS_INFO("\t Cloud Voxel Resolution (X,Y,Z) = %.4f, %.4f, %.4f", this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
+     ROS_INFO("\t Ground Line Offsets (upper, lower) = %d, %d", this->_gnd_upper_offset, this->_gnd_lower_offset);
+     ROS_INFO("\t Cloud Filtering-> Keeping points having at least %d neighbors w/in %.4f meters", this->_sor_min_neighbors, this->_sor_dist_thresh);
+     ROS_INFO("\t Umap Thresholds = ["); for(float tmp : this->_uThreshs){ printf(" %.4f", tmp); } printf(" ]\r\n");
+     ROS_INFO("\t Vmap Thresholds = ["); for(float tmp : this->_vThreshs){ printf(" %.4f", tmp); } printf(" ]\r\n");
+}
 void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){
      if(this->_info_count < value){
           this->_fx = msg->K[0];
@@ -331,43 +408,53 @@ void VboatsRos::depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, flo
      } else _disparity8 = _disparity;
      if(disparity) *disparity = _disparity8.clone();
 }
-void VboatsRos::generate_pointcloud(const cv::Mat& depth){
-     cloudxyz_t::Ptr pointcloud_msg (new cloudxyz_t);
-     pointcloud_msg->header.seq = this->_count;
-     pointcloud_msg->header.frame_id = this->_camera_tf;
-     double t = (double)cv::getTickCount();
+void VboatsRos::generate_pointcloud(cv::Mat& depth){
+     // cloudxyz_t::Ptr pointcloud_msg (new cloudxyz_t);
+     // pointcloud_msg->header.seq = this->_count;
+     // pointcloud_msg->header.frame_id = this->_camera_tf;
+     // pcl::PointXYZ pt;
+     // double testT0 = (double)cv::getTickCount();
+     // for(int y = 0; y < depth.rows; y+=4){
+     //      for(int x = 0; x < depth.cols; x+=4){
+     //           float depthVal = (float) depth.at<short int>(cv::Point(x,y)) * this->_dscale;
+     //           if(depthVal > 0){
+     //                pt.x = ((float)x - this->_px) * depthVal / this->_fx;
+     //                pt.y = ((float)y - this->_py) * depthVal / this->_fy;
+     //                pt.z = depthVal;
+     //                pointcloud_msg->points.push_back(pt);
+     //           }
+     //      }
+     // }
+     // pointcloud_msg->height = 1;
+     // pointcloud_msg->width = pointcloud_msg->points.size();
+     // double testDt0 = ((double)cv::getTickCount() - testT0)/cv::getTickFrequency();
+     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Naive = %.4lf ms (%.2lf Hz)\r\n", testDt0*1000.0, (1.0/testDt0));
+
+     cloudxyz_t::Ptr test_cloud(new cloudxyz_t);
+     test_cloud->header.seq = this->_count;
+     test_cloud->header.frame_id = this->_camera_tf;
+     short int* ptrP;
      pcl::PointXYZ pt;
+     double testT1 = (double)cv::getTickCount();
      for(int y = 0; y < depth.rows; y+=4){
+          ptrP = depth.ptr<short int>(y);
           for(int x = 0; x < depth.cols; x+=4){
-               float depthVal = (float) depth.at<short int>(cv::Point(x,y)) * this->_dscale;
-               try{
-                    if(depthVal > 0){
-                         pt.x = ((float)x - this->_px) * depthVal / this->_fx;
-                         pt.y = ((float)y - this->_py) * depthVal / this->_fy;
-                         pt.z = depthVal;
-                         pointcloud_msg->points.push_back(pt);
-                    }
-               } catch(std::logic_error e){
-                    printf("[ERROR] VboatsRos::generate_pointcloud() --- depthval = %.4f | x,y vals = %.4f, %.4f | px, py = %.4f, %.4f | fx, fy = %.4f, %.4f\r\n", depthVal,(float)x,(float)y,this->_px,this->_py,this->_fx,this->_fy);
-                    std::cerr << e.what() << std::endl;
+               float depthVal = (float) ptrP[x] * this->_dscale;
+               if(depthVal > 0){
+                    pt.x = ((float)x - this->_px) * depthVal / this->_fx;
+                    pt.y = ((float)y - this->_py) * depthVal / this->_fy;
+                    pt.z = depthVal;
+                    test_cloud->points.push_back(pt);
                }
           }
      }
-     pointcloud_msg->height = 1;
-     pointcloud_msg->width = pointcloud_msg->points.size();
-     if(this->_flag_pub_cloud) this->_cloud_pub.publish(pointcloud_msg);
-
-     /** Experimental:
-     cloudxyz_t::Ptr test_cloud (new cloudxyz_t);
-     ForEachPclOperator<short int> initializer(this->_dscale, this->_px, this->_py, this->_fx, this->_fy);
-     depth.forEach<short int>(initializer);
-     copyPointCloud(*initializer.m_cloud, *test_cloud);
-     test_cloud->header.seq = this->_count;
-     test_cloud->header.frame_id = this->_camera_tf;
      test_cloud->height = 1;
      test_cloud->width = test_cloud->points.size();
-     printf("[INFO] VboatsRos::generate_pointcloud() --- pointcloud_msg size = %d, test_cloud size = %d\r\n", pointcloud_msg->points.size(), test_cloud->points.size());
-     */
+     double testDt1 = ((double)cv::getTickCount() - testT1)/cv::getTickFrequency();
+     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Pointer = %.4lf ms (%.2lf Hz)\r\n", testDt1*1000.0, (1.0/testDt1));
+
+
+     if(this->_flag_pub_cloud) this->_cloud_pub.publish(test_cloud);
 
      if(this->_filter_cloud){
           cloudxyz_t::Ptr cloud_filtered(new cloudxyz_t);
@@ -379,7 +466,7 @@ void VboatsRos::generate_pointcloud(const cv::Mat& depth){
           range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::LT, this->_max_obstacle_range)));
 
           pcl::ConditionalRemoval<pcl::PointXYZ> range_filt;
-          range_filt.setInputCloud(pointcloud_msg);
+          range_filt.setInputCloud(test_cloud);
           range_filt.setCondition(range_cond);
           range_filt.filter(*cloud_filtered);
 
@@ -471,6 +558,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           printf("[WARNING] VboatsRos::remove_objects() --- Depth Image is empty, skipping object removal.\r\n");
           return -1;
      }
+     int err = 0;
      cv::Mat disparityImg = disparity.clone();
      cv::Mat depthMask = cv::Mat::zeros(disparity.size(), CV_8UC1);
 
@@ -479,9 +567,10 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
      cv::Mat refImg = vmap.clone();
      cv::Mat vmask = cv::Mat::zeros(h,w, CV_8UC1);
 
-     bool debug_viz = false;
      cv::Mat roiDisplay;
-     if(debug_viz){
+     bool debug_viz = true;
+     bool debug_timing = false;
+     if(this->_visualize_images){
           if(refImg.channels() < 3) cv::cvtColor(refImg, roiDisplay, cv::COLOR_GRAY2BGR);
           else roiDisplay = refImg.clone();
      }
@@ -502,6 +591,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
      /** Initialize storage variables */
      int dmin, dmid, dmax;
      vector<int> xLims, dLims;
+     vector<cv::Mat> imgVec;
      for(int i = 0; i < contours.size(); i++){
           vector<cv::Point> contour = contours[i];
           this->vb->extract_contour_bounds(contour,&xLims, &dLims);
@@ -517,80 +607,101 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           cv::Mat roi = refImg(roiRect);
           roi.copyTo(vmask(roiRect));
 
-          if(debug_viz) cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1);
-     }
-     if(debug_viz){
-          if(!vmask.empty()){
-               cv::Mat display;
-               cv::applyColorMap(vmask, display, cv::COLORMAP_JET);
-               cv::imshow("Vmask", display);
+          if(this->_visualize_images){
+               imgVec.push_back(roi);
+               cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1);
           }
-          cv::imshow("ROI's ", roiDisplay);
-          cv::waitKey(0);
      }
 
-     // cv::Mat nonzero;
-     // for(int r = 0; r < disparityImg.rows; r++){
-     //      cv::Mat refRow = vmask.row(r);
-     //      cv::findNonZero(refRow, nonzero);
-     //      for(int c = 0; c < disparityImg.cols; c++){
-     //           for(int idx = 0; idx < nonzero.total(); idx++){
-     //                if(disparityImg.at<uchar>(r, c) == nonzero.at<cv::Point>(idx).x){
-     //                     depthMask.at<uchar>(r,c) = 255;
-     //                     break;
-     //                }
-     //           }
-     //      }
-     // }
-
-     /** Experimental:
+     /** Naive Mask Generation: (DEPRECATED)
+     double testT0 = (double)cv::getTickCount();
+     cv::Mat nonzero;
+     for(int r = 0; r < disparityImg.rows; r++){
+          cv::Mat refRow = vmask.row(r);
+          cv::findNonZero(refRow, nonzero);
+          for(int c = 0; c < disparityImg.cols; c++){
+               for(int idx = 0; idx < nonzero.total(); idx++){
+                    if(disparityImg.at<uchar>(r, c) == nonzero.at<cv::Point>(idx).x){
+                         depthMask.at<uchar>(r,c) = 255;
+                         break;
+                    }
+               }
+          }
+     }
+     double testDt0 = ((double)cv::getTickCount() - testT0)/cv::getTickFrequency();
+     printf("[INFO] VboatsRos::remove_objects(): Segmentation mask generation Time: Naive = %.4lf ms (%.2lf Hz)\r\n", testDt0*1000.0, (1.0/testDt0));
      */
-     ForEachObsMaskGenerator<uchar> masker(vmask);
+
+     double testT1 = (double)cv::getTickCount();
+     ForEachObsMaskGenerator masker(vmask, h, 256);
      cv::Mat dMask = disparityImg.clone();
      dMask.forEach<uchar>(masker);
+     if(debug_timing){
+          double testDt1 = ((double)cv::getTickCount() - testT1)/cv::getTickFrequency();
+          printf("[INFO] VboatsRos::remove_objects(): Segmentation mask generation Time: ForEach = %.4lf ms (%.2lf Hz)\r\n", testDt1*1000.0, (1.0/testDt1));
+     }
 
-     /** Experimental:
-     if(!disparityMask.empty()){
-          cv::Mat obsFilteredImg;
-          depthImg.copyTo(obsFilteredImg, disparityMask);
-          if(filtered_img) *filtered_img = obsFilteredImg.clone();
-     }*/
      if(!depthMask.empty()){
           cv::Mat obsFilteredImg;
           depthImg.copyTo(obsFilteredImg, dMask);
-          // depthImg.copyTo(obsFilteredImg, depthMask);
           if(filtered_img) *filtered_img = obsFilteredImg.clone();
-     }
-     else{
+
+          if(this->_visualize_images){
+               cv::Mat display;
+               if(!vmask.empty()){
+                    cv::applyColorMap(vmask, display, cv::COLORMAP_JET);
+                    cv::imshow("Vmask", display);
+               }
+               if(!obsFilteredImg.empty()){
+                    if(obsFilteredImg.type() != CV_8UC1){
+                         double minVal, maxVal;
+                         cv::minMaxLoc(obsFilteredImg, &minVal, &maxVal);
+                         obsFilteredImg.convertTo(display, CV_8UC1, (255.0/maxVal) );
+                    } else display = obsFilteredImg.clone();
+                    cv::applyColorMap(display, display, cv::COLORMAP_JET);
+                    cv::imshow("obsFilteredImg", display);
+               }
+               // int idx = 0;
+               // for(cv::Mat img : imgVec){
+               //      std::string tmpTitle = "Object ROI #" + std::to_string(idx);
+               //      imshowCmap(img, tmpTitle);
+               //      idx++;
+               // }
+               cv::imshow("ROI's ", roiDisplay);
+               // cv::waitKey(0);
+          }
+     } else{
           printf("[WARNING] VboatsRos::remove_objects() --- Object mask is empty, skipping object removal.\r\n");
-          return -2;
+          err = -2;
      }
-     return 0;
+     masker.remove();
+     return err;
 }
 
 int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles, const cv::Mat& depth){
      int nObs = 0;
      vector<Obstacle> _obstacles;
-     vector<float> vthreshs = {0.3, 0.3,0.25,0.4};
-     vector<float> uthreshs = {0.3,0.295,0.3,0.35};
-
+     this->_lock.lock();
+     vector<float> threshsU(this->_uThreshs);
+     vector<float> threshsV(this->_vThreshs);
+     this->_lock.unlock();
      /** Pre-filter Umap */
      cv::Mat uTmp, uProcessed;
      cv::cvtColor(umap, uTmp, cv::COLOR_GRAY2BGR);
      cv::rectangle(uTmp, cv::Point(0,0), cv::Point(umap.cols,3), cv::Scalar(0, 0, 0), -1);
      cv::cvtColor(uTmp, uTmp, cv::COLOR_BGR2GRAY);
      cv::boxFilter(uTmp,uTmp,-1, cv::Size(2,2));
-     this->vb->filter_disparity_umap(uTmp, &uProcessed, &uthreshs);
+     this->vb->filter_disparity_umap(uTmp, &uProcessed, &threshsU);
      /** Find contours in Umap needed later for obstacle filtering */
      vector<vector<cv::Point>> contours;
-     this->vb->find_contours(uProcessed, &contours, 1, 50, nullptr, -1, false, this->_visualize_images);
+     this->vb->find_contours(uProcessed, &contours, this->_contourFiltMeth, this->_contourFiltMinThresh, nullptr, -1, false, this->_visualize_images);
 
      /** Pre-filter Vmap: Approach 1 */
      cv::Mat vTmp, vProcessed;
      cv::cvtColor(vmap, vTmp, cv::COLOR_GRAY2BGR);
      cv::rectangle(vTmp, cv::Point(0,0), cv::Point(3,vmap.rows), cv::Scalar(0, 0, 0), -1);
      cv::cvtColor(vTmp, vTmp, cv::COLOR_BGR2GRAY);
-     // this->vb->filter_disparity_vmap(vTmp, &vProcessed, &vthreshs);
+     this->vb->filter_disparity_vmap(vTmp, &vProcessed, &threshsV);
 
      /** Pre-filter Vmap: Approach 2 - better highlight useful lines*/
      cv::Mat tmpSobel, sobelV;
@@ -671,6 +782,15 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
                }
           }
           this->publish_images(uDisplay, vDisplay, gndDisplay);
+     }
+
+     if(this->_visualize_images){
+          imshowCmap(uTmp, "uTmp");
+          imshowCmap(uProcessed, "uProcessed");
+          imshowCmap(vTmp, "vTmp");
+          imshowCmap(vProcessed, "vProcessed");
+          imshowCmap(sobelV, "sobelV");
+          cv::waitKey(1);
      }
 
      if(obstacles) *obstacles = _obstacles;

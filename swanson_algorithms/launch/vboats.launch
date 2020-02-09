@@ -4,7 +4,7 @@
      <arg name="verbose_timings"    default="false"/>
      <arg name="publish_images"     default="true"/>
      <arg name="publish_aux_images" default="true"/>
-     <arg name="show_images"        default="false"/>
+     <arg name="show_images"        default="true"/>
      <arg name="use_disparity"      default="false"/>
      <arg name="do_gnd_filtering"   default="false"/>
 
@@ -44,7 +44,7 @@
           <param name="voxel_resolution_x"        value="0.02"/>
           <param name="voxel_resolution_y"        value="0.075"/>
           <param name="voxel_resolution_z"        value="0.02"/>
-          <param name="gnd_upper_buffer_offset"   value="23"/>
+          <param name="gnd_upper_buffer_offset"   value="10"/>
           <param name="gnd_lower_buffer_offset"   value="25"/>
           <param name="sor_min_neighbors"         value="1"/>
           <param name="sor_dist_thresh"           value="0.075"/>

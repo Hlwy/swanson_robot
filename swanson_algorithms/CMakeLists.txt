@@ -4,6 +4,13 @@ project(swanson_algorithms)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 # set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS}")
 
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
+message(STATUS "MACHINE = ${MACHINE}")
+if(${MACHINE} MATCHES "arm-linux-gnueabihf")
+     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
+
 set( ROS_CXX_DEPENDENCIES
      rospy
      roscpp
@@ -20,7 +27,8 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(OpenCV REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
+find_package(OpenCV 4.1.1 REQUIRED)
+# find_package(OpenCV 4.1.1 REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
 find_package(realsense2 REQUIRED)
 
 # For proper linkage use:

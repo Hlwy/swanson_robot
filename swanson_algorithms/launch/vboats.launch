@@ -1,29 +1,28 @@
 <launch>
-     <arg name="gdb"                default="false"/>
-     <arg name="verbose_obstacles"  default="false"/>
-     <arg name="verbose_timings"    default="false"/>
-     <arg name="publish_images"     default="true"/>
-     <arg name="publish_aux_images" default="true"/>
-     <arg name="show_images"        default="true"/>
-     <arg name="use_disparity"      default="false"/>
-     <arg name="do_gnd_filtering"   default="false"/>
+     <arg name="verbose_obstacles"      default="false"/>
+     <arg name="verbose_timings"        default="false"/>
+     <arg name="publish_images"         default="true"/>
+     <arg name="publish_aux_images"     default="false"/>
+     <arg name="show_images"            default="false"/>
+     <arg name="use_disparity"          default="false"/>
 
-     <arg name="detect_obstacles"       default="false"/>
-     <arg name="filter_ground"          default="false"/>
+     <arg name="do_gnd_filtering"       default="false"/>
+     <arg name="filter_ground"          default="true"/>
      <arg name="publish_cloud"          default="true"/>
      <arg name="filtered_cloud"         default="true"/>
      <arg name="publish_filtered_cloud" default="true"/>
+     <arg name="detect_obstacles"       default="false"/>
 
-     <arg name="info_topic"        default="/hytx/camera/depth/camera_info"/>
-     <arg name="depth_topic"       default="/hytx/camera/depth/image_rect_raw"/>
-     <arg name="disparity_topic"   default="/hytx/camera/disparity/image_raw"/>
-     <arg name="max_obstacle_height" default="0.5"/>
-     <arg name="update_rate"       default="5"/>
+     <arg name="info_topic"             default="/hytx/camera/depth/camera_info"/>
+     <arg name="depth_topic"            default="/hytx/camera/depth/image_rect_raw"/>
+     <arg name="disparity_topic"        default="/hytx/camera/disparity/image_raw"/>
+     <arg name="update_rate"            default="5"/>
 
+     <arg name="gdb"          default="false"/>
      <arg unless="$(arg gdb)" name="launch_args" default=""/>
      <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
 
-     <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen" launch-prefix="$(arg launch_args)">
+     <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" clear_params="true" output="screen" launch-prefix="$(arg launch_args)">
           <param name="verbose_obstacles"     value="$(arg verbose_obstacles)"/>
           <param name="verbose_timings"       value="$(arg verbose_timings)"/>
           <param name="publish_images"        value="$(arg publish_images)"/>
@@ -37,7 +36,7 @@
           <param name="depth_image_topic"     value="$(arg depth_topic)"/>
           <param name="disparity_image_topic" value="$(arg disparity_topic)"/>
 
-          <param name="max_obstacle_height"       value="$(arg max_obstacle_height)"/>
+          <param name="max_obstacle_height"       value="0.5"/>
           <param name="min_obstacle_height"       value="1.0"/>
           <param name="max_obstacle_range"        value="10.0"/>
           <param name="min_obstacle_range"        value="0.1"/>

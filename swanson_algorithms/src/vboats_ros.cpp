@@ -18,6 +18,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      _count = 0;
      _img_count = 0;
      _info_count = 0;
+     _debug = false;
+     _verbose = false;
      _use_gnd_meth = true;
      _recvd_image = false;
      _recvd_cam_info = false;
@@ -109,6 +111,11 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_contourFiltMinThresh = 50.0;
      this->_uThreshs = {0.3,0.295,0.275,0.3};
      this->_vThreshs = {0.3, 0.3,0.25,0.4};
+     this->_use_custom_umap_filtering = false;
+     this->_custom_uThresh_perc = 0.25;
+     this->_vmap_sobel_thresh = 30;
+     this->_dilate_sobel_to_segmask = false;
+     this->_sobel_dilate_ksize = 3;
 
      /** ROS Object Configuration */
      std::string depth_image_topic = this->_ns + "/camera/depth/image_rect_raw";
@@ -136,15 +143,20 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsRos::infoCallback,this,_1,1));
      if(this->_flag_depth_based) this->_depth_sub = m_nh.subscribe<sensor_msgs::Image>(depth_image_topic, 30, boost::bind(&VboatsRos::depthCallback,this,_1,5));
      else this->_disparity_sub = m_nh.subscribe<sensor_msgs::Image>(disparity_image_topic, 30, boost::bind(&VboatsRos::disparityCallback,this,_1,5));
-     if(this->_publish_aux_images){
-          this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
-          this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
-     }
      this->_new_img_pub = m_nh.advertise<sensor_msgs::Image>(filtered_image_topic, 1);
      this->_obstacles_img_pub = m_nh.advertise<sensor_msgs::Image>(obstacles_image_topic, 1);
      this->_detected_obstacle_info_pub = m_nh.advertise<swanson_msgs::VboatsObstacles>(detected_obstacles_info_topic, 100);
-     if(this->_flag_pub_cloud) this->_cloud_pub = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
-     if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
+
+     this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
+     this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
+     this->_cloud_pub = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
+     this->_filtered_cloud_pub = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
+     // if(this->_flag_pub_cloud) this->_cloud_pub = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
+     // if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
+     // if(this->_publish_aux_images){
+     //      this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
+     //      this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
+     // }
 
      /** ROS tf frames Configuration */
      std::string tf_prefix = "/";
@@ -238,22 +250,49 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           this->_sor_dist_thresh = config.sor_dist_thresh;
      }
 
+     if(config.verbose != this->_verbose){ this->_verbose = config.verbose; }
+     if(config.debug != this->_debug){ this->_debug = config.debug; }
+     if(config.publish_aux_imgs != this->_publish_aux_images){ this->_publish_aux_images = config.publish_aux_imgs; }
+     if(config.publish_raw_cloud != this->_flag_pub_cloud){ this->_flag_pub_cloud = config.publish_raw_cloud; }
+     if(config.publish_filter_cloud != this->_flag_pub_filtered_cloud){ this->_flag_pub_filtered_cloud = config.publish_filter_cloud; }
+
+     if(config.vmask_subtract_sobel != this->_sobel_vmask_subtract){
+          this->_sobel_vmask_subtract = config.vmask_subtract_sobel;
+     }
+     if(config.use_custom_umap_filtering != this->_use_custom_umap_filtering){
+          this->_use_custom_umap_filtering = config.use_custom_umap_filtering;
+     }
+     if(config.umap_custom_thresh_perc != this->_custom_uThresh_perc){
+          this->_custom_uThresh_perc = config.umap_custom_thresh_perc;
+     }
+     if(config.vmap_sobel_thresh != this->_vmap_sobel_thresh){
+          this->_vmap_sobel_thresh = config.vmap_sobel_thresh;
+     }
+     if(config.vmask_dilate_sobel != this->_dilate_sobel_to_segmask){
+          this->_dilate_sobel_to_segmask = config.vmask_dilate_sobel;
+     }
+     if(config.vmask_sobel_dilate_sz != this->_sobel_dilate_ksize){
+          this->_sobel_dilate_ksize = config.vmask_sobel_dilate_sz;
+     }
+
      vector<float> uthreshs = extractFloatStringList(config.uThreshsStr, ",");
      vector<float> vthreshs = extractFloatStringList(config.vThreshsStr, ",");
      this->_uThreshs.assign(uthreshs.begin(), uthreshs.end());
      this->_vThreshs.assign(vthreshs.begin(), vthreshs.end());
 
-     ROS_INFO("Reconfigure Request:");
-     ROS_INFO("\t Using Ground Line-based object segmentation = %s", this->_use_gnd_meth?"True":"False");
-     ROS_INFO("\t Contour Filter Method = %d", this->_contourFiltMeth);
-     ROS_INFO("\t Contour Min Thresh = %.3f", this->_contourFiltMinThresh);
-     ROS_INFO("\t Cloud Height Limits = %.4f, %.4f", this->_max_obstacle_height, this->_min_obstacle_height);
-     ROS_INFO("\t Cloud Range Limits = %.4f, %.4f", this->_min_obstacle_height, this->_max_obstacle_range);
-     ROS_INFO("\t Cloud Voxel Resolution (X,Y,Z) = %.4f, %.4f, %.4f", this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
-     ROS_INFO("\t Ground Line Offsets (upper, lower) = %d, %d", this->_gnd_upper_offset, this->_gnd_lower_offset);
-     ROS_INFO("\t Cloud Filtering-> Keeping points having at least %d neighbors w/in %.4f meters", this->_sor_min_neighbors, this->_sor_dist_thresh);
-     ROS_INFO("\t Umap Thresholds = ["); for(float tmp : this->_uThreshs){ printf(" %.4f", tmp); } printf(" ]\r\n");
-     ROS_INFO("\t Vmap Thresholds = ["); for(float tmp : this->_vThreshs){ printf(" %.4f", tmp); } printf(" ]\r\n");
+     if(this->_verbose){
+          ROS_INFO("Reconfigure Request:");
+          ROS_INFO(" -- Using Ground Line-based object segmentation = %s", this->_use_gnd_meth?"True":"False");
+          ROS_INFO(" -- Contour Filter Method = %d", this->_contourFiltMeth);
+          ROS_INFO(" -- Contour Min Thresh = %.3f", this->_contourFiltMinThresh);
+          ROS_INFO(" -- Cloud Height Limits = %.4f, %.4f", this->_max_obstacle_height, this->_min_obstacle_height);
+          ROS_INFO(" -- Cloud Range Limits = %.4f, %.4f", this->_min_obstacle_height, this->_max_obstacle_range);
+          ROS_INFO(" -- Cloud Voxel Resolution (X,Y,Z) = %.4f, %.4f, %.4f", this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
+          ROS_INFO(" -- Ground Line Offsets (upper, lower) = %d, %d", this->_gnd_upper_offset, this->_gnd_lower_offset);
+          ROS_INFO(" -- Cloud Filtering-> Keeping points having at least %d neighbors w/in %.4f meters", this->_sor_min_neighbors, this->_sor_dist_thresh);
+          ROS_INFO(" -- Umap Thresholds = [%s]", vector_str(this->_uThreshs, ", ").c_str() );
+          ROS_INFO(" -- Vmap Thresholds = [%s]", vector_str(this->_vThreshs, ", ").c_str());
+     }
 }
 void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){
      if(this->_info_count < value){
@@ -558,6 +597,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           printf("[WARNING] VboatsRos::remove_objects() --- Depth Image is empty, skipping object removal.\r\n");
           return -1;
      }
+     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Initializing key variables.\r\n");
      int err = 0;
      cv::Mat disparityImg = disparity.clone();
      cv::Mat depthMask = cv::Mat::zeros(disparity.size(), CV_8UC1);
@@ -586,12 +626,12 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           slope = 0.0;
           b = yf;
      }
-     // printf("[INFO] VboatsRos::remove_objects() --- Using linear coefficients: slope = %.2f, intercept = %d\r\n", slope, b);
+     if(this->_verbose) printf("[INFO] VboatsRos::remove_objects() --- Using linear coefficients: slope = %.2f, intercept = %d\r\n", slope, b);
 
      /** Initialize storage variables */
+     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Beginning contour loop process.\r\n");
      int dmin, dmid, dmax;
      vector<int> xLims, dLims;
-     vector<cv::Mat> imgVec;
      for(int i = 0; i < contours.size(); i++){
           vector<cv::Point> contour = contours[i];
           this->vb->extract_contour_bounds(contour,&xLims, &dLims);
@@ -600,17 +640,15 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
           dmid = (int)( (float)(dmin + dmax) / 2.0 );
           yf = (int)( (float)dmid * slope) + b - this->_gnd_upper_offset;
           if(yf >= h) yf = h;
-          // printf("[INFO] VboatsRos::remove_objects() --- Contour[%d]: dmin, dmid, dmax = (%d, %d, %d) |  ROI Rect = (%d, %d) -> (%d, %d)\r\n", i, dmin, dmid, dmax, dmin,y0, dmax,yf);
+          else if(yf < 0) yf = 0;
+          if(this->_debug) printf("[INFO] VboatsRos::remove_objects() ------ Contour[%d]: dmin, dmid, dmax = (%d, %d, %d) |  ROI Rect = (%d, %d) -> (%d, %d)\r\n", i, dmin, dmid, dmax, dmin,y0, dmax,yf);
 
           /** Extract ROI containing current contour data from vmap for processing */
           cv::Rect roiRect = cv::Rect( cv::Point(dmin,y0), cv::Point(dmax,yf) );
           cv::Mat roi = refImg(roiRect);
           roi.copyTo(vmask(roiRect));
 
-          if(this->_visualize_images){
-               imgVec.push_back(roi);
-               cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1);
-          }
+          if(this->_visualize_images){ cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1); }
      }
 
      /** Naive Mask Generation: (DEPRECATED)
@@ -632,6 +670,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
      printf("[INFO] VboatsRos::remove_objects(): Segmentation mask generation Time: Naive = %.4lf ms (%.2lf Hz)\r\n", testDt0*1000.0, (1.0/testDt0));
      */
 
+     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Creating Depth image mask.\r\n");
      double testT1 = (double)cv::getTickCount();
      ForEachObsMaskGenerator masker(vmask, h, 256);
      cv::Mat dMask = disparityImg.clone();
@@ -661,14 +700,8 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
                     cv::applyColorMap(display, display, cv::COLORMAP_JET);
                     cv::imshow("obsFilteredImg", display);
                }
-               // int idx = 0;
-               // for(cv::Mat img : imgVec){
-               //      std::string tmpTitle = "Object ROI #" + std::to_string(idx);
-               //      imshowCmap(img, tmpTitle);
-               //      idx++;
-               // }
                cv::imshow("ROI's ", roiDisplay);
-               // cv::waitKey(0);
+               cv::waitKey(0);
           }
      } else{
           printf("[WARNING] VboatsRos::remove_objects() --- Object mask is empty, skipping object removal.\r\n");
@@ -681,37 +714,53 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
 int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles, const cv::Mat& depth){
      int nObs = 0;
      vector<Obstacle> _obstacles;
-     this->_lock.lock();
-     vector<float> threshsU(this->_uThreshs);
-     vector<float> threshsV(this->_vThreshs);
-     this->_lock.unlock();
+
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Pre-filtering Umap.\r\n");
      /** Pre-filter Umap */
-     cv::Mat uTmp, uProcessed;
-     cv::cvtColor(umap, uTmp, cv::COLOR_GRAY2BGR);
-     cv::rectangle(uTmp, cv::Point(0,0), cv::Point(umap.cols,3), cv::Scalar(0, 0, 0), -1);
-     cv::cvtColor(uTmp, uTmp, cv::COLOR_BGR2GRAY);
+     cv::Mat uProcessed;
+     cv::Mat uTmp = umap.clone();
+     vector<vector<cv::Point>> deadzoneUmap;
+     vector<cv::Point> deadzonePtsUmap = { cv::Point(0,0), cv::Point(umap.cols,0), cv::Point(umap.cols,3), cv::Point(0,3), cv::Point(0,0) };
+     deadzoneUmap.push_back(deadzonePtsUmap);
+     cv::fillPoly(uTmp, deadzoneUmap, cv::Scalar(0));
      cv::boxFilter(uTmp,uTmp,-1, cv::Size(2,2));
-     this->vb->filter_disparity_umap(uTmp, &uProcessed, &threshsU);
+     if(!this->_use_custom_umap_filtering){
+          vector<float> threshsU(this->_uThreshs);
+          this->vb->filter_disparity_umap(uTmp, &uProcessed, &threshsU);
+     } else{
+          double uMin, uMax;
+          cv::minMaxLoc(uTmp, &uMin, &uMax);
+          int wholeThresh = int((float) uMax * this->_custom_uThresh_perc);
+          cv::threshold(uTmp, uProcessed, wholeThresh, 255, cv::THRESH_TOZERO);
+     }
+
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Finding contours in filtered Umap.\r\n");
      /** Find contours in Umap needed later for obstacle filtering */
      vector<vector<cv::Point>> contours;
      this->vb->find_contours(uProcessed, &contours, this->_contourFiltMeth, this->_contourFiltMinThresh, nullptr, -1, false, this->_visualize_images);
 
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Pre-filtering Vmap.\r\n");
      /** Pre-filter Vmap: Approach 1 */
-     cv::Mat vTmp, vProcessed;
-     cv::cvtColor(vmap, vTmp, cv::COLOR_GRAY2BGR);
-     cv::rectangle(vTmp, cv::Point(0,0), cv::Point(3,vmap.rows), cv::Scalar(0, 0, 0), -1);
-     cv::cvtColor(vTmp, vTmp, cv::COLOR_BGR2GRAY);
-     this->vb->filter_disparity_vmap(vTmp, &vProcessed, &threshsV);
+     // cv::Mat vProcessed;
+     cv::Mat vTmp = vmap.clone();
+     vector<vector<cv::Point>> deadzoneVmap;
+     vector<cv::Point> deadzonePtsVmap = { cv::Point(0,0), cv::Point(0,vmap.rows), cv::Point(3,vmap.rows), cv::Point(3,0), cv::Point(0,0) };
+     deadzoneVmap.push_back(deadzonePtsVmap);
+     cv::fillPoly(vTmp, deadzoneVmap, cv::Scalar(0));
+     // vector<float> threshsV(this->_vThreshs);
+     // this->vb->filter_disparity_vmap(vTmp, &vProcessed, &threshsV);
 
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Creating Sobelized Vmap.\r\n");
      /** Pre-filter Vmap: Approach 2 - better highlight useful lines*/
      cv::Mat tmpSobel, sobelV;
      double minVal, maxVal;
-     cv::Sobel(vmap, tmpSobel, CV_64F, 0, 1, 3);
+     cv::Sobel(vTmp, tmpSobel, CV_64F, 0, 1, 3);
      cv::minMaxLoc(tmpSobel, &minVal, &maxVal);
      tmpSobel = tmpSobel * (255.0/maxVal);
      cv::convertScaleAbs(tmpSobel, tmpSobel, 1, 0);
-     threshold(tmpSobel, sobelV, 30, 255, cv::THRESH_TOZERO);
+     threshold(tmpSobel, sobelV, this->_vmap_sobel_thresh, 255, cv::THRESH_TOZERO);
 
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Looking for Ground line.\r\n");
      /** Extract ground line parameters (if ground is present) */
      float* line_params;
      float gndM; int gndB;
@@ -721,18 +770,31 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
           line_params = &tmpParams[0];
      } else line_params = nullptr;
 
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Creating Segmentation Mask.\r\n");
+     cv::Mat noGndImg, noObsImg, segInputImg;
+     if(this->_sobel_vmask_subtract){
+          cv::Mat segMask;
+          threshold(sobelV, segMask, 0, 255, cv::THRESH_BINARY);
+          if(this->_dilate_sobel_to_segmask){
+               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_sobel_dilate_ksize, this->_sobel_dilate_ksize));
+               cv::dilate(segMask, segMask, element, cv::Point(-1,-1), 1);
+          }
+          cv::bitwise_not(segMask,segMask);
+          vTmp.copyTo(segInputImg, segMask);
+     } else segInputImg = vTmp.clone();
+
      int err;
-     cv::Mat noGndImg, noObsImg;
+     if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Obstacle Segmentation.\r\n");
      if(this->_use_gnd_meth){                         /** Ground segmentation */
           if((gndPresent) && (this->_filter_ground)){
-               err = this->remove_ground(disparity,vTmp, depth, line_params, &noGndImg);
+               err = this->remove_ground(disparity,segInputImg, depth, line_params, &noGndImg);
                if(err >= 0){
                     if(!noGndImg.empty()) this->generate_pointcloud(noGndImg);
                     else printf("[WARNING] VboatsRos::process() --- Ground filtered depth image is empty, skipping pointcloud generation.\r\n");
                } else printf("[WARNING] VboatsRos::process() --- Unable to filter ground from depth image, skipping pointcloud generation.\r\n");
           }
      } else{                                        /** Obstacle Segmentation */
-          err = this->remove_objects(vTmp, disparity, depth, contours, line_params, &noObsImg);
+          err = this->remove_objects(segInputImg, disparity, depth, contours, line_params, &noObsImg);
           if(err >= 0){
                if(!noObsImg.empty()) this->generate_pointcloud(noObsImg);
                else printf("[WARNING] VboatsRos::process() --- Object filtered depth image is empty, skipping pointcloud generation.\r\n");
@@ -788,8 +850,8 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
           imshowCmap(uTmp, "uTmp");
           imshowCmap(uProcessed, "uProcessed");
           imshowCmap(vTmp, "vTmp");
-          imshowCmap(vProcessed, "vProcessed");
           imshowCmap(sobelV, "sobelV");
+          imshowCmap(segInputImg, "segInputImg");
           cv::waitKey(1);
      }
 

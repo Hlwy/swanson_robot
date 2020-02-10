@@ -135,6 +135,8 @@ private:
      int _img_count;
      int _info_count;
      /** Flags */
+     bool _debug;
+     bool _verbose;
      bool _verbose_obstacles;
      bool _verbose_timings;
      bool _publish_images;
@@ -165,6 +167,13 @@ private:
      float _sor_dist_thresh;
      vector<float> _uThreshs;
      vector<float> _vThreshs;
+
+     bool _use_custom_umap_filtering;
+     bool _sobel_vmask_subtract;
+     float _custom_uThresh_perc;
+     float _vmap_sobel_thresh;
+     bool _dilate_sobel_to_segmask;
+     int _sobel_dilate_ksize;
      /** Multi-threading objects */
      std::mutex _lock;
 

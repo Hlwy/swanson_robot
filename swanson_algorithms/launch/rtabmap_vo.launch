@@ -1,4 +1,5 @@
 <launch>
+     <arg name="flag_test"              default="false"/>
      <arg if="$(arg flag_test)"     name="namespace" default="/hytx/rtabmap"/>
      <arg unless="$(arg flag_test)" name="namespace" default="rtabmap"/>
      <!-- roslaunch prefix args -->
@@ -6,7 +7,7 @@
      <arg name="rtabmap_args"            default="$(arg args)"/>
      <arg name="odom_args"               default="$(arg args)"/>
      <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
-     <arg name="output"                  default="screen"/>        <!-- Control node output (screen or log) -->
+     <arg name="output"                  default="log"/>        <!-- Control node output (screen or log) -->
 
      <!-- Flags -->
      <arg name="approx_sync"               default="true"/>
@@ -23,7 +24,7 @@
      <arg name="vo_frame_id"             default="odom"/>
 
      <!-- misc param config -->
-     <arg name="queue_size"              default="30"/>
+     <arg name="queue_size"              default="60"/>
      <arg name="wait_for_transform_dt"   default="0.2"/>
 
      <!-- Feature Extraction Method
@@ -60,7 +61,7 @@
           8 = MSCKF-VIO
      -->
      <arg if="$(arg flag_test)"     name="odom_strategy"  default="0"/>
-     <arg unless="$(arg flag_test)" name="odom_strategy"  default="0"/>
+     <arg unless="$(arg flag_test)" name="odom_strategy"  default="1"/>
 
      <!-- RGB-D Odometry -->
      <group ns="$(arg namespace)">
@@ -87,7 +88,7 @@
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
 
-               <param name="Odom/ImageBufferSize"           value="5"/> <!-- default = 1 -->
+               <param name="Odom/ImageBufferSize"           value="15"/> <!-- default = 1 -->
                <param name="Odom/KalmanMeasurementNoise"    value="0.1"/> <!-- default = 0.01 -->
                <param name="Odom/KalmanProcessNoise"        value="0.001"/> <!-- default = 0.001 -->
                <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->

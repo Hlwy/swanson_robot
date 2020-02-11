@@ -1,0 +1,126 @@
+<launch>
+     <arg name="namespace"               default="rtabmap"/>
+     <arg name="obstacle_detection"      default="false"/>
+     <!-- roslaunch prefix args -->
+     <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
+     <arg name="rtabmap_args"            default="$(arg args)"/>
+     <arg name="odom_args"               default=""/>
+     <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
+     <arg name="output"                  default="screen"/>        <!-- Control node output (screen or log) -->
+
+     <!-- Flags -->
+     <arg name="approx_sync"               default="true"/>
+     <arg name="publish_tf_odom"           default="false"/>
+
+     <!-- ROS topics -->
+     <arg name="vo_topic"                default="/vo"/>          <!-- Visual Odometry topic name -->
+     <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
+     <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
+     <!-- Frame ids -->
+     <arg name="frame_id"                default="base_link"/>
+     <arg name="vo_frame_id"             default="odom"/>
+
+     <!-- misc param config -->
+     <arg name="queue_size"              default="30"/>
+     <arg name="wait_for_transform_dt"   default="0.2"/>
+
+     <!-- Feature Extraction Method
+          0=SURF
+          1=SIFT
+          2=ORB
+          3=FAST/FREAK
+          4=FAST/BRIEF
+          5=GFTT/FREAK
+          6=GFTT/BRIEF (default)
+          7=BRISK
+          8=GFTT/ORB
+          9=KAZE
+          10=ORB-OCTREE
+     -->
+     <arg name="feature_method"      default="6"/>
+     <!--
+     Odometry Filtering Strategy:
+          0 = No filtering (default)
+          1 = Kalman Filtering
+          2 = Particle Filtering
+     -->
+     <arg name="odom_filter_method"  default="0"/>
+     <!--
+     Odometry Estimating Method:
+          0 = Frame-to-Map (F2M) (default)
+          1 = Frame-to-Frame (F2F)
+          2 = Fovis
+          3 = viso2
+          4 = DVO-Slam
+          5 = ORB-Slam2
+          6 = OKVIS
+          7 = LOAM
+          8 = MSCKF-VIO
+     -->
+     <arg name="odom_strategy"  default="1"/>
+
+     <!-- RGB-D Odometry -->
+     <group ns="$(arg namespace)">
+          <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="$(arg output)" args="$(arg rtabmap_args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
+               <remap from="odom"            to="$(arg vo_topic)"/>
+               <remap from="rgb/image"       to="$(arg rgb_topic)"/>
+               <remap from="depth/image"     to="$(arg depth_topic)"/>
+               <remap from="rgb/camera_info" to="$(arg camera_info_topic)"/>
+
+               <param name="frame_id"                    type="string" value="$(arg frame_id)"/>
+               <param name="odom_frame_id"               type="string" value="$(arg vo_frame_id)"/>
+               <param name="publish_tf"                  type="bool"   value="$(arg publish_tf_odom)"/>
+               <param name="wait_for_transform_duration" type="double" value="$(arg wait_for_transform_dt)"/>
+               <param name="approx_sync"                 type="bool"   value="$(arg approx_sync)"/>
+               <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
+
+               <!-- Misc settings -->
+               <param name="Vis/CorType"            value="0"/>
+               <param name="Reg/Force3DoF"          value="true" />
+               <param name="Odom/ResetCountdown"    type="string" value="35"/>
+               <param name="Odom/Holonomic"         type="bool" value="false"/>
+               <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
+               <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
+               <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
+               <param name="Vis/MaxFeatures"        type="string" value="2000"/>
+               <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
+               <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
+
+               <param name="Odom/ImageBufferSize"           value="10"/> <!-- default = 1 -->
+               <param name="Odom/KalmanMeasurementNoise"    value="0.5"/> <!-- default = 0.01 -->
+               <param name="Odom/KalmanProcessNoise"        value="10.0"/> <!-- default = 0.001 -->
+               <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
+               <param name="Optimizer/Strategy"             value="1"/> <!-- default = 1 -->
+               <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
+               <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
+               <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
+          </node>
+
+          <!-- <group if="$(arg obstacle_detection)">
+               <node pkg="nodelet" type="nodelet" name="vo_nodelet"  args="manager"/>
+
+               <node pkg="nodelet" type="nodelet" name="depth2cloud" args="load rtabmap_ros/point_cloud_xyzrgb vo_nodelet">
+                    <remap from="cloud"                to="cloudXYZ"/>
+                    <remap from="rgb/image"            to="$(arg rgb_topic)"/>
+                    <remap from="depth/image"          to="$(arg depth_topic)"/>
+                    <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
+
+                    <param name="voxel_size" type="double" value="0.05"/>
+                    <param name="decimation" type="int" value="1"/>
+                    <param name="max_depth" type="double" value="10"/>
+               </node>
+
+               <node pkg="nodelet" type="nodelet" name="obstacles_detection" args="load rtabmap_ros/obstacles_detection vo_nodelet">
+                    <remap from="cloud" to="cloudXYZ"/>
+                    <remap from="obstacles" to="/obs_cloud"/>
+
+                    <param name="frame_id" type="string" value="base_link"/>
+                    <param name="map_frame_id" type="string" value="map"/>
+                    <param name="wait_for_transform" type="bool" value="true"/>
+                    <param name="Grid/MinClusterSize" type="int" value="20"/>
+                    <param name="Grid/MaxObstacleHeight" type="double" value="1.0"/>
+               </node>
+          </group> -->
+     </group>
+</launch>

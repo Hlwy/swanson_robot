@@ -1,27 +1,45 @@
 <?xml version="1.0"?>
 <launch>
      <!-- Base Platform and Drivetrain Constants -->
-     <arg name="maxVel" default="2.0"/>
-     <arg name="maxTurnRadius" default="0.381"/>
-     <arg name="baseWidth" default="0.219"/>
-     <arg name="wheelDiameter" default="0.1905"/>
-     <arg name="pulsesPerMeter" default="9596"/>
-     <arg name="enc_odom_frame" default="odom"/>
-     <arg name="publish_tf" default="false"/>
+     <arg name="maxVel"            default="2.0"/>
+     <arg name="maxTurnRadius"     default="0.381"/>
+     <arg name="baseWidth"         default="0.42"/>
+     <arg name="wheelDiameter"     default="0.1905"/>
+     <arg name="pulsesPerMeter"    default="9596"/>
+     <arg name="enc_odom_frame"    default="odom"/>
+     <arg name="publish_tf"        default="false"/>
+     <arg name="update_rate"       default="10"/>
+     <arg name="verbose"           default="true"/>
+     <!-- Communication Config -->
+     <arg name="single_comm_dev"   default="false"/>
+     <arg name="serial_baud"       default="115200"/>
 
-     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" output="screen">
-          <param name="serial_device" value="/dev/ttyS0"/>
-          <param name="serial_baud" value="115200"/>
-          <param name="left_claw_addr" value="128"/>
-          <param name="right_claw_addr" value="129"/>
-          <param name="base_width" value="$(arg baseWidth)"/>
-          <param name="qpps_per_meter" value="$(arg pulsesPerMeter)"/>
-          <param name="wheel_diameter" value="$(arg wheelDiameter)"/>
-          <param name="max_speed" value="$(arg maxVel)"/>
-          <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
-          <param name="odom_tf" value="$(arg enc_odom_frame)"/>
-          <param name="publish_tf" value="$(arg publish_tf)"/>
-          <param name="update_rate" value="10"/>
+     <arg name="left_serial_addr"  default="128"/>
+     <arg name="right_serial_addr" default="129"/>
+     <arg name="left_serial_dev"   default="/dev/ttyClawLeft"/>
+     <arg name="right_serial_dev"  default="/dev/ttyClawRight"/>
+
+     <arg name="gdb"                default="false"/>
+     <arg unless="$(arg gdb)" name="launch_args" default=""/>
+     <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
+
+     <node pkg="swanson_base" type="dualclaw_skidsteer_drivetrain_node" name="dualclaw_skidsteer_node" clear_params="true" output="screen" launch-prefix="$(arg launch_args)">
+          <param name="verbose"                   value="$(arg verbose)"/>
+          <param name="use_single_serial_device"  value="$(arg single_comm_dev)"/>
+          <param name="serial_baud"               value="$(arg serial_baud)"/>
+          <param name="left_claw_addr"            value="$(arg left_serial_addr)"/>
+          <param name="left_serial_device"        value="$(arg left_serial_dev)"/>
+          <param name="right_claw_addr"           value="$(arg right_serial_addr)"/>
+          <param name="right_serial_device"       value="$(arg right_serial_dev)"/>
+
+          <param name="base_width"                value="$(arg baseWidth)"/>
+          <param name="qpps_per_meter"            value="$(arg pulsesPerMeter)"/>
+          <param name="wheel_diameter"            value="$(arg wheelDiameter)"/>
+          <param name="max_speed"                 value="$(arg maxVel)"/>
+          <param name="max_turn_radius"           value="$(arg maxTurnRadius)"/>
+          <param name="odom_tf"                   value="$(arg enc_odom_frame)"/>
+          <param name="publish_tf"                value="$(arg publish_tf)"/>
+          <param name="update_rate"               value="$(arg update_rate)"/>
      </node>
 
 </launch>

@@ -28,12 +28,15 @@ RtImuRos::RtImuRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh
 	std::string prefix;
 	std::string imu_tf_frame = "imu_link";
 	bool flag_pub_tfs = false;
+	bool verbose = false;
 	p_nh.getParam("tf_prefix",prefix);
 	p_nh.getParam("imu_frame_id",imu_tf_frame);
 	p_nh.getParam("publish_tf",flag_pub_tfs);
+	p_nh.getParam("verbose",verbose);
 	this->_tf_prefix = prefix;
 	this->_tf_imu = imu_tf_frame;
 	this->_publishTf = flag_pub_tfs;
+	this->_verbose = verbose;
 
 	/** Initialize IMU Sensor */
 	this->imu = new GenericRTIMU();
@@ -108,59 +111,71 @@ void RtImuRos::init_rosmsgs(){
 	this->poseMsg.pose.position.z = 0.0;
 }
 
-void RtImuRos::update(bool verbose){
-	_count++;
-	imu->update();
+int RtImuRos::update(float timeout){
+	int err = imu->update(timeout);
 
-	int dt_us = imu->get_update_period();
-	this->dt = (float) dt_us / 1000000.0;
-	ros::Time curTime = ros::Time::now();
+	if(err >= 0){
+		_count++;
+		int dt_us = imu->get_update_period();
+		this->_dt = (float) dt_us / 1000000.0;
+		ros::Time curTime = ros::Time::now();
 
-	this->imuMsg.header.stamp = curTime;
-	this->imuMsg.header.seq = _count;
-	this->imuMsg.orientation.x = this->imu->quats[0];
-	this->imuMsg.orientation.y = this->imu->quats[1];
-	this->imuMsg.orientation.z = this->imu->quats[2];
-	this->imuMsg.orientation.w = this->imu->quats[3];
-	this->imuMsg.angular_velocity.x = this->imu->gyro[0];
-	this->imuMsg.angular_velocity.y = this->imu->gyro[1];
-	this->imuMsg.angular_velocity.z = this->imu->gyro[2];
-	this->imuMsg.linear_acceleration.x = this->imu->accel[0];
-	this->imuMsg.linear_acceleration.y = this->imu->accel[1];
-	this->imuMsg.linear_acceleration.z = this->imu->accel[2];
-	this->imu_pub.publish(this->imuMsg);
+		this->imuMsg.header.stamp = curTime;
+		this->imuMsg.header.seq = _count;
+		this->imuMsg.orientation.x = this->imu->quats[0];
+		this->imuMsg.orientation.y = this->imu->quats[1];
+		this->imuMsg.orientation.z = this->imu->quats[2];
+		this->imuMsg.orientation.w = this->imu->quats[3];
+		this->imuMsg.angular_velocity.x = this->imu->gyro[0];
+		this->imuMsg.angular_velocity.y = this->imu->gyro[1];
+		this->imuMsg.angular_velocity.z = this->imu->gyro[2];
+		this->imuMsg.linear_acceleration.x = this->imu->accel[0];
+		this->imuMsg.linear_acceleration.y = this->imu->accel[1];
+		this->imuMsg.linear_acceleration.z = this->imu->accel[2];
+		this->imu_pub.publish(this->imuMsg);
 
-	this->magMsg.magnetic_field.x = this->imu->mag[0];
-	this->magMsg.magnetic_field.y = this->imu->mag[1];
-	this->magMsg.magnetic_field.z = this->imu->mag[2];
-	this->mag_pub.publish(this->magMsg);
+		this->magMsg.magnetic_field.x = this->imu->mag[0];
+		this->magMsg.magnetic_field.y = this->imu->mag[1];
+		this->magMsg.magnetic_field.z = this->imu->mag[2];
+		this->mag_pub.publish(this->magMsg);
 
-	this->poseMsg.header = this->imuMsg.header;
-	this->poseMsg.pose.orientation = this->imuMsg.orientation;
-	this->pose_pub.publish(this->poseMsg);
+		this->poseMsg.header = this->imuMsg.header;
+		this->poseMsg.pose.orientation = this->imuMsg.orientation;
+		this->pose_pub.publish(this->poseMsg);
 
-	float roll = fmod((this->imu->euler[0]*M_RAD2DEG + 360.0),360.0);
-	float pitch = fmod((this->imu->euler[1]*M_RAD2DEG + 360.0),360.0);
-	float yaw = fmod((this->imu->euler[2]*M_RAD2DEG + 360.0),360.0);
+		float roll = fmod((this->imu->euler[0]*M_RAD2DEG + 360.0),360.0);
+		float pitch = fmod((this->imu->euler[1]*M_RAD2DEG + 360.0),360.0);
+		float yaw = fmod((this->imu->euler[2]*M_RAD2DEG + 360.0),360.0);
 
-	if(verbose){
-		printf("IMU DATA: \r\n");
-		printf("       Accelerations (m/s^2): %.4f        %.4f      %.4f\r\n", this->imu->accel[0], this->imu->accel[1], this->imu->accel[2]);
-		printf("       Angular Velocities (rad/sec): %.4f        %.4f      %.4f\r\n", this->imu->gyro[0], this->imu->gyro[1], this->imu->gyro[2]);
-		printf("       Magnetometer (μT): %.4f        %.4f      %.4f\r\n", this->imu->mag[0], this->imu->mag[1],this->imu-> mag[2]);
-		printf("       Fused Euler Angles (deg): %.4f        %.4f      %.4f\r\n", roll,pitch,yaw);
-		printf(" ===================================================== \r\n");
+		if(this->_verbose){
+			printf("IMU DATA: \r\n");
+			printf("       Accelerations (m/s^2): %.4f        %.4f      %.4f\r\n", this->imu->accel[0], this->imu->accel[1], this->imu->accel[2]);
+			printf("       Angular Velocities (rad/sec): %.4f        %.4f      %.4f\r\n", this->imu->gyro[0], this->imu->gyro[1], this->imu->gyro[2]);
+			printf("       Magnetometer (μT): %.4f        %.4f      %.4f\r\n", this->imu->mag[0], this->imu->mag[1],this->imu-> mag[2]);
+			printf("       Fused Euler Angles (deg): %.4f        %.4f      %.4f\r\n", roll,pitch,yaw);
+			printf(" ===================================================== \r\n");
+		}
+	} else if(err <= -100){
+		printf("[ERROR] TestGenericRTIMU::update() --- Unable to receive valid IMU data within specified timeout. Exiting...\r\n");
 	}
+	return err;
 }
 
 int RtImuRos::run(bool verbose){
      cout << "Looping..." << endl;
 
      while(ros::ok()){
-		this->update(verbose);
-          ros::spinOnce();
-          ros::Duration(this->dt).sleep();
+		int err = this->update();
+		if(err >= 0){
+			ros::spinOnce();
+			ros::Duration(this->_dt).sleep();
+		} else{
+			printf("[ERROR] RtImuRos::run() ---- Prolonged IMU read error. Exiting Loop...\r\n");
+			ros::shutdown();
+			break;
+		}
      }
-
+	printf("[ERROR] RtImuRos::run() ---- Exited While loop.\r\n");
+	delete this->imu;
      return 0;
 }

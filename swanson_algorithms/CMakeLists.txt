@@ -2,6 +2,14 @@ cmake_minimum_required(VERSION 2.8.3)
 project(swanson_algorithms)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+# set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS}")
+
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
+message(STATUS "MACHINE = ${MACHINE}")
+if(${MACHINE} MATCHES "arm-linux-gnueabihf")
+     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
      rospy
@@ -13,13 +21,15 @@ set( ROS_CXX_DEPENDENCIES
      image_transport
      message_generation
      swanson_msgs
+     pcl_ros
+     dynamic_reconfigure
 )
+
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(OpenCV REQUIRED)
-# find_package(realsense2 REQUIRED)
-# find_package(realsense2 2.28.0 REQUIRED)
-find_package(realsense2 2.25.1 REQUIRED)
+find_package(OpenCV 4.1.1 REQUIRED)
+# find_package(OpenCV 4.1.1 REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
+find_package(realsense2 REQUIRED)
 
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/RoboCommander
@@ -34,18 +44,8 @@ foreach(obj ${RoboCommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#      DEPENDENCIES
-#      std_msgs
-#      geometry_msgs
-#      swanson_sensors
-# )
+find_package(PCL 1.9 REQUIRED)
+add_definitions(${PCL_DEFINITIONS})
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -56,12 +56,18 @@ include_directories(
      ${catkin_INCLUDE_DIRS}
      ${OpenCV_INCLUDE_DIRS}
      ${realsense2_INCLUDE_DIR}
+     ${PCL_INCLUDE_DIRS}
 )
 link_directories(
      ${Boost_LIBRARIES}
      ${RoboCommander_LIBRARIES}
      ${OpenCV_LIBS}
      ${realsense2_LIBRARY}
+     ${PCL_LIBRARIES}
+)
+
+generate_dynamic_reconfigure_options(
+     cfg/Vboats.cfg
 )
 
 catkin_package(
@@ -79,8 +85,8 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ###########
 
 add_library(vboatsRos src/vboats_ros.cpp)
-target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES})
-add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES} ${OpenCV_LIBS})
+add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_ros_node src/vboats_ros_node.cpp)
 target_link_libraries(vboats_ros_node vboatsRos)

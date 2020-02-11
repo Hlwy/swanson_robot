@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 2.8.3)
 project(swanson_sensors)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
+message(STATUS "MACHINE = ${MACHINE}")
+if(${MACHINE} MATCHES "arm-linux-gnueabihf")
+     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
      roscpp
@@ -17,21 +23,8 @@ set( ROS_CXX_DEPENDENCIES
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
 find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu cv_utils camera_d415)
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 4.1.1 REQUIRED)
 find_package(realsense2 2.25.1 REQUIRED)
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#      DEPENDENCIES
-#      std_msgs
-#      geometry_msgs
-#      swanson_sensors
-# )
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations

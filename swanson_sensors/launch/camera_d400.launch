@@ -9,15 +9,14 @@
      <arg name="post_process"      default="false"/>
      <arg name="get_disparity"     default="false"/>
      <arg name="update_rate"       default="120"/>
-     <arg name="cam_fps"           default="60"/>
+     <arg name="cam_fps"           default="30"/>
      <arg name="depth_width"       default="848"/>
      <arg name="depth_height"      default="480"/>
      <arg name="color_width"       default="848"/>
      <arg name="color_height"      default="480"/>
 
-     <arg name="get_cloud"        default="false"/>
-
      <node pkg="swanson_sensors" type="camera_d415_node" name="d400_camera_node" respawn="true" output="screen">
+          <param name="ns"                   value="$(arg ns)"/>
           <param name="verbose_timings"      value="$(arg verbose_timings)"/>
           <param name="publish_tf"           value="$(arg publish_tf)"/>
           <param name="use_tf_prefix"        value="$(arg use_tf_prefix)"/>

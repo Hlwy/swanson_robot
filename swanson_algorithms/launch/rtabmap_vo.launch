@@ -83,7 +83,7 @@
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
-               <!-- <param name="Vis/MaxFeatures"        type="string" value="2000"/> -->
+               <param name="Vis/MaxFeatures"        type="string" value="2000"/>
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
                <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
 
@@ -97,7 +97,7 @@
                <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
           </node>
 
-          <group if="$(arg obstacle_detection)">
+          <!-- <group if="$(arg obstacle_detection)">
                <node pkg="nodelet" type="nodelet" name="vo_nodelet"  args="manager"/>
 
                <node pkg="nodelet" type="nodelet" name="depth2cloud" args="load rtabmap_ros/point_cloud_xyzrgb vo_nodelet">
@@ -108,7 +108,7 @@
 
                     <param name="voxel_size" type="double" value="0.05"/>
                     <param name="decimation" type="int" value="1"/>
-                    <param name="max_depth" type="double" value="5"/>
+                    <param name="max_depth" type="double" value="10"/>
                </node>
 
                <node pkg="nodelet" type="nodelet" name="obstacles_detection" args="load rtabmap_ros/obstacles_detection vo_nodelet">

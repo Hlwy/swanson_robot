@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<launch>
+     <!-- Base Platform and Drivetrain Constants -->
+     <arg name="maxVel"            default="2.0"/>
+     <arg name="maxTurnRadius"     default="0.381"/>
+     <arg name="android_app_port"  default="14500"/>
+
+     <node pkg="swanson_teleop" type="android_interface_listener_node" name="android_teleop_node">
+          <param name="update_rate"     value="15"/>
+          <param name="app_port"        value="$(arg android_app_port)"/>
+          <param name="max_speed"       value="$(arg maxVel)"/>
+          <param name="max_turn_radius" value="$(arg maxTurnRadius)"/>
+
+          <param name="frontGimbalTargetTopic" value="camera_gimbal/target/front"/>
+          <param name="backGimbalTargetTopic"  value="camera_gimbal/target/rear"/>
+          <param name="rightGimbalTargetTopic" value="camera_gimbal/target/right"/>
+          <param name="leftGimbalTargetTopic"  value="camera_gimbal/target/left"/>
+     </node>
+</launch>

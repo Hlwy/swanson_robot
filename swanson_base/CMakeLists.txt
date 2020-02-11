@@ -13,6 +13,7 @@ set( ROS_CXX_DEPENDENCIES
      sensor_msgs
      swanson_msgs
      message_generation
+     dynamic_reconfigure
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
@@ -28,11 +29,15 @@ foreach(obj ${RoboCommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
+generate_dynamic_reconfigure_options(
+     cfg/Drivetrain.cfg
+)
+
 catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES swanson_base
-  CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-  DEPENDS Boost RoboCommander
+     INCLUDE_DIRS include
+     LIBRARIES swanson_base
+     CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
+     DEPENDS Boost RoboCommander
 )
 include_directories(
      include
@@ -49,15 +54,11 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 # Libraries
 add_library(dualclawskidsteerdrivetrain src/dual_roboclaw_skidsteer_drivetrain.cpp)
 target_link_libraries(dualclawskidsteerdrivetrain ${catkin_LIBRARIES} dualclaw)
-add_dependencies(dualclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} swanson_msgs_generate_messages_cpp)
+add_dependencies(dualclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg swanson_msgs_generate_messages_cpp)
 
 # Executables
 add_executable(dualclaw_skidsteer_drivetrain_node src/dualclaw_skidsteer_drivetrain_node.cpp)
 target_link_libraries(dualclaw_skidsteer_drivetrain_node dualclawskidsteerdrivetrain)
-
-# add_executable(swanson_node src/swanson_node.cpp)
-# target_link_libraries(swanson_node ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-# add_dependencies(swanson_node swanson_msgs_gencpp)
 
 install(TARGETS
      dualclawskidsteerdrivetrain

@@ -1,24 +1,28 @@
 <launch>
-     <arg name="verbose_obstacles"  default="false"/>
-     <arg name="verbose_timings"    default="false"/>
-     <arg name="publish_images"     default="true"/>
-     <arg name="publish_aux_images" default="true"/>
-     <arg name="show_images"        default="false"/>
-     <arg name="use_disparity"      default="false"/>
+     <arg name="verbose_obstacles"      default="false"/>
+     <arg name="verbose_timings"        default="false"/>
+     <arg name="publish_images"         default="true"/>
+     <arg name="publish_aux_images"     default="false"/>
+     <arg name="show_images"            default="false"/>
+     <arg name="use_disparity"          default="false"/>
 
-     <arg name="detect_obstacles"       default="true"/>
+     <arg name="do_gnd_filtering"       default="false"/>
      <arg name="filter_ground"          default="true"/>
      <arg name="publish_cloud"          default="true"/>
      <arg name="filtered_cloud"         default="true"/>
      <arg name="publish_filtered_cloud" default="true"/>
+     <arg name="detect_obstacles"       default="false"/>
 
-     <arg name="info_topic"        default="/hytx/camera/depth/camera_info"/>
-     <arg name="depth_topic"       default="/hytx/camera/depth/image_rect_raw"/>
-     <arg name="disparity_topic"   default="/hytx/camera/disparity/image_raw"/>
-     <arg name="max_obstacle_height" default="0.5"/>
-     <arg name="update_rate"       default="15"/>
+     <arg name="info_topic"             default="/hytx/camera/depth/camera_info"/>
+     <arg name="depth_topic"            default="/hytx/camera/depth/image_rect_raw"/>
+     <arg name="disparity_topic"        default="/hytx/camera/disparity/image_raw"/>
+     <arg name="update_rate"            default="5"/>
 
-     <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" output="screen">
+     <arg name="gdb"          default="false"/>
+     <arg unless="$(arg gdb)" name="launch_args" default=""/>
+     <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
+
+     <node pkg="swanson_algorithms" type="vboats_ros_node" name="vboats_tester" clear_params="true" output="screen" launch-prefix="$(arg launch_args)">
           <param name="verbose_obstacles"     value="$(arg verbose_obstacles)"/>
           <param name="verbose_timings"       value="$(arg verbose_timings)"/>
           <param name="publish_images"        value="$(arg publish_images)"/>
@@ -26,15 +30,23 @@
           <param name="show_images"           value="$(arg show_images)"/>
           <param name="update_rate"           value="$(arg update_rate)"/>
           <param name="use_disparity"         value="$(arg use_disparity)"/>
+          <param name="gnd_filter_meth"       value="$(arg do_gnd_filtering)"/>
 
           <param name="camera_info_topic"     value="$(arg info_topic)"/>
           <param name="depth_image_topic"     value="$(arg depth_topic)"/>
           <param name="disparity_image_topic" value="$(arg disparity_topic)"/>
-          <!-- <param name="umap_topic"            value="$(arg update_rate)"/>
-          <param name="vmap_topic"            value="$(arg update_rate)"/>
-          <param name="filtered_image_topic"  value="$(arg update_rate)"/>
-          <param name="obstacles_image_topic" value="$(arg update_rate)"/>
-          <param name="obstacles_info_topic"  value="$(arg update_rate)"/> -->
+
+          <param name="max_obstacle_height"       value="0.5"/>
+          <param name="min_obstacle_height"       value="1.0"/>
+          <param name="max_obstacle_range"        value="10.0"/>
+          <param name="min_obstacle_range"        value="0.1"/>
+          <param name="voxel_resolution_x"        value="0.02"/>
+          <param name="voxel_resolution_y"        value="0.075"/>
+          <param name="voxel_resolution_z"        value="0.02"/>
+          <param name="gnd_upper_buffer_offset"   value="10"/>
+          <param name="gnd_lower_buffer_offset"   value="25"/>
+          <param name="sor_min_neighbors"         value="1"/>
+          <param name="sor_dist_thresh"           value="0.075"/>
 
           <param name="parent_frame"          value="base_footprint"/>
           <param name="camera_base_frame"     value="camera_aligned_depth_to_color_frame"/>
@@ -44,7 +56,6 @@
           <param name="filtered_cloud"         value="$(arg filtered_cloud)"/>
           <param name="publish_cloud"          value="$(arg publish_cloud)"/>
           <param name="publish_filtered_cloud" value="$(arg publish_filtered_cloud)"/>
-          <param name="max_obstacle_height"    value="$(arg max_obstacle_height)"/>
      </node>
 
 </launch>

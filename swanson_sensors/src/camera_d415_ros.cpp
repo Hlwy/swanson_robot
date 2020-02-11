@@ -25,6 +25,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_use_float_depth = true;
 	bool flag_use_8bit_depth = false;
 	bool flag_calc_disparity = false;
+	p_nh.getParam("ns",ns);
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);

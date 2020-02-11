@@ -1,0 +1,34 @@
+TrajectoryPlannerROS:
+     holonomic_robot: false
+
+     max_vel_x:  0.25
+     min_vel_x:  0.2
+     max_vel_theta: 0.75
+     min_vel_theta: -0.75
+     min_in_place_vel_theta: 1.0
+
+     acc_lim_x:  0.75
+     acc_lim_y:  0.75
+     acc_lim_theta: 4
+
+     xy_goal_tolerance:  0.25
+     yaw_goal_tolerance: 0.05
+     latch_xy_goal_tolerance: true
+
+     sim_time: 1.5
+     sim_granularity: 0.025
+     angular_sim_granularity: 0.05
+     vx_samples: 12
+     vtheta_samples: 20
+
+     meter_scoring: true
+
+     pdist_scale: 0.7 # The higher will follow more the global path.
+     gdist_scale: 0.8
+     occdist_scale: 0.01
+     publish_cost_grid_pc: false
+
+controller_frequency: 10.0
+NavfnROS:
+    allow_unknown: true
+    visualize_potential: true

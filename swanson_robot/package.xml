@@ -9,9 +9,13 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <run_depend>swanson_base</run_depend>
+  <run_depend>swanson_msgs</run_depend>
+  <run_depend>swanson_controls</run_depend>
+  <run_depend>swanson_sensors</run_depend>
+  <run_depend>swanson_teleop</run_depend>
+  <run_depend>swanson_algorithms</run_depend>
 
   <export>
     <metapackage/>
   </export>
 </package>
-

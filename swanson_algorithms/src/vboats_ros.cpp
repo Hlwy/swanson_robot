@@ -2,9 +2,10 @@
 #include "swanson_algorithms/vboats_ros.h"
 
 #include <RoboCommander/utilities/utils.h>
-#include <RoboCommander/utilities/image_utils.h>
 #include <RoboCommander/utilities/cv_utils.h>
+#include <RoboCommander/utilities/image_utils.h>
 #include <RoboCommander/algorithms/vboats/uvmap_utils.h>
+
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 

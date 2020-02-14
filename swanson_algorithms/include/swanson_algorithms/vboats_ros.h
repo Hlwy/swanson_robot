@@ -36,16 +36,6 @@
 
 typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
 
-#include <pcl_ros/point_cloud.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/filters/passthrough.h>
-
-typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-
-
 using namespace std;
 
 /** Templated struct for fast conversion of depth image into disparity */

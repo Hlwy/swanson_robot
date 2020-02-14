@@ -44,7 +44,7 @@ foreach(obj ${RoboCommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
-find_package(PCL 1.9 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
 add_definitions(${PCL_DEFINITIONS})
 
 ## Specify additional locations of header files

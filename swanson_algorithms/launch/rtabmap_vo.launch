@@ -1,6 +1,6 @@
 <launch>
      <arg name="namespace"               default="rtabmap"/>
-     <arg name="obstacle_detection"      default="false"/>
+
      <!-- roslaunch prefix args -->
      <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
@@ -96,31 +96,4 @@
                <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
                <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
           </node>
-
-          <!-- <group if="$(arg obstacle_detection)">
-               <node pkg="nodelet" type="nodelet" name="vo_nodelet"  args="manager"/>
-
-               <node pkg="nodelet" type="nodelet" name="depth2cloud" args="load rtabmap_ros/point_cloud_xyzrgb vo_nodelet">
-                    <remap from="cloud"                to="cloudXYZ"/>
-                    <remap from="rgb/image"            to="$(arg rgb_topic)"/>
-                    <remap from="depth/image"          to="$(arg depth_topic)"/>
-                    <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
-
-                    <param name="voxel_size" type="double" value="0.05"/>
-                    <param name="decimation" type="int" value="1"/>
-                    <param name="max_depth" type="double" value="10"/>
-               </node>
-
-               <node pkg="nodelet" type="nodelet" name="obstacles_detection" args="load rtabmap_ros/obstacles_detection vo_nodelet">
-                    <remap from="cloud" to="cloudXYZ"/>
-                    <remap from="obstacles" to="/obs_cloud"/>
-
-                    <param name="frame_id" type="string" value="base_link"/>
-                    <param name="map_frame_id" type="string" value="map"/>
-                    <param name="wait_for_transform" type="bool" value="true"/>
-                    <param name="Grid/MinClusterSize" type="int" value="20"/>
-                    <param name="Grid/MaxObstacleHeight" type="double" value="0.5"/>
-               </node>
-          </group>
-     </group>
 </launch>

@@ -10,52 +10,6 @@
 
 using namespace std;
 
-template<typename dtype>
-struct ForEachDepthConverter{
-     dtype m_gain;
-     ForEachDepthConverter(dtype gain){ m_gain = gain; }
-
-     void operator()(dtype& pixel, const int * idx) const {
-          if(pixel != 0.0){ pixel = m_gain / pixel; }
-     }
-};
-
-template<typename dtype>
-struct ForEachGndMaskGenerator{
-     int* m_mins;
-     int* m_maxs;
-	ForEachGndMaskGenerator(int* mins, int* maxs, int nelems){
-		m_mins = new int[nelems];
-		m_maxs = new int[nelems];
-		m_mins = mins;
-		m_maxs = maxs;
-     }
-     void operator()(dtype& pixel, const int * idx) const {
-		int tmpMin = m_mins[idx[1]];
-		int tmpMax = m_maxs[idx[1]];
-		// if(pixel != 0.0){
-		if((tmpMin >= 0) && (tmpMax >= 0)){
-			if( (pixel >= tmpMin) && (pixel <= tmpMax) ){
-				// m_mask.at<uchar>(idx[1], idx[0]) = 0;
-				pixel = 0;
-			}
-		}
-     }
-};
-
-template<typename dtype>
-struct ForEachPclOperator{
-     dtype m_gain;
-     ForEachPclOperator(dtype gain){
-          m_gain = gain;
-     }
-     void operator()(dtype& pixel, const int * idx) const {
-          if(pixel != 0.0){
-               pixel = m_gain / pixel;
-          }
-     }
-};
-
 /** SECTION:
      CONSTRUCTOR & DECONSTRUCTOR
 */

@@ -23,8 +23,8 @@ set( ROS_CXX_DEPENDENCIES
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
 find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu cv_utils camera_d415)
-find_package(OpenCV 4.1.1 REQUIRED)
-find_package(realsense2 2.25.1 REQUIRED)
+find_package(OpenCV 3.4.1 REQUIRED)
+find_package(realsense2 REQUIRED)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations

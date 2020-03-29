@@ -23,7 +23,7 @@ set( ROS_CXX_DEPENDENCIES
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
 find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu img_utils cv_utils camera_d4xx)
-find_package(OpenCV 3 REQUIRED)
+find_package(OpenCV 3.4 REQUIRED)
 # find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
 

@@ -39,11 +39,11 @@ typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
 using namespace std;
 
 /** Templated struct for fast conversion of depth image into disparity */
-template<typename dtype>
-struct ForEachDepthConverter{
+template<typename dtype> struct ForEachDepthConverter{
      dtype m_gain;
-     ForEachDepthConverter(dtype gain){ m_gain = gain; }
-
+     ForEachDepthConverter(dtype gain){
+          m_gain = gain;
+     }
      void operator()(dtype& pixel, const int * idx) const{
           if(pixel != 0.0){ pixel = m_gain / pixel; }
      }
@@ -152,6 +152,9 @@ private:
      bool _flag_pub_filtered_cloud;
      /** Configurable Parameters */
      bool _use_gnd_meth;
+     bool _do_cloud_downsampling;
+     bool _do_cloud_outlier_removal;
+     bool _do_cloud_limit_filtering;
      int _contourFiltMeth;
      float _contourFiltMinThresh;
      float _max_obstacle_height;
@@ -163,6 +166,8 @@ private:
      float _voxel_res_z;
      int _gnd_upper_offset;
      int _gnd_lower_offset;
+     double _max_gnd_ang;
+     double _min_gnd_ang;
      int _sor_min_neighbors;
      float _sor_dist_thresh;
      vector<float> _uThreshs;

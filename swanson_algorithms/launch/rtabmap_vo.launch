@@ -1,10 +1,10 @@
 <launch>
      <arg name="namespace"               default="rtabmap"/>
-     <arg name="obstacle_detection"      default="false"/>
+
      <!-- roslaunch prefix args -->
      <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
-     <arg name="odom_args"               default=""/>
+     <arg name="odom_args"               default="$(arg args)"/>
      <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
      <arg name="output"                  default="screen"/>        <!-- Control node output (screen or log) -->
 
@@ -18,12 +18,12 @@
      <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
      <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
      <!-- Frame ids -->
-     <arg name="frame_id"                default="base_link"/>
+     <arg name="frame_id"                default="base_footprint"/>
      <arg name="vo_frame_id"             default="odom"/>
 
      <!-- misc param config -->
      <arg name="queue_size"              default="30"/>
-     <arg name="wait_for_transform_dt"   default="0.2"/>
+     <arg name="wait_for_transform_dt"   default="0.1"/>
 
      <!-- Feature Extraction Method
           0=SURF
@@ -74,53 +74,37 @@
                <param name="wait_for_transform_duration" type="double" value="$(arg wait_for_transform_dt)"/>
                <param name="approx_sync"                 type="bool"   value="$(arg approx_sync)"/>
                <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
-
+               <param name="publish_null_when_lost"      type="bool"   value="false"/>
+               <param name="Odom/FillInfoData"           type="string" value="true"/>
+               <param name="guess_from_tf"               type="bool"   value="false"/>
                <!-- Misc settings -->
-               <param name="Vis/CorType"            value="0"/>
                <param name="Reg/Force3DoF"          value="true" />
-               <param name="Odom/ResetCountdown"    type="string" value="35"/>
-               <param name="Odom/Holonomic"         type="bool" value="false"/>
+               <param name="Odom/ResetCountdown"    type="string" value="40"/>
+               <param name="Odom/Holonomic"         type="bool"   value="false"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
                <param name="Vis/MaxFeatures"        type="string" value="2000"/>
+               <param name="OdomF2M/MaxSize"        type="string" value="2000"/>
+               <param name="Odom/VisKeyFrameThr"    type="string" value="500"/>
+               <param name="Vis/ForwardEstOnly"     type="bool" value="false"/>
                <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
-               <!-- <param name="OdomF2M/MaxSize"        type="string" value="1000"/> -->
 
-               <param name="Odom/ImageBufferSize"           value="10"/> <!-- default = 1 -->
+               <param name="Vis/CorType"            value="0"/> <!--default = 0 [0=Features Matching, 1=Optical Flow] -->
+               <param name="Vis/CorGuessWinSize"    value="20"/> <!-- default = 20 -->
+               <param name="Vis/CorNNDR"            value="0.6"/> <!-- default = 0.6 -->
+               <param name="Vis/CorNNType"          value="1"/> <!-- [Vis/CorType=0] default = 1 == kNNFlannNaive=0, kNNFlannKdTree=1, kNNFlannLSH=2, kNNBruteForce=3, kNNBruteForceGPU=4. -->
+
+               <param name="Vis/CorFlowWinSize"     value="30"/> <!-- default = 16 -->
+
+               <param name="Odom/ImageBufferSize"           value="30"/> <!-- default = 1 -->
                <param name="Odom/KalmanMeasurementNoise"    value="0.5"/> <!-- default = 0.01 -->
                <param name="Odom/KalmanProcessNoise"        value="10.0"/> <!-- default = 0.001 -->
                <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
-               <param name="Optimizer/Strategy"             value="1"/> <!-- default = 1 -->
+               <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 -->
                <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
                <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
                <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
           </node>
-
-          <!-- <group if="$(arg obstacle_detection)">
-               <node pkg="nodelet" type="nodelet" name="vo_nodelet"  args="manager"/>
-
-               <node pkg="nodelet" type="nodelet" name="depth2cloud" args="load rtabmap_ros/point_cloud_xyzrgb vo_nodelet">
-                    <remap from="cloud"                to="cloudXYZ"/>
-                    <remap from="rgb/image"            to="$(arg rgb_topic)"/>
-                    <remap from="depth/image"          to="$(arg depth_topic)"/>
-                    <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
-
-                    <param name="voxel_size" type="double" value="0.05"/>
-                    <param name="decimation" type="int" value="1"/>
-                    <param name="max_depth" type="double" value="10"/>
-               </node>
-
-               <node pkg="nodelet" type="nodelet" name="obstacles_detection" args="load rtabmap_ros/obstacles_detection vo_nodelet">
-                    <remap from="cloud" to="cloudXYZ"/>
-                    <remap from="obstacles" to="/obs_cloud"/>
-
-                    <param name="frame_id" type="string" value="base_link"/>
-                    <param name="map_frame_id" type="string" value="map"/>
-                    <param name="wait_for_transform" type="bool" value="true"/>
-                    <param name="Grid/MinClusterSize" type="int" value="20"/>
-                    <param name="Grid/MaxObstacleHeight" type="double" value="1.0"/>
-               </node>
-          </group> -->
      </group>
 </launch>

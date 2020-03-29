@@ -2,10 +2,9 @@
 #include "swanson_algorithms/vboats_ros.h"
 
 #include <RoboCommander/utilities/utils.h>
-#include <RoboCommander/utilities/cv_utils.h>
 #include <RoboCommander/utilities/image_utils.h>
+#include <RoboCommander/utilities/cv_utils.h>
 #include <RoboCommander/algorithms/vboats/uvmap_utils.h>
-
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 
@@ -106,6 +105,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_voxel_res_z = voxel_resz;
      this->_gnd_upper_offset = gnd_buffer_upper_offset;
      this->_gnd_lower_offset = gnd_buffer_lower_offset;
+     this->_max_gnd_ang = 89.0;
+     this->_min_gnd_ang = 26.0;
      this->_sor_min_neighbors = sor_mink;
      this->_sor_dist_thresh = sor_thresh;
      this->_contourFiltMeth = 1;
@@ -205,6 +206,15 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
      if(config.gnd_seg_method != this->_use_gnd_meth){
           this->_use_gnd_meth = config.gnd_seg_method;
      }
+     if(config.cloud_filter_voxelize != this->_do_cloud_downsampling){
+          this->_do_cloud_downsampling = config.cloud_filter_voxelize;
+     }
+     if(config.cloud_filter_limits != this->_do_cloud_limit_filtering){
+          this->_do_cloud_limit_filtering = config.cloud_filter_limits;
+     }
+     if(config.cloud_filter_radius != this->_do_cloud_outlier_removal){
+          this->_do_cloud_outlier_removal = config.cloud_filter_radius;
+     }
      if(config.filter_gnd != this->_filter_ground){
           this->_filter_ground = config.filter_gnd;
      }
@@ -243,6 +253,12 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
      }
      if(config.gnd_lower_offset != this->_gnd_lower_offset){
           this->_gnd_lower_offset = config.gnd_lower_offset;
+     }
+     if(config.max_gnd_deg != this->_max_gnd_ang){
+          this->_max_gnd_ang = config.max_gnd_deg;
+     }
+     if(config.min_gnd_deg != this->_min_gnd_ang){
+          this->_min_gnd_ang = config.min_gnd_deg;
      }
      if(config.sor_min_neighbors != this->_sor_min_neighbors){
           this->_sor_min_neighbors = config.sor_min_neighbors;
@@ -492,40 +508,45 @@ void VboatsRos::generate_pointcloud(cv::Mat& depth){
      test_cloud->width = test_cloud->points.size();
      double testDt1 = ((double)cv::getTickCount() - testT1)/cv::getTickFrequency();
      // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Pointer = %.4lf ms (%.2lf Hz)\r\n", testDt1*1000.0, (1.0/testDt1));
-
-
      if(this->_flag_pub_cloud) this->_cloud_pub.publish(test_cloud);
 
      if(this->_filter_cloud){
           cloudxyz_t::Ptr cloud_filtered(new cloudxyz_t);
+          if(this->_do_cloud_limit_filtering){
+               pcl::ConditionAnd<pcl::PointXYZ>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZ> ());
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::GT, -this->_max_obstacle_height)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::LT, this->_min_obstacle_height)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::GT, this->_min_obstacle_range)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::LT, this->_max_obstacle_range)));
 
-          pcl::ConditionAnd<pcl::PointXYZ>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZ> ());
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::GT, -this->_max_obstacle_height)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::LT, this->_min_obstacle_height)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::GT, this->_min_obstacle_range)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::LT, this->_max_obstacle_range)));
+               pcl::ConditionalRemoval<pcl::PointXYZ> range_filt;
+               range_filt.setInputCloud(test_cloud);
+               range_filt.setCondition(range_cond);
+               range_filt.filter(*cloud_filtered);
+          }
 
-          pcl::ConditionalRemoval<pcl::PointXYZ> range_filt;
-          range_filt.setInputCloud(test_cloud);
-          range_filt.setCondition(range_cond);
-          range_filt.filter(*cloud_filtered);
+          if(this->_do_cloud_outlier_removal){
+               pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+               if(cloud_filtered->size() > 0) outrem.setInputCloud(cloud_filtered);
+               else outrem.setInputCloud(test_cloud);
+               outrem.setRadiusSearch(this->_sor_dist_thresh);
+               outrem.setMinNeighborsInRadius(this->_sor_min_neighbors);
+               outrem.filter(*cloud_filtered);
+          }
 
-          pcl::VoxelGrid<pcl::PointXYZ> voxg;
-          voxg.setInputCloud(cloud_filtered);
-          voxg.setLeafSize(this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
-          voxg.filter(*cloud_filtered);
+          if(this->_do_cloud_downsampling){
+               pcl::VoxelGrid<pcl::PointXYZ> voxg;
+               if(cloud_filtered->size() > 0) voxg.setInputCloud(cloud_filtered);
+               else voxg.setInputCloud(test_cloud);
+               voxg.setLeafSize(this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
+               voxg.filter(*cloud_filtered);
+          }
 
           // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
           // sor.setInputCloud(cloud_filtered);
           // sor.setMeanK(this->_sor_min_neighbors);
           // sor.setStddevMulThresh(this->_sor_dist_thresh);
           // sor.filter(*cloud_filtered);
-
-          pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
-          outrem.setInputCloud(cloud_filtered);
-          outrem.setRadiusSearch(this->_sor_dist_thresh);
-          outrem.setMinNeighborsInRadius(this->_sor_min_neighbors);
-          outrem.filter(*cloud_filtered);
 
           if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub.publish(cloud_filtered);
      }
@@ -765,7 +786,7 @@ int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::
      /** Extract ground line parameters (if ground is present) */
      float* line_params;
      float gndM; int gndB;
-     bool gndPresent = this->vb->find_ground_line(sobelV, &gndM,&gndB);
+     bool gndPresent = this->vb->find_ground_line(sobelV, &gndM,&gndB, this->_min_gnd_ang, this->_max_gnd_ang);
      if(gndPresent){
           float tmpParams[] = {gndM, (float) gndB};
           line_params = &tmpParams[0];

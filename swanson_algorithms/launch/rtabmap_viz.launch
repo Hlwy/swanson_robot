@@ -7,7 +7,8 @@
 
      <arg name="approx_sync"             default="true"/>
      <arg name="imu_topic"               default="/swansonPi4/imu/data/filtered"/>
-     <arg name="odom_topic"              default="/swansonPi4/odometry/filtered"/>
+     <!-- <arg name="odom_topic"              default="/swansonPi4/odometry/filtered"/> -->
+     <arg name="odom_topic"              default="/vo"/>
      <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
      <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
      <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />

@@ -39,7 +39,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      bool flag_filter_ground = true;
      bool flag_filter_cloud = false;
      bool publish_cloud = false;
-     bool publish_fitered_cloud = false;
+     bool publish_filtered_cloud = false;
+     bool publish_unfiltered_cloud = false;
      int update_rate = 30;
 
      p_nh.getParam("namespace",namespaced);
@@ -56,7 +57,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      p_nh.getParam("filter_ground",flag_filter_ground);
      p_nh.getParam("filtered_cloud",flag_filter_cloud);
      p_nh.getParam("publish_cloud",publish_cloud);
-     p_nh.getParam("publish_filtered_cloud",publish_fitered_cloud);
+     p_nh.getParam("publish_filtered_cloud",publish_filtered_cloud);
+     p_nh.getParam("publish_unfiltered_cloud",publish_unfiltered_cloud);
 
      this->_ns = namespaced;
      this->_verbose_obstacles = flag_verbose_obstacles;
@@ -70,7 +72,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_filter_ground = flag_filter_ground;
      this->_filter_cloud = flag_filter_cloud;
      this->_flag_pub_cloud = publish_cloud;
-     this->_flag_pub_filtered_cloud = publish_fitered_cloud;
+     this->_flag_pub_filtered_cloud = publish_filtered_cloud;
+     this->_flag_pub_unfiltered_cloud = publish_unfiltered_cloud;
 
      float max_obs_height = 1.0;
      float min_obs_height = 1.0;
@@ -130,6 +133,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      std::string detected_obstacles_info_topic = "/vboats/obstacles/data";
      std::string raw_cloud_topic = "/vboats/cloud/raw";
      std::string filtered_cloud_topic = "/vboats/cloud/filtered";
+     std::string unfiltered_cloud_topic = "/vboats/cloud/unfiltered";
      p_nh.getParam("depth_image_topic",depth_image_topic);
      p_nh.getParam("camera_info_topic",camera_info_topic);
      p_nh.getParam("disparity_image_topic",disparity_image_topic);
@@ -140,6 +144,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      p_nh.getParam("obstacles_info_topic",detected_obstacles_info_topic);
      p_nh.getParam("raw_cloud_topic",raw_cloud_topic);
      p_nh.getParam("filtered_cloud_topic",filtered_cloud_topic);
+     p_nh.getParam("unfiltered_cloud_topic",unfiltered_cloud_topic);
 
      /** Initialize ROS-Objects */
      this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsRos::infoCallback,this,_1,1));
@@ -153,12 +158,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
      this->_cloud_pub = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
      this->_filtered_cloud_pub = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
-     // if(this->_flag_pub_cloud) this->_cloud_pub = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
-     // if(this->_flag_pub_filtered_cloud) this->_filtered_cloud_pub = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
-     // if(this->_publish_aux_images){
-     //      this->_umap_pub = m_nh.advertise<sensor_msgs::Image>(umap_topic, 1);
-     //      this->_vmap_pub = m_nh.advertise<sensor_msgs::Image>(vmap_topic, 1);
-     // }
+     this->_unfiltered_cloud_pub = m_nh.advertise<cloudxyz_t>(unfiltered_cloud_topic, 1);
 
      /** ROS tf frames Configuration */
      std::string tf_prefix = "/";
@@ -272,6 +272,7 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
      if(config.publish_aux_imgs != this->_publish_aux_images){ this->_publish_aux_images = config.publish_aux_imgs; }
      if(config.publish_raw_cloud != this->_flag_pub_cloud){ this->_flag_pub_cloud = config.publish_raw_cloud; }
      if(config.publish_filter_cloud != this->_flag_pub_filtered_cloud){ this->_flag_pub_filtered_cloud = config.publish_filter_cloud; }
+     if(config.publish_unfilter_cloud != this->_flag_pub_unfiltered_cloud){ this->_flag_pub_unfiltered_cloud = config.publish_unfilter_cloud; }
 
      if(config.vmask_subtract_sobel != this->_sobel_vmask_subtract){
           this->_sobel_vmask_subtract = config.vmask_subtract_sobel;
@@ -462,37 +463,47 @@ void VboatsRos::depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, flo
      } else _disparity8 = _disparity;
      if(disparity) *disparity = _disparity8.clone();
 }
-void VboatsRos::generate_pointcloud(cv::Mat& depth){
-     // cloudxyz_t::Ptr pointcloud_msg (new cloudxyz_t);
-     // pointcloud_msg->header.seq = this->_count;
-     // pointcloud_msg->header.frame_id = this->_camera_tf;
-     // pcl::PointXYZ pt;
-     // double testT0 = (double)cv::getTickCount();
-     // for(int y = 0; y < depth.rows; y+=4){
-     //      for(int x = 0; x < depth.cols; x+=4){
-     //           float depthVal = (float) depth.at<short int>(cv::Point(x,y)) * this->_dscale;
-     //           if(depthVal > 0){
-     //                pt.x = ((float)x - this->_px) * depthVal / this->_fx;
-     //                pt.y = ((float)y - this->_py) * depthVal / this->_fy;
-     //                pt.z = depthVal;
-     //                pointcloud_msg->points.push_back(pt);
-     //           }
-     //      }
-     // }
-     // pointcloud_msg->height = 1;
-     // pointcloud_msg->width = pointcloud_msg->points.size();
-     // double testDt0 = ((double)cv::getTickCount() - testT0)/cv::getTickFrequency();
-     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Naive = %.4lf ms (%.2lf Hz)\r\n", testDt0*1000.0, (1.0/testDt0));
+void VboatsRos::publish_unfiltered_cloud(cv::Mat& depth){
+     cv::Mat _depth = depth.clone();
+     if(_depth.type() != CV_32F) _depth.convertTo(_depth, CV_32F);
 
      cloudxyz_t::Ptr test_cloud(new cloudxyz_t);
      test_cloud->header.seq = this->_count;
      test_cloud->header.frame_id = this->_camera_tf;
-     short int* ptrP;
+     float* ptrP;
+     pcl::PointXYZ pt;
+     double t = (double)cv::getTickCount();
+     for(int y = 0; y < _depth.rows; y+=4){
+          ptrP = _depth.ptr<float>(y);
+          for(int x = 0; x < _depth.cols; x+=4){
+               float depthVal = (float) ptrP[x] * this->_dscale;
+               if(depthVal > 0){
+                    pt.x = ((float)x - this->_px) * depthVal / this->_fx;
+                    pt.y = ((float)y - this->_py) * depthVal / this->_fy;
+                    pt.z = depthVal;
+                    test_cloud->points.push_back(pt);
+               }
+          }
+     }
+     test_cloud->height = 1;
+     test_cloud->width = test_cloud->points.size();
+     double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Pointer = %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+     if(this->_flag_pub_unfiltered_cloud) this->_unfiltered_cloud_pub.publish(test_cloud);
+}
+void VboatsRos::generate_pointcloud(cv::Mat& depth){
+     cv::Mat _depth = depth.clone();
+     if(_depth.type() != CV_32F) _depth.convertTo(_depth, CV_32F);
+
+     cloudxyz_t::Ptr test_cloud(new cloudxyz_t);
+     test_cloud->header.seq = this->_count;
+     test_cloud->header.frame_id = this->_camera_tf;
+     float* ptrP;
      pcl::PointXYZ pt;
      double testT1 = (double)cv::getTickCount();
-     for(int y = 0; y < depth.rows; y+=4){
-          ptrP = depth.ptr<short int>(y);
-          for(int x = 0; x < depth.cols; x+=4){
+     for(int y = 0; y < _depth.rows; y+=4){
+          ptrP = _depth.ptr<float>(y);
+          for(int x = 0; x < _depth.cols; x+=4){
                float depthVal = (float) ptrP[x] * this->_dscale;
                if(depthVal > 0){
                     pt.x = ((float)x - this->_px) * depthVal / this->_fx;
@@ -734,8 +745,8 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity, con
 int VboatsRos::process(const cv::Mat& disparity, const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles, const cv::Mat& depth){
      int nObs = 0;
      vector<Obstacle> _obstacles;
-
      if(this->_debug) printf("[INFO] VboatsRos::process() --- Pre-filtering Umap.\r\n");
+
      /** Pre-filter Umap */
      cv::Mat uProcessed;
      cv::Mat uTmp = umap.clone();
@@ -898,6 +909,9 @@ int VboatsRos::update(bool verbose, bool debug_timing){
      this->_lock.unlock();
      /** Don't do any proessing if disparity is empty */
      if(curDisparity.empty()) return -1;
+
+     /** Publish raw pointcloud extrapolated for uncut depth map */
+     if(this->_flag_pub_unfiltered_cloud) this->publish_unfiltered_cloud(curDepth);
 
      double t = (double)cv::getTickCount();
      genUVMapThreaded(curDisparity,&umap,&vmap, 2.0);

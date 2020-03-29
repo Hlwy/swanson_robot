@@ -45,7 +45,7 @@ template<typename dtype> struct ForEachDepthConverter{
           m_gain = gain;
      }
      void operator()(dtype& pixel, const int * idx) const{
-          if(pixel != 0.0){ pixel = m_gain / pixel; }
+          if((std::isfinite(pixel)) && (pixel != 0.0)){ pixel = m_gain / pixel; }
      }
 };
 
@@ -99,6 +99,7 @@ private:
      ros::Publisher _detected_obstacle_info_pub;
      ros::Publisher _cloud_pub;
      ros::Publisher _filtered_cloud_pub;
+     ros::Publisher _unfiltered_cloud_pub;
      tf::TransformBroadcaster _br;
 
      image_transport::ImageTransport _it;
@@ -150,6 +151,7 @@ private:
      bool _filter_cloud;
      bool _flag_pub_cloud;
      bool _flag_pub_filtered_cloud;
+     bool _flag_pub_unfiltered_cloud;
      /** Configurable Parameters */
      bool _use_gnd_meth;
      bool _do_cloud_downsampling;
@@ -198,6 +200,7 @@ public:
      void publish_images(const cv::Mat& umap, const cv::Mat& vmap, const cv::Mat& filtered);
      void publish_obstacle_image(cv::Mat image);
      void publish_obstacle_data(vector<Obstacle>& obstacles, const cv::Mat& dImage);
+     void publish_unfiltered_cloud(cv::Mat& depth);
 
      void generate_pointcloud(cv::Mat& depth);
      int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth, float* line_params, cv::Mat* filtered_img);

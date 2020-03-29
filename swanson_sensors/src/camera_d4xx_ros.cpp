@@ -1,5 +1,6 @@
 #include <iostream>
-#include "swanson_sensors/camera_d415_ros.h"
+#include "swanson_sensors/camera_d4xx_ros.h"
+
 #include <RoboCommander/utilities/cv_utils.h>
 
 using namespace std;
@@ -7,7 +8,7 @@ using namespace std;
 /** SECTION:
      CONSTRUCTOR & DECONSTRUCTOR
 */
-CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh), _it(nh),
+CameraD4XXRos::CameraD4XXRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh), _it(nh),
 	_stop_threads(false), _thread_started(false), _focal(), _principle()
 {
 	std::string ns = m_nh.getNamespace();
@@ -140,7 +141,7 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	/** Initialize D415 Camera */
 	int rgb_resolution[2] = {color_width, color_height};
 	int depth_resolution[2] = {depth_width, depth_height};
-	this->cam = new CameraD415(color_fps, rgb_resolution, depth_fps, depth_resolution, true);
+	this->cam = new CameraD4XX(color_fps, rgb_resolution, depth_fps, depth_resolution, true);
 
 	this->cam->get_intrinsics(RS2_STREAM_COLOR, &_Krgb, &_Prgb, true);
 	this->cam->get_intrinsics(RS2_STREAM_DEPTH, &_Kdepth, &_Pdepth, true);
@@ -219,26 +220,26 @@ CameraD415Ros::CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 
 	this->_loop_rate = new ros::Rate(update_rate);
 
-	printf("[INFO] CameraD415Ros::CameraD415Ros() ---- Successfully Initialized!\r\n");
+	printf("[INFO] CameraD4XXRos::CameraD4XXRos() ---- Successfully Initialized!\r\n");
 	if(this->_get_aligned) this->cam->enable_alignment();
 	if(this->_post_process) this->cam->enable_filters();
 	// this->cam->start_thread();
 }
 
-CameraD415Ros::~CameraD415Ros(){
+CameraD4XXRos::~CameraD4XXRos(){
 	this->stop();
 	delete this->_loop_rate;
 	delete this->cam;
 }
 
-void CameraD415Ros::stop(){
+void CameraD4XXRos::stop(){
 	this->_stop_threads = true;
 }
-void CameraD415Ros::start(){
+void CameraD4XXRos::start(){
 	this->_stop_threads = false;
 }
 
-void CameraD415Ros::initTfs(){
+void CameraD4XXRos::initTfs(){
 	tf::Vector3 pNull(0.0, 0.0, 0.0);
 	tf::Quaternion qNull; qNull.setRPY(0.0, 0.0, 0.0);
 	tf::Quaternion qOptical; qOptical.setRPY(-M_PI/2.0, 0.0, -M_PI/2.0);
@@ -246,7 +247,7 @@ void CameraD415Ros::initTfs(){
 	this->_tfOpticalBaseToCamBase = tf::Transform(qNull,pNull);
 	this->_tfOpticalToOpticalBase = tf::Transform(qOptical,pNull);
 }
-void CameraD415Ros::publish_tfs(){
+void CameraD4XXRos::publish_tfs(){
 	ros::Time curTime = ros::Time::now();
 
 	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_rgb_optical_tf.c_str(),this->_rgb_base_tf.c_str());
@@ -260,7 +261,7 @@ void CameraD415Ros::publish_tfs(){
 	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalBaseToCamBase, curTime, this->_cam_base_tf, this->_depth_base_tf));
 	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_cam_base_tf, this->_aligned_base_tf));
 }
-void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity){
+void CameraD4XXRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _disparity){
 	ros::Time time = ros::Time::now();
 	/** RGB Image */
 	if(!_rgb.empty()){
@@ -334,7 +335,7 @@ void CameraD415Ros::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 	}
 }
 
-void CameraD415Ros::update(bool verbose){
+void CameraD4XXRos::update(bool verbose){
 	// boost::mutex::scoped_lock scoped_lock(_lock);
 	cv::Mat rgb, depth, disparity;
 	bool visualize = false;
@@ -357,7 +358,7 @@ void CameraD415Ros::update(bool verbose){
 		if(this->_publish_images) this->publish_images(rgb, depth, disparity);
 		if(debug_timing){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-			printf("[INFO] CameraD415Ros::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
+			printf("[INFO] CameraD4XXRos::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
 		if(visualize){
@@ -370,7 +371,7 @@ void CameraD415Ros::update(bool verbose){
 	}
 }
 
-int CameraD415Ros::run(bool verbose){
+int CameraD4XXRos::run(bool verbose){
 	this->start();
 	usleep(1 * 1000000);
 	cout << "Looping..." << endl;
@@ -379,7 +380,7 @@ int CameraD415Ros::run(bool verbose){
 		this->update();
 		if(this->_verbose_timings){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-			printf("[INFO] CameraD415Ros::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
+			printf("[INFO] CameraD4XXRos::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
           ros::spinOnce();

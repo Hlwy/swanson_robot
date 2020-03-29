@@ -1,24 +1,22 @@
-#ifndef SWANSON_SENSORS_CAMERA_D415_ROS_H_
-#define SWANSON_SENSORS_CAMERA_D415_ROS_H_
+#ifndef SWANSON_SENSORS_CAMERA_D4XX_ROS_H_
+#define SWANSON_SENSORS_CAMERA_D4XX_ROS_H_
+
+#include <RoboCommander/sensors/camera_d4xx.h>
 
 #include <thread>
-#include <atomic>
 #include <mutex>
-// #include <boost/thread/mutex.hpp>
+#include <atomic>
 
 #include <ros/ros.h>
-
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 #include <tf/transform_broadcaster.h>
 
-#include <RoboCommander/sensors/camera_d415.h>
-
 using namespace std;
 
-class CameraD415Ros{
+class CameraD4XXRos{
 private:
      /** ROS Objects */
      ros::NodeHandle m_nh;
@@ -97,10 +95,10 @@ private:
      std::atomic_bool _thread_started;
 public:
      // Contructor/DeConstructor
-     CameraD415Ros(ros::NodeHandle nh, ros::NodeHandle _nh);
-     ~CameraD415Ros();
+     CameraD4XXRos(ros::NodeHandle nh, ros::NodeHandle _nh);
+     ~CameraD4XXRos();
 
-     CameraD415* cam;
+     CameraD4XX* cam;
 
      void start();
      void stop();
@@ -113,4 +111,4 @@ public:
 };
 
 
-#endif // SWANSON_SENSORS_CAMERA_D415_ROS_H_
+#endif // SWANSON_SENSORS_CAMERA_D4XX_ROS_H_

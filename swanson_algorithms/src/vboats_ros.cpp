@@ -3,8 +3,8 @@
 
 #include <RoboCommander/utilities/utils.h>
 #include <RoboCommander/utilities/image_utils.h>
-#include <RoboCommander/utilities/cv_utils.h>
 #include <RoboCommander/algorithms/vboats/uvmap_utils.h>
+
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 
@@ -307,8 +307,6 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           ROS_INFO(" -- Cloud Voxel Resolution (X,Y,Z) = %.4f, %.4f, %.4f", this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
           ROS_INFO(" -- Ground Line Offsets (upper, lower) = %d, %d", this->_gnd_upper_offset, this->_gnd_lower_offset);
           ROS_INFO(" -- Cloud Filtering-> Keeping points having at least %d neighbors w/in %.4f meters", this->_sor_min_neighbors, this->_sor_dist_thresh);
-          ROS_INFO(" -- Umap Thresholds = [%s]", vector_str(this->_uThreshs, ", ").c_str() );
-          ROS_INFO(" -- Vmap Thresholds = [%s]", vector_str(this->_vThreshs, ", ").c_str());
      }
 }
 void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){

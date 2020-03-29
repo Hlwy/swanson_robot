@@ -51,7 +51,7 @@
      </group>
 
      <!-- Realsense Camera Bringup (Optional) -->
-     <include if="$(arg use_rs_cam)" file="$(find swanson_sensors)/launch/camera_d400.launch">
+     <include if="$(arg use_rs_cam)" file="$(find swanson_sensors)/launch/camera_d4xx.launch">
           <arg name="ns"           value="$(arg cam_ns)"/>
           <arg name="cam_fps"      value="$(arg cam_fps)"/>
           <arg name="depth_width"  value="$(arg cam_width)"/>

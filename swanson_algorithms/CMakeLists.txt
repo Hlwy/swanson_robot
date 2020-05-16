@@ -18,6 +18,7 @@ set( ROS_CXX_DEPENDENCIES
      std_msgs
      cv_bridge
      sensor_msgs
+     stereo_msgs
      image_transport
      message_generation
      swanson_msgs
@@ -27,7 +28,7 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(OpenCV 3.4 REQUIRED)
+find_package(OpenCV 4.2 REQUIRED)
 # find_package(OpenCV 4.1.1 REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
 find_package(realsense2 REQUIRED)
 
@@ -86,11 +87,14 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 
 add_library(vboats_ros src/vboats_ros.cpp)
 target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${RoboCommander_LIBRARIES})
-add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)
 target_link_libraries(vboats_node vboats_ros)
 
+add_executable(test_image_proc src/test_image_proc.cpp)
+target_link_libraries(test_image_proc ${catkin_LIBRARIES} ${OpenCV_LIBS} ${RoboCommander_LIBRARIES})
+add_dependencies(test_image_proc ${catkin_EXPORTED_TARGETS})
 #############
 ## Install ##
 #############

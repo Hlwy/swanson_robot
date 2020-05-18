@@ -232,7 +232,7 @@ void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
      geometry_msgs::Quaternion orientMsg = msg->orientation;
      tf::quaternionMsgToTF(orientMsg, quat);
      tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
-     // printf("[INFO] VboatsRos::imuCallback() --- roll=%f pitch=%f yaw=%f.\r\n", roll*M_RAD2DEG, pitch*M_RAD2DEG, yaw*M_RAD2DEG);
+     printf("[INFO] VboatsRos::imuCallback() --- roll=%f pitch=%f yaw=%f.\r\n", roll*M_RAD2DEG, pitch*M_RAD2DEG, yaw*M_RAD2DEG);
      this->_correction_roll = -roll * M_RAD2DEG;
      this->_correction_pitch = -pitch * M_RAD2DEG;
      this->_correction_yaw = -yaw * M_RAD2DEG;
@@ -975,11 +975,18 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
 
           uTmp.convertTo(uSobIn, CV_64F);
           threshold(uSobIn, uSobel, this->_pre_blur_thresh, 255, cv::THRESH_TOZERO);
-
-          if(this->_primary_blur) cv::blur(uSobel, uSobel,
-               cv::Size(this->_kernel_x_multiplier*this->_umask_primary_blur_size,
-                    this->_kernel_y_multiplier*this->_umask_primary_blur_size)
+          if(this->_primary_blur){
+               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+                    cv::Size(this->_kernel_x_multiplier*this->_umask_primary_blur_size,
+                         this->_kernel_y_multiplier*this->_umask_primary_blur_size)
                );
+               cv::dilate(uSobel, uSobel, element, cv::Point(-1,-1), 1);
+          }
+
+          // if(this->_primary_blur) cv::blur(uSobel, uSobel,
+          //      cv::Size(this->_kernel_x_multiplier*this->_umask_primary_blur_size,
+          //           this->_kernel_y_multiplier*this->_umask_primary_blur_size)
+          //      );
           cv::Sobel(uSobel, uSobel, CV_64F, 0, 1, 3);
           double minUVal, maxUVal;
           cv::minMaxLoc(uSobel, &minUVal, &maxUVal);

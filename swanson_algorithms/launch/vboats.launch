@@ -44,9 +44,9 @@
           <param name="depth_image_topic"     value="$(arg depth_topic)"/>
           <param name="disparity_image_topic" value="$(arg disparity_topic)"/>
 
-          <!-- <param name="imu_topic" value="$(arg imu_topic)"/>
-          <param name="pose_topic" value="$(arg pose_topic)"/> -->
-          <param name="pose_stamped_topic" value="$(arg pose_stamped_topic)"/>
+          <param name="imu_topic" value="$(arg imu_topic)"/>
+          <!-- <param name="pose_topic" value="$(arg pose_topic)"/> -->
+          <!-- <param name="pose_stamped_topic" value="$(arg pose_stamped_topic)"/> -->
 
           <param name="parent_frame"          value="base_link"/>
           <param name="camera_base_frame"     value="$(arg camera_frame)"/>

@@ -34,51 +34,6 @@
 
 typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
 
-/** Templated struct for fast conversion of depth image into disparity */
-template<typename dtype> struct ForEachDepthConverter{
-     dtype m_gain;
-     ForEachDepthConverter(dtype gain){
-          m_gain = gain;
-     }
-     void operator()(dtype& pixel, const int * idx) const{
-          if((std::isfinite(pixel)) && (pixel != 0.0)){ pixel = m_gain / pixel; }
-     }
-};
-
-/** Templated structure for fast generation of object segmentation mask */
-struct ForEachObsMaskGenerator{
-     int ** m_table;
-     const size_t m_rows;
-     const size_t m_cols;
-     ForEachObsMaskGenerator(const cv::Mat& input_mask, int num_rows, int num_cols) : m_rows(num_rows), m_cols(num_cols){
-          cv::Mat nonzero;
-          m_table = new int*[num_rows]();
-          for(int v = 0; v < num_rows; v++){
-               if(m_table[v]) delete[] m_table[v];
-               m_table[v] = new int[num_cols]();
-               memset(m_table[v], 0, num_cols*sizeof(int));
-               cv::Mat refRow = input_mask.row(v);
-               cv::findNonZero(refRow, nonzero);
-               for(int u = 0; u < nonzero.total(); ++u){
-                    int tmpx = nonzero.at<cv::Point>(u).x;
-                    m_table[v][tmpx] = 255;
-               }
-          }
-     }
-     void remove(){
-          for(auto i = 0; i < m_rows; i++){
-               if(m_table[i]) delete[] m_table[i];
-               m_table[i] = nullptr;
-          }
-          if(m_table) delete[] m_table;
-          m_table = nullptr;
-     }
-
-     void operator()(uchar& pixel, const int * position) const {
-          if((position[0] < m_rows) && (pixel < m_cols)){ pixel = (uchar) m_table[position[0]][pixel]; }
-     }
-};
-
 class VboatsRos{
 private:
      /** Multi-threading objects */
@@ -217,7 +172,7 @@ private:
      float _cloud_outlier_search_radius = 1.0;
 
      /** Algorithm Flags */
-     bool _do_post_depth_morphing            = false;
+     bool _do_post_depth_morphing            = true;
      int _depth_morph_kernel_size            = 3;
      bool _do_individual_obstacle_detection  = true;
 

@@ -34,27 +34,24 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_verbose_obstacles = flag_verbose_obstacles;
 
      /** ROS Object Configuration */
-     std::string depth_image_topic = "camera/depth/image_rect_raw";
-     std::string camera_info_topic = "camera/depth/camera_info";
-     std::string disparity_image_topic = "camera/disparity/image_raw";
-     std::string generated_disparity_topic = "vboats/generated_disparity/image_raw";
+     std::string depth_image_topic                = "camera/depth/image_rect_raw";
+     std::string camera_info_topic                = "camera/depth/camera_info";
+     std::string disparity_image_topic            = "camera/disparity/image_raw";
+     std::string generated_disparity_topic        = "vboats/generated_disparity/image_raw";
+     std::string umap_topic                       = "vboats/umap/image_raw";
+     std::string vmap_topic                       = "vboats/vmap/image_raw";
+     std::string filt_umap_topic                  = "vboats/umap/image_filtered";
+     std::string filt_vmap_topic                  = "vboats/vmap/image_filtered";
+     std::string filtered_image_topic             = "vboats/depth/image_filtered";
+     std::string obstacles_image_topic            = "vboats/obstacles/image_raw";
+     std::string detected_obstacles_info_topic    = "vboats/obstacles/data";
+     std::string raw_cloud_topic                  = "vboats/cloud/raw";
+     std::string filtered_cloud_topic             = "vboats/cloud/filtered";
+     std::string unfiltered_cloud_topic           = "vboats/cloud/pre_processed";
 
-     std::string umap_topic = "vboats/umap/image_raw";
-     std::string vmap_topic = "vboats/vmap/image_raw";
-     std::string filt_umap_topic = "vboats/umap/image_filtered";
-     std::string filt_vmap_topic = "vboats/vmap/image_filtered";
-
-     std::string filtered_image_topic = "vboats/depth/image_filtered";
-     std::string obstacles_image_topic = "vboats/obstacles/image_raw";
-     std::string detected_obstacles_info_topic = "vboats/obstacles/data";
-
-     std::string raw_cloud_topic = "vboats/cloud/raw";
-     std::string filtered_cloud_topic = "vboats/cloud/filtered";
-     std::string unfiltered_cloud_topic = "vboats/cloud/pre_processed";
-
-     std::string imu_topic = "";
-     std::string pose_topic = "";
-     std::string pose_stamped_topic = "";
+     std::string imu_topic              = "";
+     std::string pose_topic             = "";
+     std::string pose_stamped_topic     = "";
 
      p_nh.getParam("depth_image_topic",depth_image_topic);
      p_nh.getParam("camera_info_topic",camera_info_topic);
@@ -70,7 +67,6 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      p_nh.getParam("raw_cloud_topic",raw_cloud_topic);
      p_nh.getParam("unfiltered_cloud_topic",unfiltered_cloud_topic);
      p_nh.getParam("filtered_cloud_topic",filtered_cloud_topic);
-
      p_nh.getParam("imu_topic",imu_topic);
      p_nh.getParam("pose_topic",pose_topic);
      p_nh.getParam("pose_stamped_topic",pose_stamped_topic);
@@ -126,7 +122,6 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      printf("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!\r\n");
      this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
      this->_cfg_server.setCallback(this->_cfg_f);
-
      this->_loop_rate = new ros::Rate(update_rate);
 }
 VboatsRos::~VboatsRos(){
@@ -153,7 +148,6 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
      if(config.cam_min_depth_y != this->_cam_min_depth_y) this->_cam_min_depth_y = config.cam_min_depth_y;
      if(config.cam_max_depth_y != this->_cam_max_depth_y) this->_cam_max_depth_y = config.cam_max_depth_y;
 
-     if(config.use_depth_for_process != this->_do_depth_based_processing) this->_do_depth_based_processing = config.use_depth_for_process;
      if(config.detect_obstacles != this->_do_individual_obstacle_detection) this->_do_individual_obstacle_detection = config.detect_obstacles;
      if(config.do_gnd_line_based_filtering != this->_use_gnd_line_based_removal) this->_use_gnd_line_based_removal = config.do_gnd_line_based_filtering;
      if(config.do_object_segmented_filtering != this->_do_object_segmented_filtering) this->_do_object_segmented_filtering = config.do_object_segmented_filtering;
@@ -253,7 +247,7 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
 
      // Input Visualization
      if(config.visualize_inputs != this->_visualize_inputs) this->_visualize_inputs = config.visualize_inputs;
-     if(config.visualize_angle_corrected_depth != this->_visualize_angle_corrected_depth) this->_visualize_angle_corrected_depth = config.visualize_angle_corrected_depth;
+     if(config.visualize_corrected_depth != this->_visualize_angle_corrected_depth) this->_visualize_angle_corrected_depth = config.visualize_corrected_depth;
      if(config.visualize_generated_disparity != this->_visualize_generated_disparity) this->_visualize_generated_disparity = config.visualize_generated_disparity;
      // Umap Visualization
      if(config.visualize_umap_raw != this->_visualize_umap_raw) this->_visualize_umap_raw = config.visualize_umap_raw;
@@ -536,23 +530,23 @@ void VboatsRos::depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, flo
           gain = gain * this->_dscale;
      } else if(depth.type() != CV_32F) depth.convertTo(image, CV_32F);
      else image = depth.clone();
-     // printf("[DEBUG] VboatsRos::depth_to_disparity() --- Using conversion gain = %f.\r\n", gain);
-     // cvinfo(image, "VboatsRos::depth_to_disparity() --- Input Depth Image: ");
-
+     if(this->_debug_disparity_generation){
+          printf("[DEBUG] VboatsRos::depth_to_disparity() --- Using conversion gain = %f.\r\n", gain);
+          cvinfo(image, "VboatsRos::depth_to_disparity() --- Input Depth Image: ");
+     }
      // Depth2DisparityConverter<float> d2dconverter(gain);
      ForEachDepthConverter<float> d2dconverter(gain, (float) this->_disparity_hard_min, (float) this->_disparity_hard_max);
      image.forEach<float>(d2dconverter);
-     // cvinfo(image, "VboatsRos::depth_to_disparity() --- Disparity image before uint8 conversion: ");
+     if(this->_debug_disparity_generation) cvinfo(image, "VboatsRos::depth_to_disparity() --- Disparity image before uint8 conversion: ");
 
      if(image.type() != CV_8UC1){
           double minVal, maxVal;
           cv::minMaxLoc(image, &minVal, &maxVal);
           image.convertTo(disparityOut, CV_8UC1, (255.0/maxVal) );
      } else disparityOut = image;
-     // cvinfo(disparityOut, "VboatsRos::depth_to_disparity() --- Output Disparity: ");
+     if(this->_debug_disparity_generation) cvinfo(disparityOut, "VboatsRos::depth_to_disparity() --- Output Disparity: ");
      if(disparity) *disparity = disparityOut.clone();
 }
-
 cloudxyz_t::Ptr VboatsRos::generate_cloud_from_depth(const cv::Mat& depth){
      cloudxyz_t::Ptr tmpCloud(new cloudxyz_t);
      // Return early with empty cloud object if input depth image is empty
@@ -584,7 +578,6 @@ cloudxyz_t::Ptr VboatsRos::generate_cloud_from_depth(const cv::Mat& depth){
      tmpCloud->height = 1;
      tmpCloud->width = tmpCloud->points.size();
      double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Pointer = %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
      return tmpCloud;
 }
 cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud){
@@ -630,7 +623,6 @@ cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud){
      // sor.filter(*filtered_cloud);
 
      double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-     // printf("[INFO] VboatsRos::generate_pointcloud(): Cloud generation Time: Pointer = %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
      return filtered_cloud;
 }
 
@@ -750,75 +742,6 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
      masker.remove();
      return err;
 }
-
-/**
-int VboatsRos::remove_ground_from_depth(const cv::Mat& vmap, const cv::Mat& disparity, const cv::Mat& depth, const vector<vector<cv::Point>>& contours, float* line_params, cv::Mat* filtered_img){
-     cv::Mat depthImg, refImg, img;
-     if(depth.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Depth Image is empty, skipping ground removal.\r\n");
-          return -1;
-     }
-     if(vmap.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Vmap input Image is empty, skipping ground removal.\r\n");
-          return -2;
-     }
-     if(disparity.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Disparity input Image is empty, skipping ground removal.\r\n");
-          return -3;
-     }
-     refImg = vmap.clone();
-     img = disparity.clone();
-     depthImg = depth.clone();
-     cv::Mat mask = cv::Mat::zeros(disparity.size(), CV_8UC1);
-
-     // Initialize variable containers
-     int h = vmap.rows, w = vmap.cols;
-     cv::Mat refVmap = vmap.clone();
-     cv::Mat refVmask = cv::Mat::zeros(h,w, CV_8UC1);
-     cv::Mat refDmask = disparity.clone();
-
-     // Initialize default ground line coefficients
-     int b = h;
-     float slope = 0.0;
-     if(line_params){
-          slope = line_params[0];
-          b = (int) line_params[1];
-     }
-
-     // Extract regions in vmap associated with potential non-ground objects
-     vector<int> xLims, dLims;
-     for(int i = 0; i < contours.size(); i++){
-          vector<cv::Point> contour = contours[i];
-          this->vb->extract_contour_bounds(contour,&xLims, &dLims);
-          int dmin = dLims.at(0);
-          int dmax = dLims.at(1);
-          int dmid = (int)( (float)(dmin + dmax) / 2.0 );
-          int yf = (int)( (float)dmid * slope) + b - this->_gnd_upper_intercept;
-          if(yf >= h) yf = h;
-
-          // Extract ROI containing current contour data from vmap for processing
-          cv::Rect roiRect = cv::Rect( cv::Point(dmin,0), cv::Point(dmax,yf) );
-          cv::Mat roi = refVmap(roiRect);
-          roi.copyTo(refVmask(roiRect));
-     }
-
-     GndRemovalMaskGenerator mask_generator(refVmask, h, 256);
-     refDmask.forEach<uchar>(mask_generator);
-
-     int err = 0;
-     if(!refDmask.empty()){
-          cv::Mat segmentedImg;
-          depthImg.copyTo(segmentedImg, refDmask);
-          if(filtered_img) *filtered_img = segmentedImg.clone();
-     } else{
-          ROS_WARN("VboatsRos::remove_ground_from_depth() --- Object mask is empty, skipping object removal.");
-          err = -2;
-     }
-     mask_generator.deinit();
-     return err;
-}
-*/
-
 int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap,
      const cv::Mat& depth, std::vector<float> line_params, cv::Mat* filtered_img,
      cv::Mat* generated_mask)
@@ -1109,10 +1032,6 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
      // Remove non-ground regions from depth image using contours found in Umap to identify potential non-ground objects, and extract their corresponding regions from the vmap
      int err;
      cv::Mat noGndImg, noObsImg, gndMask, objMask, filtered_image, filtered_depth;
-     // int err = this->remove_objects(vProcessed, tmpDisparity, tmpDepth,
-     //      contours, line_params, &filtered_depth
-     // );
-
      // cvinfo(depth, "VboatsHandler::process() --- Depth before ground segmentation: ");
      // cvinfo(vProcessed, "VboatsHandler::process() --- Vmap input before ground segmentation: ");
      if(this->_do_object_segmented_filtering){
@@ -1163,129 +1082,131 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
      //      else ROS_WARN("VboatsRos::process() --- Object filtered depth image is empty, skipping pointcloud generation.");
      // } else ROS_WARN("VboatsRos::process() --- Unable to filter objects from depth image, skipping pointcloud generation.");
 
-     // if(this->_do_cv_wait_key){
-     //      if(this->_visualize_gnd_mask) imshowCmap(gndMask, "Ground-Line Mask");
-     //      if(this->_visualize_obj_mask) imshowCmap(objMask, "Object Mask");
-     //      if(this->_visualize_gnd_filter_img) imshowCmap(noGndImg, "Ground-Line Filtered Image");
-     //      if(this->_visualize_obj_filter_img) imshowCmap(noObsImg, "Object Filtered Image");
-     //      if(this->_visualize_generated_disparity) imshowCmap(tmpDisparity, "Generated Disparity");
+     /**
+     if(this->_do_cv_wait_key){
+          if(this->_visualize_gnd_mask) imshowCmap(gndMask, "Ground-Line Mask");
+          if(this->_visualize_obj_mask) imshowCmap(objMask, "Object Mask");
+          if(this->_visualize_gnd_filter_img) imshowCmap(noGndImg, "Ground-Line Filtered Image");
+          if(this->_visualize_obj_filter_img) imshowCmap(noObsImg, "Object Filtered Image");
+          if(this->_visualize_generated_disparity) imshowCmap(tmpDisparity, "Generated Disparity");
 
-     //      if(this->_do_vmap_viz){
-     //           std::vector<cv::Mat> vmapsDisps;
-     //           if(this->_visualize_vmap_raw || this->_visualize_vmap_raw_w_lines){
-     //                cv::Mat vmapCmap = imCvtCmap(vTmp);
-     //                if(this->_visualize_vmap_raw && (!vmapCmap.empty()) ){
-     //                     cv::putText(vmapCmap, "Vmap Raw", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(vmapCmap);
-     //                }
-     //                if(this->_visualize_vmap_raw_w_lines && (!vmapCmap.empty()) && gndPresent ){
-     //                     cv::Mat lineDisplay = vmapCmap.clone();
-     //                     int yk = int(vmapCmap.cols * gndM) + gndB;
-     //                     int yu = int(vmapCmap.cols * gndM) + (gndB-this->_gnd_line_upper_offset);
-     //                     int yl = int(vmapCmap.cols * gndM) + (gndB+this->_gnd_line_lower_offset);
-     //                     cv::line(lineDisplay, cv::Point(0, gndB), cv::Point(vmapCmap.cols, yk), cv::Scalar(0,255,0), 2, cv::LINE_AA);
-     //                     cv::line(lineDisplay, cv::Point(0, (gndB-this->_gnd_line_upper_offset)), cv::Point(vmapCmap.cols, yu), cv::Scalar(255,0,0), 2, cv::LINE_AA);
-     //                     cv::line(lineDisplay, cv::Point(0, (gndB+this->_gnd_line_lower_offset)), cv::Point(vmapCmap.cols, yl), cv::Scalar(0,0,255), 2, cv::LINE_AA);
-     //                     vmapsDisps.push_back(lineDisplay);
-     //                }
-     //           }
-     //           cv::Mat tmpVmapDisp;
-     //           if(this->_visualize_vmap_blurred && (!blurSobel.empty())){
-     //                tmpVmapDisp = imCvtCmap(blurSobel);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Vmap Blurred", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_dilated && (!dilatedSobel.empty())){
-     //                tmpVmapDisp = imCvtCmap(dilatedSobel);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Vmap Dilated", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_sobel_raw && (!rawSobel.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(rawSobel);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Unprocessed Sobel", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_thresh && (!sobelThresh.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(sobelThresh);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Vmap Thresholded", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_sec_thresh && (!sobelSecThresh.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(sobelSecThresh);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Sobel Secondary Thresholding", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_sec_dilated && (!sobelSecDilate.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(sobelSecDilate);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Sobel Secondary Dilate", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_sec_blur && (!sobelSecBlur.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(sobelSecBlur);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Sobel Secondary Blurring", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_vmap_mask && (!segMask.empty()) ){
-     //                tmpVmapDisp = imCvtCmap(segMask);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Vmap Mask", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           if(this->_visualize_process_input_vmap || this->_visualize_obstacle_search_windows){
-     //                cv::Mat vmapProcDisp = imCvtCmap(vProcessed);
-     //                if(this->_visualize_process_input_vmap && (!vmapProcDisp.empty()) ){
-     //                     cv::putText(vmapProcDisp, "Processing Input", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(vmapProcDisp);
-     //                }
-     //                if(this->_visualize_obstacle_search_windows && (!vmapProcDisp.empty()) && (objectsWindows.size() != 0) ){
-     //                     cv::Mat windowDisplay = vmapProcDisp.clone();
-     //                     for(auto objWindows : objectsWindows){
-     //                          for(cv::Rect window : objWindows){
-     //                               cv::rectangle(windowDisplay, window, cv::Scalar(0, 255, 255), 1);
-     //                          }
-     //                     }
-     //                     vmapsDisps.push_back(windowDisplay);
-     //                }
-     //           }
-     //           if(this->_visualize_obj_detection_vmap){
-     //                tmpVmapDisp = imCvtCmap(obsSearchVmap);
-     //                if(!tmpVmapDisp.empty()){
-     //                     cv::putText(tmpVmapDisp, "Object Detection Vmap", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
-     //                     vmapsDisps.push_back(tmpVmapDisp);
-     //                }
-     //           }
-     //           cv::Mat vmapsMerged;
-     //           if(vmapsDisps.size() > 0){
-     //                cv::hconcat(vmapsDisps, vmapsMerged);
-     //                if(!vmapsMerged.empty()){
-     //                     cv::namedWindow("Vmaps", cv::WINDOW_NORMAL);
-     //                     cv::imshow("Vmaps", vmapsMerged);
-     //                }
-     //           }
-     //      }
-     //      if(this->_visualize_umap_raw && (!uTmp.empty()) ){
-     //           cv::Mat umapRawDisplay = imCvtCmap(uTmp);
-     //           cv::namedWindow("Raw Umap", cv::WINDOW_NORMAL);
-     //           cv::imshow("Raw Umap", umapRawDisplay);
-     //      }
-     //      if(this->_visualize_umap_filtered) imshowCmap(uProcessed, "Filtered Umap");
-     // }
-     // if(this->_do_cv_wait_key) cv::waitKey(1);
+          if(this->_do_vmap_viz){
+               std::vector<cv::Mat> vmapsDisps;
+               if(this->_visualize_vmap_raw || this->_visualize_vmap_raw_w_lines){
+                    cv::Mat vmapCmap = imCvtCmap(vTmp);
+                    if(this->_visualize_vmap_raw && (!vmapCmap.empty()) ){
+                         cv::putText(vmapCmap, "Vmap Raw", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(vmapCmap);
+                    }
+                    if(this->_visualize_vmap_raw_w_lines && (!vmapCmap.empty()) && gndPresent ){
+                         cv::Mat lineDisplay = vmapCmap.clone();
+                         int yk = int(vmapCmap.cols * gndM) + gndB;
+                         int yu = int(vmapCmap.cols * gndM) + (gndB-this->_gnd_line_upper_offset);
+                         int yl = int(vmapCmap.cols * gndM) + (gndB+this->_gnd_line_lower_offset);
+                         cv::line(lineDisplay, cv::Point(0, gndB), cv::Point(vmapCmap.cols, yk), cv::Scalar(0,255,0), 2, cv::LINE_AA);
+                         cv::line(lineDisplay, cv::Point(0, (gndB-this->_gnd_line_upper_offset)), cv::Point(vmapCmap.cols, yu), cv::Scalar(255,0,0), 2, cv::LINE_AA);
+                         cv::line(lineDisplay, cv::Point(0, (gndB+this->_gnd_line_lower_offset)), cv::Point(vmapCmap.cols, yl), cv::Scalar(0,0,255), 2, cv::LINE_AA);
+                         vmapsDisps.push_back(lineDisplay);
+                    }
+               }
+               cv::Mat tmpVmapDisp;
+               if(this->_visualize_vmap_blurred && (!blurSobel.empty())){
+                    tmpVmapDisp = imCvtCmap(blurSobel);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Vmap Blurred", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_dilated && (!dilatedSobel.empty())){
+                    tmpVmapDisp = imCvtCmap(dilatedSobel);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Vmap Dilated", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_sobel_raw && (!rawSobel.empty()) ){
+                    tmpVmapDisp = imCvtCmap(rawSobel);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Unprocessed Sobel", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_thresh && (!sobelThresh.empty()) ){
+                    tmpVmapDisp = imCvtCmap(sobelThresh);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Vmap Thresholded", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_sec_thresh && (!sobelSecThresh.empty()) ){
+                    tmpVmapDisp = imCvtCmap(sobelSecThresh);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Sobel Secondary Thresholding", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_sec_dilated && (!sobelSecDilate.empty()) ){
+                    tmpVmapDisp = imCvtCmap(sobelSecDilate);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Sobel Secondary Dilate", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_sec_blur && (!sobelSecBlur.empty()) ){
+                    tmpVmapDisp = imCvtCmap(sobelSecBlur);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Sobel Secondary Blurring", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_vmap_mask && (!segMask.empty()) ){
+                    tmpVmapDisp = imCvtCmap(segMask);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Vmap Mask", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               if(this->_visualize_process_input_vmap || this->_visualize_obstacle_search_windows){
+                    cv::Mat vmapProcDisp = imCvtCmap(vProcessed);
+                    if(this->_visualize_process_input_vmap && (!vmapProcDisp.empty()) ){
+                         cv::putText(vmapProcDisp, "Processing Input", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(vmapProcDisp);
+                    }
+                    if(this->_visualize_obstacle_search_windows && (!vmapProcDisp.empty()) && (objectsWindows.size() != 0) ){
+                         cv::Mat windowDisplay = vmapProcDisp.clone();
+                         for(auto objWindows : objectsWindows){
+                              for(cv::Rect window : objWindows){
+                                   cv::rectangle(windowDisplay, window, cv::Scalar(0, 255, 255), 1);
+                              }
+                         }
+                         vmapsDisps.push_back(windowDisplay);
+                    }
+               }
+               if(this->_visualize_obj_detection_vmap){
+                    tmpVmapDisp = imCvtCmap(obsSearchVmap);
+                    if(!tmpVmapDisp.empty()){
+                         cv::putText(tmpVmapDisp, "Object Detection Vmap", cv::Point(30,30), cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(200,200,250), 1, cv::LINE_AA);
+                         vmapsDisps.push_back(tmpVmapDisp);
+                    }
+               }
+               cv::Mat vmapsMerged;
+               if(vmapsDisps.size() > 0){
+                    cv::hconcat(vmapsDisps, vmapsMerged);
+                    if(!vmapsMerged.empty()){
+                         cv::namedWindow("Vmaps", cv::WINDOW_NORMAL);
+                         cv::imshow("Vmaps", vmapsMerged);
+                    }
+               }
+          }
+          if(this->_visualize_umap_raw && (!uTmp.empty()) ){
+               cv::Mat umapRawDisplay = imCvtCmap(uTmp);
+               cv::namedWindow("Raw Umap", cv::WINDOW_NORMAL);
+               cv::imshow("Raw Umap", umapRawDisplay);
+          }
+          if(this->_visualize_umap_filtered) imshowCmap(uProcessed, "Filtered Umap");
+     }
+     if(this->_do_cv_wait_key) cv::waitKey(1);
+     */
      return (int) _obstacles.size();
 }
 

@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(swanson_sensors)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
 message(STATUS "MACHINE = ${MACHINE}")
 if(${MACHINE} MATCHES "arm-linux-gnueabihf")
@@ -10,20 +11,20 @@ if(${MACHINE} MATCHES "arm-linux-gnueabihf")
 endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
-     roscpp
      rospy
+     roscpp
+     std_msgs
+     sensor_msgs
+     geometry_msgs
      tf
      cv_bridge
      image_transport
-     std_msgs
-     geometry_msgs
-     sensor_msgs
      message_generation
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
-find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu img_utils cv_utils camera_d4xx)
-find_package(OpenCV 3.4 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
+find_package(OpenCV REQUIRED)
 # find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
 
@@ -48,9 +49,7 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_sensors
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS
-          Boost
-          RoboCommander
+     DEPENDS Boost
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
@@ -76,12 +75,11 @@ add_executable(bno055_multiplexed_node src/bno055_multiplexed_node.cpp)
 target_link_libraries(bno055_multiplexed_node bno055_i2c_ros)
 
 add_library(camera_d4xx_ros src/camera_d4xx_ros.cpp)
-target_link_libraries(camera_d4xx_ros ${catkin_LIBRARIES} img_utils camera_d4xx)
+target_link_libraries(camera_d4xx_ros ${catkin_LIBRARIES} image_utils camera_d4xx)
 add_dependencies(camera_d4xx_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(camera_d4xx_node src/camera_d4xx_ros_node.cpp)
 target_link_libraries(camera_d4xx_node camera_d4xx_ros)
-
 
 #############
 ## Install ##

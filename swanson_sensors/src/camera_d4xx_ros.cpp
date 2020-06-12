@@ -1,7 +1,6 @@
 #include <iostream>
 #include "swanson_sensors/camera_d4xx_ros.h"
-
-#include <RoboCommander/utilities/cv_utils.h>
+#include <RoboCommander/utilities/image_utils.h>
 
 using namespace std;
 
@@ -26,7 +25,6 @@ CameraD4XXRos::CameraD4XXRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	bool flag_use_float_depth = true;
 	bool flag_use_8bit_depth = false;
 	bool flag_calc_disparity = false;
-	p_nh.getParam("ns",ns);
 	p_nh.getParam("verbose_timings",flag_verbose_timings);
 	p_nh.getParam("generate_pointcload",flag_gen_pc);
 	p_nh.getParam("publish_tf",flag_publish_tf);
@@ -133,7 +131,12 @@ CameraD4XXRos::CameraD4XXRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh)
 	this->_aligned_base_tf = tmp_aligned_base_tf;
 
 	/** Pre-initialize Common variables */
-	this->initTfs();
+	tf::Vector3 pNull(0.0, 0.0, 0.0);
+	tf::Quaternion qNull; qNull.setRPY(0.0, 0.0, 0.0);
+	tf::Quaternion qOptical; qOptical.setRPY(-M_PI/2.0, 0.0, -M_PI/2.0);
+	this->_tfOpticalBaseToCamBase = tf::Transform(qNull,pNull);
+	this->_tfOpticalToOpticalBase = tf::Transform(qOptical,pNull);
+
 	this->_rgbImgHeader = std_msgs::Header();
 	this->_depthImgHeader = std_msgs::Header();
 	this->_disparityImgHeader = std_msgs::Header();
@@ -238,23 +241,8 @@ void CameraD4XXRos::stop(){
 void CameraD4XXRos::start(){
 	this->_stop_threads = false;
 }
-
-void CameraD4XXRos::initTfs(){
-	tf::Vector3 pNull(0.0, 0.0, 0.0);
-	tf::Quaternion qNull; qNull.setRPY(0.0, 0.0, 0.0);
-	tf::Quaternion qOptical; qOptical.setRPY(-M_PI/2.0, 0.0, -M_PI/2.0);
-
-	this->_tfOpticalBaseToCamBase = tf::Transform(qNull,pNull);
-	this->_tfOpticalToOpticalBase = tf::Transform(qOptical,pNull);
-}
 void CameraD4XXRos::publish_tfs(){
 	ros::Time curTime = ros::Time::now();
-
-	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_rgb_optical_tf.c_str(),this->_rgb_base_tf.c_str());
-	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_rgb_base_tf.c_str(),this->_cam_base_tf.c_str());
-	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_depth_optical_tf.c_str(),this->_depth_base_tf.c_str());
-	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_depth_base_tf.c_str(),this->_cam_base_tf.c_str());
-	// printf("[INFO] Sending tf \'%s\' to \'%s\'\r\n",this->_aligned_base_tf.c_str(),this->_cam_base_tf.c_str());
 	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_rgb_base_tf, this->_rgb_optical_tf));
 	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalBaseToCamBase, curTime, this->_cam_base_tf, this->_rgb_base_tf));
 	this->_br.sendTransform(tf::StampedTransform(this->_tfOpticalToOpticalBase, curTime, this->_depth_base_tf, this->_depth_optical_tf));
@@ -267,11 +255,10 @@ void CameraD4XXRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 	if(!_rgb.empty()){
 		this->_rgbImgHeader.stamp = time;
 		this->_rgbImgHeader.seq = this->_img_count;
-		// this->_rgbImgHeader.frame_id = this->_rgb_optical_tf;
 		this->_rgbImgHeader.frame_id = this->_aligned_base_tf;
-
 		sensor_msgs::ImagePtr rgbImgMsg = cv_bridge::CvImage(this->_rgbImgHeader, "bgr8", _rgb).toImageMsg();
 		this->_rgb_pub.publish(rgbImgMsg);
+
 		// Camera Info
 		this->_rgb_info_msg.header.stamp = time;
 		this->_rgb_info_msg.header.seq = this->_img_count;
@@ -282,15 +269,12 @@ void CameraD4XXRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 	if(!_depth.empty()){
 		this->_depthImgHeader.stamp = time;
 		this->_depthImgHeader.seq = this->_img_count;
-		// this->_depthImgHeader.frame_id = this->_depth_optical_tf;
 		this->_depthImgHeader.frame_id = this->_aligned_base_tf;
 
 		sensor_msgs::ImagePtr depthImgMsg;
 		if(this->_use_float_depth){
 			cv::Mat tmp;
 			_depth.convertTo(tmp, CV_32F);
-			// tmp = tmp * this->_dscale;
-			// depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp).toImageMsg();
 			depthImgMsg = cv_bridge::CvImage(this->_depthImgHeader, "32FC1", tmp * this->_dscale).toImageMsg();
 		} else if(this->_use_8bit_depth && !this->_use_float_depth){
 			// Convert depth image to uint8 if not already
@@ -314,7 +298,6 @@ void CameraD4XXRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 		this->_depth_info_msg.header.seq = this->_img_count;
 		this->_depth_info_pub.publish(this->_depth_info_msg);
 	}
-
 	/** Disparity Image */
 	if(this->_calc_disparity){
 		if(!_disparity.empty()){
@@ -323,39 +306,30 @@ void CameraD4XXRos::publish_images(cv::Mat _rgb, cv::Mat _depth, cv::Mat _dispar
 			this->_disparityImgHeader.frame_id = this->_depth_optical_tf;
 
 			sensor_msgs::ImagePtr disparityImgMsg;
-			if(_disparity.type() == CV_16UC1){
-				disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "16UC1", _disparity).toImageMsg();
-			} else if(_disparity.type() == CV_8UC1){
-				disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
-			}else if(_disparity.type() == CV_32F){
-			    disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "32FC1", _disparity).toImageMsg();
-		    	}
+			if(_disparity.type() == CV_16UC1) disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "16UC1", _disparity).toImageMsg();
+			else if(_disparity.type() == CV_8UC1) disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "8UC1", _disparity).toImageMsg();
+			else if(_disparity.type() == CV_32F) disparityImgMsg = cv_bridge::CvImage(this->_disparityImgHeader, "32FC1", _disparity).toImageMsg();
 			this->_disparity_pub.publish(disparityImgMsg);
 		}
 	}
 }
 
 void CameraD4XXRos::update(bool verbose){
-	// boost::mutex::scoped_lock scoped_lock(_lock);
 	cv::Mat rgb, depth, disparity;
 	bool visualize = false;
 	bool debug_timing = false;
 	double cvtGain, cvtRatio;
 	double t = (double)cv::getTickCount();
 	int err = this->cam->get_processed_queued_images(&rgb, &depth);
-	// int err = this->cam->read(&rgb, &depth);
 	if(err >= 0){
-		// this->_lock.lock();
-		// this->_rgb = rgb.clone();
-		// this->_depth = depth.clone();
-		if(this->_calc_disparity){
-			disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
-			// this->_disparity = disparity.clone();
-		}
+		this->_lock.lock();
+		if(this->_calc_disparity) disparity = this->cam->convert_to_disparity_test(depth,&cvtGain, &cvtRatio);
 		this->_img_count++;
-		// this->_lock.unlock();
+		this->_lock.unlock();
+
 		if(this->_publish_tf) this->publish_tfs();
 		if(this->_publish_images) this->publish_images(rgb, depth, disparity);
+
 		if(debug_timing){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 			printf("[INFO] CameraD4XXRos::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
@@ -376,16 +350,15 @@ int CameraD4XXRos::run(bool verbose){
 	usleep(1 * 1000000);
 	cout << "Looping..." << endl;
 	double t = (double)cv::getTickCount();
-     while(ros::ok()){
+	while(ros::ok()){
 		this->update();
 		if(this->_verbose_timings){
 			double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
 			printf("[INFO] CameraD4XXRos::run() ---- pipeline_disparity took %.4lf ms (%.2lf Hz)\r\n", dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
-          ros::spinOnce();
-          this->_loop_rate->sleep();
-     }
-
-     return 0;
+		ros::spinOnce();
+		this->_loop_rate->sleep();
+	}
+	return 0;
 }

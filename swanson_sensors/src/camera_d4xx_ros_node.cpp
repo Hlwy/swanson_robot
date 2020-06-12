@@ -3,12 +3,10 @@
 
 using namespace std;
 
-int main (int argc, char** argv){
-
+int main(int argc, char** argv){
      ros::init(argc, argv, "camera_d4xx_ros_node");
      ros::NodeHandle nh;
-	ros::NodeHandle _nh("~");
+     ros::NodeHandle _nh("~");
      CameraD4XXRos mCam(nh, _nh);
-
-     mCam.run(true);
+     mCam.run();
 }

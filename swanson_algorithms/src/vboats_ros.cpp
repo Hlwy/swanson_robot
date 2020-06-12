@@ -575,6 +575,7 @@ cloudxyz_t::Ptr VboatsRos::generate_cloud_from_depth(const cv::Mat& depth){
      }
      tmpCloud->header.seq = this->_count;
      tmpCloud->header.frame_id = this->_camera_tf;
+     pcl_conversions::toPCL(ros::Time::now(), tmpCloud->header.stamp);
      tmpCloud->height = 1;
      tmpCloud->width = tmpCloud->points.size();
      double dt = ((double)cv::getTickCount() - t)/cv::getTickFrequency();

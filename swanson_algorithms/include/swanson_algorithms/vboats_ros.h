@@ -256,11 +256,11 @@ public:
      cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud);
 
      int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap, const cv::Mat& depth,
-          float* line_params, cv::Mat* filtered_img, cv::Mat* generated_mask = nullptr
+          std::vector<float> line_params, cv::Mat* filtered_img, cv::Mat* generated_mask = nullptr
      );
      int remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
           const cv::Mat& depth, const vector<vector<cv::Point>>& contours,
-          float* line_params, cv::Mat* filtered_img,
+          std::vector<float> line_params, cv::Mat* filtered_img,
           cv::Mat* generated_mask = nullptr, bool debug_timing = false
      );
 

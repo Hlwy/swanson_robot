@@ -232,7 +232,7 @@ void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
      geometry_msgs::Quaternion orientMsg = msg->orientation;
      tf::quaternionMsgToTF(orientMsg, quat);
      tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
-     printf("[INFO] VboatsRos::imuCallback() --- roll=%f pitch=%f yaw=%f.\r\n", roll*M_RAD2DEG, pitch*M_RAD2DEG, yaw*M_RAD2DEG);
+     // printf("[INFO] VboatsRos::imuCallback() --- roll=%f pitch=%f yaw=%f.\r\n", roll*M_RAD2DEG, pitch*M_RAD2DEG, yaw*M_RAD2DEG);
      this->_correction_roll = -roll * M_RAD2DEG;
      this->_correction_pitch = -pitch * M_RAD2DEG;
      this->_correction_yaw = -yaw * M_RAD2DEG;
@@ -722,7 +722,7 @@ cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud){
      Processing Functions
 */
 int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap,
-     const cv::Mat& depth, float* line_params, cv::Mat* filtered_img, cv::Mat* generated_mask)
+     const cv::Mat& depth, std::vector<float> line_params, cv::Mat* filtered_img, cv::Mat* generated_mask)
 {
      cv::Mat depthImg, refImg, img;
      if(depth.empty()){
@@ -815,7 +815,7 @@ int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap,
 }
 int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
      const cv::Mat& depth, const vector<vector<cv::Point>>& contours,
-     float* line_params, cv::Mat* filtered_img, cv::Mat* generated_mask, bool debug_timing)
+     std::vector<float> line_params, cv::Mat* filtered_img, cv::Mat* generated_mask, bool debug_timing)
 {
      int err = 0;
      cv::Mat depthImg, disparityImg, refImg;
@@ -852,7 +852,7 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
      int y0 = 0, yf = h;
      int d0 = 0, df = w;
      int b; float slope;
-     if(line_params){
+     if(!line_params.empty()){
           slope = line_params[0];
           b = (int) line_params[1];
      } else{
@@ -1093,13 +1093,13 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
      if(this->_debug) printf("[INFO] %s::process() --- Looking for Ground line.\r\n", this->classLbl.c_str());
 
      /** Extract ground line parameters (if ground is present) */
-     float* line_params;
+     std::vector<float> line_params;
      float gndM; int gndB;
      bool gndPresent = this->vb->find_ground_line(sobelPreprocessed, &gndM,&gndB, this->_gnd_line_min_ang, this->_gnd_line_max_ang);
      if(gndPresent){
-          float tmpParams[] = {gndM, (float) gndB};
-          line_params = &tmpParams[0];
-     } else line_params = nullptr;
+          line_params.push_back(gndM);
+          line_params.push_back((float) gndB);
+     }
      if(this->_debug) printf("[INFO] %s::process() --- Creating Segmentation Mask.\r\n", this->classLbl.c_str());
 
      cv::Mat sobelSecThresh, sobelSecDilate, sobelSecBlur, segMask;
@@ -1325,18 +1325,32 @@ int VboatsRos::update(bool verbose, bool debug_timing){
      this->_lock.unlock();
 
      // cvinfo(curDepth, "VboatsRos::update() --- Depth Image before preprocessing: ");
+     // ForEachSaturateDepthLimits<float> preconverter(0,0);
      // ForEachPrepareDepthConverter<float> preconverter((float) this->_cam_min_depth, (float) this->_cam_max_depth);
-     ForEachSaturateDepthLimits<float> preconverter((float) this->_cam_min_depth, (float) this->_cam_max_depth,
+     // ForEachSaturateDepthLimits<float> preconverter((float) this->_cam_min_depth, (float) this->_cam_max_depth,
+     //      (float) this->_fx, (float) this->_fy, (float) this->_px, (float) this->_py,
+     //      (float) this->_cam_min_depth_x, (float) this->_cam_max_depth_x,
+     //      (float) this->_cam_min_depth_y, (float) this->_cam_max_depth_y
+     // );
+     ForEachSaturateDepthLimits<float> preconverter(0, 0,
           (float) this->_fx, (float) this->_fy, (float) this->_px, (float) this->_py,
-          (float) this->_cam_min_depth_x, (float) this->_cam_max_depth_x,
-          (float) this->_cam_min_depth_y, (float) this->_cam_max_depth_y
+          0, 0, 0, 0
      );
      curDepth.forEach<float>(preconverter);
      // cvinfo(curDepth, "VboatsRos::update() --- Depth Image after preprocessing: ");
 
      if(this->_do_depth_based_processing){
           if(this->_do_angle_correction){
-               cv::Mat warpedDepth = rotate_image(curDepth, correctionAngle);
+               cv::Mat rotInput = curDepth.clone();
+               cvinfo(curDepth, " --- Depth Input: ");
+               // if(curDepth.type() != CV_16UC1){
+               //      double minVal, maxVal;
+               //      cv::minMaxLoc(curDepth, &minVal, &maxVal);
+               //      curDepth.convertTo(rotInput, CV_16UC1, (1.0/1000.0) );
+               // }
+               // curDepth.convertTo(rotInput, CV_64F);
+               cv::Mat warpedDepth = rotate_image(rotInput, correctionAngle);
+               cvinfo(warpedDepth, " --- warpedDepth: ");
                // cvinfo(warpedDepth, "VboatsRos::update() --- Depth Image after warping: ");
                if(!warpedDepth.empty() ){
                     depthInput = warpedDepth.clone();

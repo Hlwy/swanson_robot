@@ -3,7 +3,6 @@ project(swanson_sensors)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
-set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
 message(STATUS "MACHINE = ${MACHINE}")
 if(${MACHINE} MATCHES "arm-linux-gnueabihf")
@@ -12,20 +11,21 @@ if(${MACHINE} MATCHES "arm-linux-gnueabihf")
 endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
-     roscpp
      rospy
+     roscpp
+     std_msgs
+     sensor_msgs
+     geometry_msgs
      tf
      cv_bridge
      image_transport
-     std_msgs
-     geometry_msgs
-     sensor_msgs
      message_generation
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
-find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
+find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
 find_package(OpenCV REQUIRED)
+# find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
 
 ## Specify additional locations of header files
@@ -74,13 +74,12 @@ target_link_libraries(bno055_i2c_node bno055_i2c_ros)
 add_executable(bno055_multiplexed_node src/bno055_multiplexed_node.cpp)
 target_link_libraries(bno055_multiplexed_node bno055_i2c_ros)
 
-add_library(cameraD4xxRos src/camera_d4xx_ros.cpp)
-target_link_libraries(cameraD4xxRos ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} image_utils camera_d4xx)
-add_dependencies(cameraD4xxRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_library(camera_d4xx_ros src/camera_d4xx_ros.cpp)
+target_link_libraries(camera_d4xx_ros ${catkin_LIBRARIES} image_utils camera_d4xx)
+add_dependencies(camera_d4xx_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(camera_d4xx_node src/camera_d4xx_ros_node.cpp)
-target_link_libraries(camera_d4xx_node cameraD4xxRos)
-
+target_link_libraries(camera_d4xx_node camera_d4xx_ros)
 
 #############
 ## Install ##
@@ -91,7 +90,7 @@ install(TARGETS
      bno055_i2c_ros
      bno055_i2c_node
      bno055_multiplexed_node
-     cameraD4xxRos
+     camera_d4xx_ros
      camera_d4xx_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

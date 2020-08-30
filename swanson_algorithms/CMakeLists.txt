@@ -84,19 +84,19 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ## Build ##
 ###########
 
-add_library(vboatsRos src/vboats_ros.cpp)
-target_link_libraries(vboatsRos ${catkin_LIBRARIES} ${RoboCommander_LIBRARIES} ${OpenCV_LIBS})
-add_dependencies(vboatsRos ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_library(vboats_ros src/vboats_ros.cpp)
+target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${RoboCommander_LIBRARIES})
+add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
-add_executable(vboats_ros_node src/vboats_ros_node.cpp)
-target_link_libraries(vboats_ros_node vboatsRos)
+add_executable(vboats_node src/vboats_ros_node.cpp)
+target_link_libraries(vboats_node vboats_ros)
 
 #############
 ## Install ##
 #############
 install(TARGETS
-     vboatsRos
-     vboats_ros_node
+     vboats_ros
+     vboats_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

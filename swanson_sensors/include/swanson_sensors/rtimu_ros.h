@@ -13,7 +13,7 @@ using namespace std;
 
 class RtImuRos{
 private:
-     float dt;
+     float _dt;
      int _count;
 
      /** ROS Objects */
@@ -26,6 +26,7 @@ private:
 
      /** ROS Params */
      bool _publishTf;
+     bool _verbose;
      std::string _tf_prefix;
      std::string _tf_imu;
 
@@ -41,7 +42,7 @@ public:
      ~RtImuRos();
 
      void init_rosmsgs();
-     void update(bool verbose = false);
+     int update(float timeout = 5.0);
      int run(bool verbose = false);
 };
 

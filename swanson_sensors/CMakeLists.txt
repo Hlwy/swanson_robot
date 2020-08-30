@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(swanson_sensors)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
+message(STATUS "MACHINE = ${MACHINE}")
+if(${MACHINE} MATCHES "arm-linux-gnueabihf")
+     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a -mfpu=neon-fp-armv8 -mtune=cortex-a72 -mfloat-abi=hard -ftree-vectorize -latomic -marm")
+endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
      roscpp
@@ -16,22 +24,9 @@ set( ROS_CXX_DEPENDENCIES
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu cv_utils camera_d415)
+find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
 find_package(OpenCV REQUIRED)
-find_package(realsense2 2.25.1 REQUIRED)
-
-## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
-
-## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#      DEPENDENCIES
-#      std_msgs
-#      geometry_msgs
-#      swanson_sensors
-# )
+find_package(realsense2 REQUIRED)
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -54,9 +49,7 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_sensors
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS
-          Boost
-          RoboCommander
+     DEPENDS Boost
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
@@ -81,12 +74,12 @@ target_link_libraries(bno055_i2c_node bno055_i2c_ros)
 add_executable(bno055_multiplexed_node src/bno055_multiplexed_node.cpp)
 target_link_libraries(bno055_multiplexed_node bno055_i2c_ros)
 
-add_library(cameraD415Ros src/camera_d415_ros.cpp)
-target_link_libraries(cameraD415Ros ${catkin_LIBRARIES} cv_utils camera_d415)
-add_dependencies(cameraD415Ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
+add_library(cameraD4xxRos src/camera_d4xx_ros.cpp)
+target_link_libraries(cameraD4xxRos ${catkin_LIBRARIES} ${OpenCV_LIBRARIES} image_utils camera_d4xx)
+add_dependencies(cameraD4xxRos ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
-add_executable(camera_d415_node src/camera_d415_ros_node.cpp)
-target_link_libraries(camera_d415_node cameraD415Ros)
+add_executable(camera_d4xx_node src/camera_d4xx_ros_node.cpp)
+target_link_libraries(camera_d4xx_node cameraD4xxRos)
 
 
 #############
@@ -98,8 +91,8 @@ install(TARGETS
      bno055_i2c_ros
      bno055_i2c_node
      bno055_multiplexed_node
-     cameraD415Ros
-     camera_d415_node
+     cameraD4xxRos
+     camera_d4xx_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

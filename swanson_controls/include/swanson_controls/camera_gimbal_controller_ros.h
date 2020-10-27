@@ -2,9 +2,9 @@
 #define CAMERA_GIMBAL_CONTROLLER_ROS_H_
 
 #include <pigpiod_if2.h>
-#include <RoboCommander/base/peripherals.h>
-#include <RoboCommander/devices/camera_gimbal.h>
-#include <RoboCommander/devices/tca9548a.h>
+#include <robocommander/base/peripherals.h>
+#include <robocommander/devices/camera_gimbal.h>
+#include <robocommander/devices/tca9548a.h>
 
 #include <ros/ros.h>
 #include <dynamic_reconfigure/server.h>

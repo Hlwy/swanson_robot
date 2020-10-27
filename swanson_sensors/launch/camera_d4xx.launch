@@ -8,7 +8,7 @@
      <arg name="use_8bit_depth"    default="false"/>
      <arg name="post_process"      default="false"/>
      <arg name="get_disparity"     default="false"/>
-     <arg name="update_rate"       default="120"/>
+     <arg name="update_rate"       default="15"/>
      <arg name="cam_fps"           default="30"/>
      <arg name="depth_width"       default="848"/>
      <arg name="depth_height"      default="480"/>
@@ -34,7 +34,7 @@
           <param name="update_rate"          value="$(arg update_rate)"/>
      </node>
 
-     <node pkg="tf" type="static_transform_publisher" respawn="true" name="tf_cam_to_base" args="0.26 0 0 0 0 0 base_link camera_link 10"/>
+     <node pkg="tf" type="static_transform_publisher" respawn="true" name="tf_cam_to_base" args="0.26 0 0.21 0 0 0 base_link camera_link 10"/>
      <!-- <node pkg="tf" type="static_transform_publisher" respawn="true" name="tf_cam_to_base" args="0.26 0 0 0 0 0 base_local camera_link 10"/> -->
      <!-- <node pkg="tf" type="static_transform_publisher" respawn="true" name="tf_cam_to_base2" args="0.0 0 0 0 0 0 base_link base_local 10"/> -->
 

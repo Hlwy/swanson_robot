@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(swanson_sensors)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
 message(STATUS "MACHINE = ${MACHINE}")
@@ -23,9 +24,8 @@ set( ROS_CXX_DEPENDENCIES
 )
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
-find_package(OpenCV REQUIRED)
-# find_package(OpenCV 4 REQUIRED)
+find_package(robocommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
+find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
 
 ## Specify additional locations of header files
@@ -33,14 +33,14 @@ find_package(realsense2 REQUIRED)
 include_directories(
      include
      ${Boost_INCLUDE_DIRS}
-     ${RoboCommander_INCLUDE_DIR}
+     ${robocommander_INCLUDE_DIR}
      ${catkin_INCLUDE_DIRS}
      ${OpenCV_INCLUDE_DIRS}
      ${realsense2_INCLUDE_DIR}
 )
 link_directories(
      ${Boost_LIBRARIES}
-     ${RoboCommander_LIBRARIES}
+     ${robocommander_LIBRARIES}
      ${OpenCV_LIBS}
      ${realsense2_LIBRARY}
 )

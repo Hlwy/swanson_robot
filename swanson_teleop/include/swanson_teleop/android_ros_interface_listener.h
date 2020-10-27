@@ -5,7 +5,7 @@
 #include <std_msgs/Float32.h>
 #include <geometry_msgs/Twist.h>
 
-#include <RoboCommander/interfaces/android_app_interface.h>
+#include <robocommander/interfaces/android_app_interface.h>
 
 using namespace std;
 

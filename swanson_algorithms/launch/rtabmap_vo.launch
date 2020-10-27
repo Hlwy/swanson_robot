@@ -1,13 +1,16 @@
 <launch>
+     <arg name="debug"                   default="false"/>
+     <arg name="start_camera"            default="false"/>
      <arg name="namespace"               default="rtabmap"/>
 
      <!-- roslaunch prefix args -->
+     <arg if="$(arg debug)"     name="launch_prefix"           default="gdb -ex run --args"/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
+     <arg unless="$(arg debug)" name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
      <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
      <arg name="odom_args"               default=""/>
-     <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
-     <arg name="launch_prefixDbg"        default="gdb -ex run --args"/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
      <arg name="output"                  default="screen"/>        <!-- Control node output (screen or log) -->
+     <arg name="orb2_voc_path"           default="/home/nvidia/microsd/libraries/ORB_SLAM2/Vocabulary/ORBvoc.bin"/>
 
      <!-- Flags -->
      <arg name="approx_sync"               default="true"/>
@@ -20,14 +23,14 @@
      <arg name="camera_info_topic"       default="/camera/color/camera_info" />
      <!-- Frame ids -->
      <arg name="frame_id"                default="base_link"/>
-     <!-- <arg name="vo_frame_id"             default="odom"/> -->
      <arg name="vo_frame_id"             default="odom"/>
 
-     <!-- <node pkg="tf" type="static_transform_publisher" name="base_combined_broadcaster" args="0 0 0 0 0 0 odom odom_local 100" /> -->
 
      <!-- misc param config -->
      <arg name="queue_size"              default="1000"/>
-     <arg name="wait_for_transform_dt"   default="0.05"/>
+     <arg name="wait_for_transform_dt"   default="0.1"/>
+
+     <arg name="cam_rate"                default="15.0"/>
 
      <!-- Feature Extraction Method
           0=SURF
@@ -91,25 +94,47 @@
                <param name="Vis/Iterations"         value="300"/> <!-- default = 300 -->
                <param name="Vis/CorType"            value="0"/>
                <param name="Vis/CorNNType"          value="1"/> <!-- default = 1 ____ [kNNFlannNaive=0, kNNFlannKdTree=1, kNNFlannLSH=2, kNNBruteForce=3, kNNBruteForceGPU=4] -->
-               <param name="Odom/ResetCountdown"    type="string" value="0"/>
+               <param name="Odom/ResetCountdown"    type="string" value="10"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
-               <param name="Odom/ImageBufferSize"   value="10"/> <!-- default = 1 -->
-               <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
+               <param name="Odom/ImageBufferSize"   value="15"/> <!-- default = 1 -->
+               <!-- <param name="GFTT/MinDistance"       type="string" value="7"/> -->
+               <!-- <param name="GFTT/QualityLevel"      type="string" value="0.001"/> -->
 
-               <param name="Vis/MaxFeatures"        type="string" value="1000"/>
-               <param name="OdomF2M/MaxSize"        type="string" value="1000"/>
-               <param name="OdomORBSLAM2/VocPath"   type="string" value="/home/nvidia/libraries/ORB_SLAM2/Vocabulary/ORBvoc.txt"/>
+               <param name="GFTT/MinDistance"       type="string" value="8"/>
+               <param name="GFTT/BlockSize"         type="string" value="3"/>
+               <param name="GFTT/QualityLevel"      type="string" value="0.001"/>
+               <param name="Vis/MaxFeatures"        type="string" value="1500"/>
+
+               <!-- <param name="Vis/MaxFeatures"        type="string" value="1500"/> -->
+               <param name="OdomF2M/MaxSize"        type="string" value="2000"/>
                <param name="OdomORBSLAM2/MaxFeatures"   value="1500"/> <!-- default = 1000 -->
+               <param name="OdomORBSLAM2/VocPath"   type="string" value="$(arg orb2_voc_path)"/>
 
                <param name="Optimizer/Iterations"           value="10"/> <!-- default = 20 -->
                <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 ____ [0=TORO, 1=g2o and 2=GTSAM] -->
                <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
 
-               <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
-               <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
+               <!-- =============== Test Parameters ================ -->
+               <param name="OdomF2M/BundleAdjustment"  value="1"/> <!-- default = 1 -->
+               <param name="OdomF2M/BundleAdjustmentMaxFrames"  value="1"/> <!-- default = 10 -->
+               <param name="Vis/BundleAdjustment"      value="1"/> <!-- default = 1 -->
+               <param name="Vis/ForwardEstOnly"        value="true"/> <!-- default = true -->
+               <param name="Vis/MinDepth"              value="0"/> <!-- default = 0 -->
+               <param name="Vis/RoiRatios"             value="0.1 0.0 0.0 0.15"/>
           </node>
      </group>
+
+
+     <include if="$(arg start_camera)" file="$(find swanson_sensors)/launch/camera_d4xx.launch">
+          <arg name="update_rate" value="$(arg cam_rate)"/>
+          <!-- <arg name="ns"           value="$(arg cam_ns)"/>
+          <arg name="cam_fps"      value="$(arg cam_fps)"/>
+          <arg name="depth_width"  value="$(arg cam_width)"/>
+          <arg name="depth_height" value="$(arg cam_height)"/>
+          <arg name="color_width"  value="$(arg cam_width)"/> -->
+     </include>
+
 
 </launch>

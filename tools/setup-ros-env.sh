@@ -177,3 +177,4 @@ if [[ $flagSkipDefaults -ne 1 ]]; then
      fi
      export ROS_MASTER_URI=$rosMaster
 fi
+

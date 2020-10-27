@@ -4,7 +4,7 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include <RoboCommander/algorithms/vboats/vboats.h>
+#include <robocommander/algorithms/vboats/vboats.h>
 
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>

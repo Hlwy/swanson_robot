@@ -49,7 +49,7 @@
           <param name="sor_dist_thresh"           value="0.075"/>
 
           <param name="parent_frame"          value="base_link"/>
-          <param name="camera_base_frame"     value="camera_aligned_depth_to_color_optical_frame"/>
+          <param name="camera_base_frame"     value="camera_aligned_depth_to_color_frame"/>
 
           <param name="detect_obstacles"       value="$(arg detect_obstacles)"/>
           <param name="filter_ground"          value="$(arg filter_ground)"/>

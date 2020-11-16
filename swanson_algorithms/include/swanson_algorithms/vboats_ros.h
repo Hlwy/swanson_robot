@@ -4,7 +4,10 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include <RoboCommander/algorithms/vboats/vboats.h>
+#include <math.h>
+#include <robocommander/algorithms/vboats/vboats.h>
+#include <robocommander/algorithms/vboats/obstacle.h>
+#include <robocommander/algorithms/vboats/vboats_utils.h>
 
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
@@ -237,7 +240,7 @@ private:
      void poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
 public:
-     VBOATS* vb;
+     Vboats* vb;
 
      /** Class Construction / Deconstruction */
      VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);

@@ -1,9 +1,9 @@
 #include <iostream>
 #include "swanson_algorithms/vboats_ros.h"
 
-#include <RoboCommander/utilities/utils.h>
-#include <RoboCommander/utilities/image_utils.h>
-#include <RoboCommander/algorithms/vboats/uvmap_utils.h>
+#include <robocommander/utilities/utils.h>
+#include <robocommander/utilities/image_utils.h>
+#include <robocommander/algorithms/vboats/vboats.h>
 
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
@@ -117,7 +117,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      this->_depth2disparityFactor = 1.0;
 
      /** Initialize VBOATS */
-     this->vb = new VBOATS();
+     this->vb = new Vboats();
 
      printf("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!\r\n");
      this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
@@ -635,200 +635,200 @@ int VboatsRos::remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
      std::vector<float> line_params, cv::Mat* filtered_img, cv::Mat* generated_mask, bool debug_timing)
 {
      int err = 0;
-     cv::Mat depthImg, disparityImg, refImg;
-     // If depth image is empty, exit since we have no image to filter objects from
-     if(depth.empty()){
-          printf("[WARNING] VboatsRos::remove_objects() --- Depth Image is empty, skipping object removal.\r\n");
-          return -1;
-     }
-     if(vmap.empty()){
-          printf("[WARNING] VboatsRos::remove_objects() --- Vmap input Image is empty, skipping object removal.\r\n");
-          return -2;
-     }
-     if(disparity.empty()){
-          printf("[WARNING] VboatsRos::remove_objects() --- Disparity input Image is empty, skipping object removal.\r\n");
-          return -3;
-     }
-     if(contours.empty()){
-          printf("[WARNING] VboatsRos::remove_objects() --- Contours is empty, skipping object removal.\r\n");
-          return -4;
-     }
-     refImg = vmap.clone();
-     depthImg = depth.clone();
-     disparityImg = disparity.clone();
-     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Initializing key variables.\r\n");
-
-     // Image-dependent variable initialization
-     int h = vmap.rows, w = vmap.cols;
-     cv::Mat depthMask = cv::Mat::zeros(disparity.size(), CV_8UC1);
-     cv::Mat vmask = cv::Mat::zeros(h,w, CV_8UC1);
-
-     cv::Mat roiDisplay;
-     if(this->_visualize_segmented_obstacle_regions){
-          if(refImg.channels() < 3) cv::cvtColor(refImg, roiDisplay, cv::COLOR_GRAY2BGR);
-          else roiDisplay = refImg.clone();
-     }
-
-     // Initialize default coefficients in case of ground line estimation failure
-     int y0 = 0, yf = h;
-     int d0 = 0, df = w;
-     int b; float slope;
-     if(!line_params.empty()){
-          slope = line_params[0];
-          b = (int) line_params[1];
-     } else{
-          slope = 0.0;
-          b = yf;
-     }
-     if(this->_verbose) printf("[INFO] VboatsRos::remove_objects() --- Using linear coefficients: slope = %.2f, intercept = %d\r\n", slope, b);
-
-     // Initialize storage variables
-     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Beginning contour loop process.\r\n");
-     int dmin, dmid, dmax;
-     vector<int> xLims, dLims;
-     for(int i = 0; i < contours.size(); i++){
-          vector<cv::Point> contour = contours[i];
-          this->vb->extract_contour_bounds(contour,&xLims, &dLims);
-          dmin = dLims.at(0);
-          dmax = dLims.at(1);
-          dmid = (int)( (float)(dmin + dmax) / 2.0 );
-          yf = (int)( (float)dmid * slope) + b - this->_gnd_line_upper_offset;
-          // NOTE: Previously used logic
-          // if(yf >= h) yf = h;
-          // else if(yf < 0) yf = 0;
-
-          if(yf >= h) yf = h;
-          else if(yf < 0){
-               if(slope != 0) yf = 0;
-               else yf = h;
-          }
-          if(this->_debug) printf("[INFO] VboatsRos::remove_objects() ------ Contour[%d]: dmin, dmid, dmax = (%d, %d, %d) |  ROI Rect = (%d, %d) -> (%d, %d)\r\n", i, dmin, dmid, dmax, dmin,y0, dmax,yf);
-
-          // Extract ROI containing current contour data from vmap for processing
-          cv::Rect roiRect = cv::Rect( cv::Point(dmin,y0), cv::Point(dmax,yf) );
-          cv::Mat roi = refImg(roiRect);
-          roi.copyTo(vmask(roiRect));
-
-          if(this->_visualize_segmented_obstacle_regions){ cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1); }
-     }
-     if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Creating Depth image mask.\r\n");
-     double testT1 = (double)cv::getTickCount();
-
-     ForEachObsMaskGenerator masker(vmask, h, 256);
-     cv::Mat dMask = disparityImg.clone();
-     dMask.forEach<uchar>(masker);
-     if(debug_timing){
-          double testDt1 = ((double)cv::getTickCount() - testT1)/cv::getTickFrequency();
-          printf("[INFO] VboatsRos::remove_objects(): Segmentation mask generation Time: ForEach = %.4lf ms (%.2lf Hz)\r\n", testDt1*1000.0, (1.0/testDt1));
-     }
-
-     if(generated_mask) *generated_mask = dMask.clone();
-     if(!depthMask.empty()){
-          cv::Mat obsFilteredImg;
-          depthImg.copyTo(obsFilteredImg, dMask);
-          if(filtered_img) *filtered_img = obsFilteredImg.clone();
-
-          if(this->_visualize_segmented_obstacle_regions){
-               // if(!roiDisplay.empty()) cv::imshow("Obstacle Segmented Regions", roiDisplay);
-               if(!dMask.empty()){
-                    // cv::Mat display;
-                    // cv::applyColorMap(dMask, display, cv::COLORMAP_JET);
-                    // cv::imshow("Constructed Obstacle Segmentation Mask", display);
-               }
-          }
-     } else{
-          printf("[WARNING] VboatsRos::remove_objects() --- Object mask is empty, skipping object removal.\r\n");
-          err = -2;
-     }
-     masker.remove();
+     // cv::Mat depthImg, disparityImg, refImg;
+     // // If depth image is empty, exit since we have no image to filter objects from
+     // if(depth.empty()){
+     //      printf("[WARNING] VboatsRos::remove_objects() --- Depth Image is empty, skipping object removal.\r\n");
+     //      return -1;
+     // }
+     // if(vmap.empty()){
+     //      printf("[WARNING] VboatsRos::remove_objects() --- Vmap input Image is empty, skipping object removal.\r\n");
+     //      return -2;
+     // }
+     // if(disparity.empty()){
+     //      printf("[WARNING] VboatsRos::remove_objects() --- Disparity input Image is empty, skipping object removal.\r\n");
+     //      return -3;
+     // }
+     // if(contours.empty()){
+     //      printf("[WARNING] VboatsRos::remove_objects() --- Contours is empty, skipping object removal.\r\n");
+     //      return -4;
+     // }
+     // refImg = vmap.clone();
+     // depthImg = depth.clone();
+     // disparityImg = disparity.clone();
+     // if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Initializing key variables.\r\n");
+     //
+     // // Image-dependent variable initialization
+     // int h = vmap.rows, w = vmap.cols;
+     // cv::Mat depthMask = cv::Mat::zeros(disparity.size(), CV_8UC1);
+     // cv::Mat vmask = cv::Mat::zeros(h,w, CV_8UC1);
+     //
+     // cv::Mat roiDisplay;
+     // if(this->_visualize_segmented_obstacle_regions){
+     //      if(refImg.channels() < 3) cv::cvtColor(refImg, roiDisplay, cv::COLOR_GRAY2BGR);
+     //      else roiDisplay = refImg.clone();
+     // }
+     //
+     // // Initialize default coefficients in case of ground line estimation failure
+     // int y0 = 0, yf = h;
+     // int d0 = 0, df = w;
+     // int b; float slope;
+     // if(!line_params.empty()){
+     //      slope = line_params[0];
+     //      b = (int) line_params[1];
+     // } else{
+     //      slope = 0.0;
+     //      b = yf;
+     // }
+     // if(this->_verbose) printf("[INFO] VboatsRos::remove_objects() --- Using linear coefficients: slope = %.2f, intercept = %d\r\n", slope, b);
+     //
+     // // Initialize storage variables
+     // if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Beginning contour loop process.\r\n");
+     // int dmin, dmid, dmax;
+     // vector<int> xLims, dLims;
+     // for(int i = 0; i < contours.size(); i++){
+     //      vector<cv::Point> contour = contours[i];
+     //      extract_contour_bounds(contour,&xLims, &dLims);
+     //      dmin = dLims.at(0);
+     //      dmax = dLims.at(1);
+     //      dmid = (int)( (float)(dmin + dmax) / 2.0 );
+     //      yf = (int)( (float)dmid * slope) + b - this->_gnd_line_upper_offset;
+     //      // NOTE: Previously used logic
+     //      // if(yf >= h) yf = h;
+     //      // else if(yf < 0) yf = 0;
+     //
+     //      if(yf >= h) yf = h;
+     //      else if(yf < 0){
+     //           if(slope != 0) yf = 0;
+     //           else yf = h;
+     //      }
+     //      if(this->_debug) printf("[INFO] VboatsRos::remove_objects() ------ Contour[%d]: dmin, dmid, dmax = (%d, %d, %d) |  ROI Rect = (%d, %d) -> (%d, %d)\r\n", i, dmin, dmid, dmax, dmin,y0, dmax,yf);
+     //
+     //      // Extract ROI containing current contour data from vmap for processing
+     //      cv::Rect roiRect = cv::Rect( cv::Point(dmin,y0), cv::Point(dmax,yf) );
+     //      cv::Mat roi = refImg(roiRect);
+     //      roi.copyTo(vmask(roiRect));
+     //
+     //      if(this->_visualize_segmented_obstacle_regions){ cv::rectangle(roiDisplay, roiRect, cv::Scalar(0, 255, 255), 1); }
+     // }
+     // if(this->_debug) printf("[INFO] VboatsRos::remove_objects() --- Creating Depth image mask.\r\n");
+     // double testT1 = (double)cv::getTickCount();
+     //
+     // ForEachObsMaskGenerator masker(vmask, h, 256);
+     // cv::Mat dMask = disparityImg.clone();
+     // dMask.forEach<uchar>(masker);
+     // if(debug_timing){
+     //      double testDt1 = ((double)cv::getTickCount() - testT1)/cv::getTickFrequency();
+     //      printf("[INFO] VboatsRos::remove_objects(): Segmentation mask generation Time: ForEach = %.4lf ms (%.2lf Hz)\r\n", testDt1*1000.0, (1.0/testDt1));
+     // }
+     //
+     // if(generated_mask) *generated_mask = dMask.clone();
+     // if(!depthMask.empty()){
+     //      cv::Mat obsFilteredImg;
+     //      depthImg.copyTo(obsFilteredImg, dMask);
+     //      if(filtered_img) *filtered_img = obsFilteredImg.clone();
+     //
+     //      if(this->_visualize_segmented_obstacle_regions){
+     //           // if(!roiDisplay.empty()) cv::imshow("Obstacle Segmented Regions", roiDisplay);
+     //           if(!dMask.empty()){
+     //                // cv::Mat display;
+     //                // cv::applyColorMap(dMask, display, cv::COLORMAP_JET);
+     //                // cv::imshow("Constructed Obstacle Segmentation Mask", display);
+     //           }
+     //      }
+     // } else{
+     //      printf("[WARNING] VboatsRos::remove_objects() --- Object mask is empty, skipping object removal.\r\n");
+     //      err = -2;
+     // }
+     // masker.remove();
      return err;
 }
 int VboatsRos::remove_ground(const cv::Mat& disparity, const cv::Mat& vmap,
      const cv::Mat& depth, std::vector<float> line_params, cv::Mat* filtered_img,
      cv::Mat* generated_mask)
 {
-     cv::Mat depthImg, refImg, img;
-     if(depth.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Depth Image is empty, skipping ground removal.\r\n");
-          return -1;
-     }
-     if(vmap.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Vmap input Image is empty, skipping ground removal.\r\n");
-          return -2;
-     }
-     if(disparity.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Disparity input Image is empty, skipping ground removal.\r\n");
-          return -3;
-     }
-     if(line_params.empty()){
-          printf("[WARNING] VboatsRos::remove_ground() --- Line params are empty, skipping ground removal.\r\n");
-          return -4;
-     }
-     refImg = vmap.clone();
-     img = disparity.clone();
-     depthImg = depth.clone();
-     cv::Mat mask = cv::Mat::zeros(disparity.size(), CV_8UC1);
-     // Calculate ROI limits based on estimated ground line coefficients
-     float slope = line_params[0];
-     int y0 = (int) line_params[1];
-     int y1 = y0 + this->_gnd_line_lower_offset;
-     int y1f = (int)(vmap.cols * slope + (y1));
-     int y2 = y0 - this->_gnd_line_upper_offset;
-     int y2f = (int)(vmap.cols * slope + (y2));
-     if(y0 < 0) y0 = 0;
-     if(this->_verbose_gnd_line_removal){
-          printf("[INFO] VboatsRos::remove_ground() --- slope = %.2f, intercept = %d\r\n", slope, y0);
-          cvinfo(refImg, "VboatsRos::remove_ground() --- Vmap Reference: ");
-          cvinfo(img, "VboatsRos::remove_ground() --- Disparity Input: ");
-          cvinfo(depthImg, "VboatsRos::remove_ground() --- Depth Input: ");
-     }
-
-     uchar* pix;
-     cv::Mat refRow;
-     cv::Mat refMask;
-     cv::Mat nonzero;
-     double t, dt;
-     int minx, maxx, tmpx;
-     t = (double)cv::getTickCount();
-     // For each row of the disparity image,
-     // keep only pixels whose value (i.e. disparity) is within the range of disparity
-     // values found from the nonzero pixels in the same row of the corresponding
-     // pre-processed vmap image, while also removing disparity values that fall under
-     // the estimated ground line (i.e. below the floor).
-     for(int v = y0; v < img.rows; ++v){
-          // Get the non-zero pixels in the current row of the reference vmap image
-          refRow = refImg.row(v);
-          refMask = refRow > 0;
-          cv::findNonZero(refMask, nonzero);
-          maxx = 0; minx = 1000;
-          // Use the estimated ground line coefficients to get the disparity limit for this row
-          int xlim = (int)((float)(v - y2) / slope);
-          if(this->_debug_gnd_line_removal) printf("[INFO] VboatsRos::remove_ground() --- %d Nonzero pixels found for row %d (w/ xlimit = %d): \r\n\r\n", (int) nonzero.total(), v, xlim);
-          // Loop through all of the nonzero pixels and determine the min/max disparities
-          for(int i = 0; i < nonzero.total(); i++ ){
-               tmpx = nonzero.at<cv::Point>(i).x;
-               if(tmpx < xlim) continue;
-               if(this->_debug_gnd_line_removal) printf("%d, ", tmpx);
-               if(tmpx > maxx) maxx = tmpx;
-               if(tmpx < minx) minx = tmpx;
-          }
-          if(this->_debug_gnd_line_removal) printf("\r\n[INFO] VboatsRos::remove_ground() --- Limits found from pixels in row %d = %d, %d\r\n",
-          v, (int) nonzero.total(), minx, maxx);
-
-          // Get all the pixels in the current row of the disparity image
-          // and use the disparity limits found above to construct a mask used
-          // for filtering the pixels in the depth image
-          pix = img.ptr<uchar>(v);
-          for(int u = 0; u < img.cols; ++u){
-               int dvalue = pix[u];
-               if( (dvalue >= minx) && (dvalue <= maxx) ) mask.at<uchar>(v, u) = 255;
-          }
-     }
-
-     cv::Mat maskInv, gndFilteredImg;
-     depthImg.copyTo(gndFilteredImg, mask);
-     if(generated_mask) *generated_mask = mask.clone();
-     if(filtered_img) *filtered_img = gndFilteredImg.clone();
+     // cv::Mat depthImg, refImg, img;
+     // if(depth.empty()){
+     //      printf("[WARNING] VboatsRos::remove_ground() --- Depth Image is empty, skipping ground removal.\r\n");
+     //      return -1;
+     // }
+     // if(vmap.empty()){
+     //      printf("[WARNING] VboatsRos::remove_ground() --- Vmap input Image is empty, skipping ground removal.\r\n");
+     //      return -2;
+     // }
+     // if(disparity.empty()){
+     //      printf("[WARNING] VboatsRos::remove_ground() --- Disparity input Image is empty, skipping ground removal.\r\n");
+     //      return -3;
+     // }
+     // if(line_params.empty()){
+     //      printf("[WARNING] VboatsRos::remove_ground() --- Line params are empty, skipping ground removal.\r\n");
+     //      return -4;
+     // }
+     // refImg = vmap.clone();
+     // img = disparity.clone();
+     // depthImg = depth.clone();
+     // cv::Mat mask = cv::Mat::zeros(disparity.size(), CV_8UC1);
+     // // Calculate ROI limits based on estimated ground line coefficients
+     // float slope = line_params[0];
+     // int y0 = (int) line_params[1];
+     // int y1 = y0 + this->_gnd_line_lower_offset;
+     // int y1f = (int)(vmap.cols * slope + (y1));
+     // int y2 = y0 - this->_gnd_line_upper_offset;
+     // int y2f = (int)(vmap.cols * slope + (y2));
+     // if(y0 < 0) y0 = 0;
+     // if(this->_verbose_gnd_line_removal){
+     //      printf("[INFO] VboatsRos::remove_ground() --- slope = %.2f, intercept = %d\r\n", slope, y0);
+     //      cvinfo(refImg, "VboatsRos::remove_ground() --- Vmap Reference: ");
+     //      cvinfo(img, "VboatsRos::remove_ground() --- Disparity Input: ");
+     //      cvinfo(depthImg, "VboatsRos::remove_ground() --- Depth Input: ");
+     // }
+     //
+     // uchar* pix;
+     // cv::Mat refRow;
+     // cv::Mat refMask;
+     // cv::Mat nonzero;
+     // double t, dt;
+     // int minx, maxx, tmpx;
+     // t = (double)cv::getTickCount();
+     // // For each row of the disparity image,
+     // // keep only pixels whose value (i.e. disparity) is within the range of disparity
+     // // values found from the nonzero pixels in the same row of the corresponding
+     // // pre-processed vmap image, while also removing disparity values that fall under
+     // // the estimated ground line (i.e. below the floor).
+     // for(int v = y0; v < img.rows; ++v){
+     //      // Get the non-zero pixels in the current row of the reference vmap image
+     //      refRow = refImg.row(v);
+     //      refMask = refRow > 0;
+     //      cv::findNonZero(refMask, nonzero);
+     //      maxx = 0; minx = 1000;
+     //      // Use the estimated ground line coefficients to get the disparity limit for this row
+     //      int xlim = (int)((float)(v - y2) / slope);
+     //      if(this->_debug_gnd_line_removal) printf("[INFO] VboatsRos::remove_ground() --- %d Nonzero pixels found for row %d (w/ xlimit = %d): \r\n\r\n", (int) nonzero.total(), v, xlim);
+     //      // Loop through all of the nonzero pixels and determine the min/max disparities
+     //      for(int i = 0; i < nonzero.total(); i++ ){
+     //           tmpx = nonzero.at<cv::Point>(i).x;
+     //           if(tmpx < xlim) continue;
+     //           if(this->_debug_gnd_line_removal) printf("%d, ", tmpx);
+     //           if(tmpx > maxx) maxx = tmpx;
+     //           if(tmpx < minx) minx = tmpx;
+     //      }
+     //      if(this->_debug_gnd_line_removal) printf("\r\n[INFO] VboatsRos::remove_ground() --- Limits found from pixels in row %d = %d, %d\r\n",
+     //      v, (int) nonzero.total(), minx, maxx);
+     //
+     //      // Get all the pixels in the current row of the disparity image
+     //      // and use the disparity limits found above to construct a mask used
+     //      // for filtering the pixels in the depth image
+     //      pix = img.ptr<uchar>(v);
+     //      for(int u = 0; u < img.cols; ++u){
+     //           int dvalue = pix[u];
+     //           if( (dvalue >= minx) && (dvalue <= maxx) ) mask.at<uchar>(v, u) = 255;
+     //      }
+     // }
+     //
+     // cv::Mat maskInv, gndFilteredImg;
+     // depthImg.copyTo(gndFilteredImg, mask);
+     // if(generated_mask) *generated_mask = mask.clone();
+     // if(filtered_img) *filtered_img = gndFilteredImg.clone();
      return 0;
 }
 
@@ -837,244 +837,244 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
      cv::Mat* filtered, cv::Mat* processed_umap, cv::Mat* processed_vmap)
 {
      int nObs = 0;
-     vector<Obstacle> _obstacles;
-     cv::Mat tmpDepth, tmpDisparity, uTmp, vCopy;
-     if(depth.empty()){
-          printf("[WARNING] VboatsRos::process() --- Depth input is empty, skipping ground removal.\r\n");
-          return -1;
-     }
-     if(disparity.empty()){
-          printf("[WARNING] VboatsRos::process() --- Disparity input is empty, skipping ground removal.\r\n");
-          return -2;
-     }
-     if(umap.empty()){
-          printf("[WARNING] VboatsRos::process() --- Umap input is empty, skipping ground removal.\r\n");
-          return -3;
-     }
-     if(vmap.empty()){
-          printf("[WARNING] VboatsRos::process() --- Vmap input is empty, skipping ground removal.\r\n");
-          return -4;
-     }
-     uTmp = umap.clone();
-     vCopy = vmap.clone();
-     tmpDepth = depth.clone();
-     tmpDisparity = disparity.clone();
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Pre-filtering Umap.\r\n");
-
-     float Tx = (float)(this->_fx * this->_baseline);
-     int maxDisparity = (int) ceil(Tx / (float) this->_cam_min_depth);
-     int minDisparity = (int) ceil(Tx / (float) this->_cam_max_depth);
-
-     // Pre-filter Umap
-     cv::Mat uProcessed;
-     vector<vector<cv::Point>> deadzoneUmap;
-     vector<cv::Point> deadzonePtsUmap = {
-          cv::Point(0,0),
-          cv::Point(umap.cols,0),
-          cv::Point(umap.cols,minDisparity),
-          cv::Point(0,minDisparity),
-          cv::Point(0,0)
-     };
-     deadzoneUmap.push_back(deadzonePtsUmap);
-     cv::fillPoly(uTmp, deadzoneUmap, cv::Scalar(0));
-     cv::boxFilter(uTmp,uTmp,-1, cv::Size(2,2));
-     // Filter Umap
-     if(this->_use_custom_umap_filtering){
-          cv::Mat uSobIn, uSobel, uSobelThresh, uSobelBlur, uSobelMask, custUmap;
-
-          uTmp.convertTo(uSobIn, CV_64F);
-          threshold(uSobIn, uSobel, this->_umap_pre_blur_thresh, 255, cv::THRESH_TOZERO);
-          if(this->_do_umap_primary_blur){
-               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                    cv::Size(this->_kernel_x_multiplier*this->_umap_mask_primary_blur_size,
-                         this->_kernel_y_multiplier*this->_umap_mask_primary_blur_size)
-               );
-               cv::dilate(uSobel, uSobel, element, cv::Point(-1,-1), 1);
-          }
-
-          cv::Sobel(uSobel, uSobel, CV_64F, 0, 1, 3);
-          double minUVal, maxUVal;
-          cv::minMaxLoc(uSobel, &minUVal, &maxUVal);
-          uSobel = uSobel * (255.0/maxUVal);
-          cv::convertScaleAbs(uSobel, uSobel, 1, 0);
-          threshold(uSobel, uSobelThresh, this->_umap_sobel_thresh, 255, cv::THRESH_TOZERO);
-          // imshowCmap(uSobel, "Umap Sobel");
-          // imshowCmap(uSobelThresh, "Umap Sobel Thresholded");
-
-          if(this->_do_umap_secondary_dilate){
-               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
-                    cv::Size(this->_kernel_x_multiplier*this->_umap_mask_secondary_dilate_size,
-                         this->_kernel_y_multiplier*this->_umap_mask_secondary_dilate_size)
-               );
-               cv::dilate(uSobelThresh, uSobelThresh, element, cv::Point(-1,-1), 1);
-          }
-
-          if(this->_do_umap_secondary_blur) cv::blur(uSobelThresh, uSobelBlur,
-               cv::Size(this->_kernel_x_multiplier*this->_umap_mask_secondary_blur_size,
-                    this->_kernel_y_multiplier*this->_umap_mask_secondary_blur_size)
-               );
-          else uSobelBlur = uSobelThresh;
-          // threshold(uSobelBlur, uSobelMask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-          threshold(uSobelBlur, uSobelMask, 0, 255, cv::THRESH_BINARY);
-
-          uTmp.copyTo(custUmap, uSobelMask);
-          threshold(custUmap, uProcessed, this->_umap_post_blur_thresh, 255, cv::THRESH_TOZERO);
-
-          // imshowCmap(uSobelMask, "Umap Sobel Mask");
-          // imshowCmap(uProcessed, "Custom Umap");
-          // if(!this->_do_cv_wait_key) cv::waitKey(1);
-     } else{
-          double uMin, uMax;
-          cv::minMaxLoc(uTmp, &uMin, &uMax);
-          int wholeThresh = int((float) uMax * this->_simple_umap_thresh_ratio);
-          cv::threshold(uTmp, uProcessed, wholeThresh, 255, cv::THRESH_TOZERO);
-     }
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Finding contours in filtered Umap.\r\n");
-
-     // Find contours in Umap needed later for obstacle filtering
-     vector<vector<cv::Point>> contours;
-     this->vb->find_contours(uProcessed, &contours, this->_umap_contour_filter_method,
-          this->_umap_contour_min_thresh, nullptr, -1, false,
-          this->_visualize_umap_contours
-     );
-
-     double minVal, maxVal;
-     // Pre-filter Vmap
-     cv::Mat vTmp, vProcessed;
-     vTmp = vCopy.clone();
-     vector<vector<cv::Point>> deadzoneVmap;
-     vector<cv::Point> deadzonePtsVmap = {
-          cv::Point(0,0),
-          cv::Point(0,vmap.rows),
-          cv::Point(minDisparity,vmap.rows),
-          cv::Point(minDisparity,0),
-          cv::Point(0,0)
-     };
-     vector<cv::Point> deadzonePts2Vmap = {
-          cv::Point(vmap.cols, 0),
-          cv::Point(vmap.cols, vmap.rows),
-          cv::Point(maxDisparity,vmap.rows),
-          cv::Point(maxDisparity,0),
-          cv::Point(vmap.cols,0)
-     };
-     deadzoneVmap.push_back(deadzonePtsVmap);
-     deadzoneVmap.push_back(deadzonePts2Vmap);
-     cv::fillPoly(vTmp, deadzoneVmap, cv::Scalar(0));
-
-     // Filter Vmap -- Revised
-     cv::Mat sobelRawInput, sobelInput, sobelPreThresh, rawSobel, blurSobel, dilatedSobel, sobelThresh, sobelPreprocessed, sobelMask;
-     if(this->_do_sobel_pre_thresholding){
-          threshold(vTmp, sobelPreThresh, this->_sobel_pre_thresh, 255, cv::THRESH_TOZERO);
-          sobelRawInput = sobelPreThresh.clone();
-     } else sobelRawInput = vTmp.clone();
-
-     if(this->_use_custom_vmap_filtering){
-          if(this->_debug) printf("[INFO] VboatsRos::process() --- Creating Sobelized Vmap.\r\n");
-          sobelRawInput.convertTo(rawSobel, CV_64F);
-          sobelInput = rawSobel.clone();
-          if(this->_do_vmap_sobel_blurring){
-               cv::blur(rawSobel, blurSobel, cv::Size(this->_sobel_blur_kernel_size,this->_sobel_blur_kernel_size));
-               sobelInput = blurSobel.clone();
-          }
-          if(this->_do_vmap_sobel_dilation){
-               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_sobel_dilate_kernel_size, this->_sobel_dilate_kernel_size));
-               cv::dilate(sobelInput, dilatedSobel, element, cv::Point(-1,-1), 1);
-               sobelInput = dilatedSobel.clone();
-          }
-          cv::Sobel(sobelInput, rawSobel, CV_64F, 0, 1, 3);
-
-          double minVal, maxVal;
-          cv::minMaxLoc(sobelInput, &minVal, &maxVal);
-          sobelInput = sobelInput * (255.0/maxVal);
-          cv::convertScaleAbs(sobelInput, sobelInput, 1, 0);
-          threshold(sobelInput, sobelThresh, this->_vmap_sobel_thresh, 255, cv::THRESH_TOZERO);
-     } else{
-          vector<float> threshsV(this->_vThreshs);
-          this->vb->filter_disparity_vmap(sobelRawInput, &sobelThresh, &threshsV);
-     }
-     sobelPreprocessed = sobelThresh.clone();
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Looking for Ground line.\r\n");
-
-     // Extract ground line parameters (if ground is present)
-     std::vector<float> line_params;
-     float gndM; int gndB;
-     bool gndPresent = this->vb->find_ground_line(sobelPreprocessed, &gndM,&gndB,
-          this->_gnd_line_min_ang, this->_gnd_line_max_ang
-     );
-     if(gndPresent){
-          line_params.push_back(gndM);
-          line_params.push_back((float) gndB);
-     }
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Vmap Secondary Filtering.\r\n");
-
-     cv::Mat sobelSecThresh, sobelSecDilate, sobelSecBlur, segMask;
-     if(this->_do_sobel_vmask_subtraction){
-          if(this->_do_vmap_sobel_sec_thresh){
-               threshold(sobelThresh, sobelSecThresh, this->_vmap_sobel_sec_thresh, 255, cv::THRESH_TOZERO);
-          } else sobelSecThresh = sobelThresh.clone();
-
-          if(this->_do_vmap_sobel_sec_blurring){
-               cv::blur(sobelSecThresh, sobelSecBlur, cv::Size(this->_sobel_sec_blur_kernel_size,this->_sobel_sec_blur_kernel_size));
-          } else sobelSecBlur = sobelSecThresh.clone();
-
-          if(this->_do_vmap_sobel_sec_dilation){
-               cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_sobel_sec_dilate_kernel_size, this->_sobel_sec_dilate_kernel_size));
-               cv::dilate(sobelSecBlur, sobelSecDilate, element, cv::Point(-1,-1), 1);
-               segMask = sobelSecDilate.clone();
-          } else segMask = sobelSecBlur.clone();
-
-          threshold(segMask, segMask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-          cv::bitwise_not(segMask,segMask);
-          vTmp.copyTo(vProcessed, segMask);
-     } else vProcessed = vTmp.clone();
-     threshold(vProcessed, vProcessed, this->_vmap_thresh, 255, cv::THRESH_TOZERO);
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Obstacle Segmentation.\r\n");
-
-     // Remove non-ground regions from depth image using contours found in Umap to identify potential non-ground objects, and extract their corresponding regions from the vmap
-     int err;
-     cv::Mat noGndImg, noObsImg, gndMask, objMask, filtered_image, filtered_depth;
-     // cvinfo(depth, "VboatsHandler::process() --- Depth before ground segmentation: ");
-     // cvinfo(vProcessed, "VboatsHandler::process() --- Vmap input before ground segmentation: ");
-     if(this->_do_object_segmented_filtering){
-          err = this->remove_objects(vProcessed, tmpDisparity, tmpDepth, contours,
-               line_params, &noObsImg, &objMask
-          );
-          if(err >= 0){
-               if(!noObsImg.empty()) filtered_image = noObsImg.clone();
-               else printf("[WARNING] VboatsRos::process() --- Object filtered depth image is empty, skipping pointcloud generation.\r\n");
-          } else printf("[WARNING] VboatsRos::process() --- Unable to filter objects from depth image, skipping pointcloud generation.\r\n");
-     } else filtered_image = tmpDepth.clone();
-
-     if((gndPresent) && this->_use_gnd_line_based_removal){                         /** Ground segmentation */
-          if(filtered_image.empty()) filtered_image = tmpDepth.clone();
-          err = this->remove_ground(tmpDisparity,vProcessed, filtered_image, line_params, &noGndImg, &gndMask);
-          if(err >= 0){
-               if(!noGndImg.empty()) filtered_depth = noGndImg.clone();
-               else printf("[WARNING] VboatsRos::process() --- Ground filtered depth image is empty, skipping pointcloud generation.\r\n");
-          } else printf("[WARNING] VboatsRos::process() --- Unable to filter ground from depth image, skipping pointcloud generation.\r\n");
-     }
-     if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Depth Image Post-process morphing.\r\n");
-
-     cv::Mat morphedDepth;
-     if(this->_do_post_depth_morphing && !filtered_image.empty()){
-          cv::Mat morphElement = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_depth_morph_kernel_size, this->_depth_morph_kernel_size));
-          cv::morphologyEx(filtered_image, morphedDepth, cv::MORPH_OPEN, morphElement);
-          filtered_depth = morphedDepth.clone();
-     } else filtered_depth = filtered_image.clone();
-
-     // Obstacle data extractionaa
-     cv::Mat obsSearchVmap;
-     std::vector< std::vector<cv::Rect> > objectsWindows;
-     if(this->_do_individual_obstacle_detection){
-          if(this->_visualize_obstacle_search_windows) nObs = this->vb->find_obstacles_disparity(vProcessed, contours, &_obstacles, line_params, &objectsWindows);
-          else nObs = this->vb->find_obstacles_disparity(vProcessed, contours, &_obstacles, line_params);
-     }
-
-     // Return Output images if requested before visualization
-     if(obstacles) *obstacles = _obstacles;
-     if(filtered) *filtered = filtered_depth.clone();
-     if(processed_umap) *processed_umap = uProcessed.clone();
-     if(processed_vmap) *processed_vmap = vProcessed.clone();
+     // vector<Obstacle> _obstacles;
+     // cv::Mat tmpDepth, tmpDisparity, uTmp, vCopy;
+     // if(depth.empty()){
+     //      printf("[WARNING] VboatsRos::process() --- Depth input is empty, skipping ground removal.\r\n");
+     //      return -1;
+     // }
+     // if(disparity.empty()){
+     //      printf("[WARNING] VboatsRos::process() --- Disparity input is empty, skipping ground removal.\r\n");
+     //      return -2;
+     // }
+     // if(umap.empty()){
+     //      printf("[WARNING] VboatsRos::process() --- Umap input is empty, skipping ground removal.\r\n");
+     //      return -3;
+     // }
+     // if(vmap.empty()){
+     //      printf("[WARNING] VboatsRos::process() --- Vmap input is empty, skipping ground removal.\r\n");
+     //      return -4;
+     // }
+     // uTmp = umap.clone();
+     // vCopy = vmap.clone();
+     // tmpDepth = depth.clone();
+     // tmpDisparity = disparity.clone();
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Pre-filtering Umap.\r\n");
+     //
+     // float Tx = (float)(this->_fx * this->_baseline);
+     // int maxDisparity = (int) ceil(Tx / (float) this->_cam_min_depth);
+     // int minDisparity = (int) ceil(Tx / (float) this->_cam_max_depth);
+     //
+     // // Pre-filter Umap
+     // cv::Mat uProcessed;
+     // vector<vector<cv::Point>> deadzoneUmap;
+     // vector<cv::Point> deadzonePtsUmap = {
+     //      cv::Point(0,0),
+     //      cv::Point(umap.cols,0),
+     //      cv::Point(umap.cols,minDisparity),
+     //      cv::Point(0,minDisparity),
+     //      cv::Point(0,0)
+     // };
+     // deadzoneUmap.push_back(deadzonePtsUmap);
+     // cv::fillPoly(uTmp, deadzoneUmap, cv::Scalar(0));
+     // cv::boxFilter(uTmp,uTmp,-1, cv::Size(2,2));
+     // // Filter Umap
+     // if(this->_use_custom_umap_filtering){
+     //      cv::Mat uSobIn, uSobel, uSobelThresh, uSobelBlur, uSobelMask, custUmap;
+     //
+     //      uTmp.convertTo(uSobIn, CV_64F);
+     //      threshold(uSobIn, uSobel, this->_umap_pre_blur_thresh, 255, cv::THRESH_TOZERO);
+     //      if(this->_do_umap_primary_blur){
+     //           cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+     //                cv::Size(this->_kernel_x_multiplier*this->_umap_mask_primary_blur_size,
+     //                     this->_kernel_y_multiplier*this->_umap_mask_primary_blur_size)
+     //           );
+     //           cv::dilate(uSobel, uSobel, element, cv::Point(-1,-1), 1);
+     //      }
+     //
+     //      cv::Sobel(uSobel, uSobel, CV_64F, 0, 1, 3);
+     //      double minUVal, maxUVal;
+     //      cv::minMaxLoc(uSobel, &minUVal, &maxUVal);
+     //      uSobel = uSobel * (255.0/maxUVal);
+     //      cv::convertScaleAbs(uSobel, uSobel, 1, 0);
+     //      threshold(uSobel, uSobelThresh, this->_umap_sobel_thresh, 255, cv::THRESH_TOZERO);
+     //      // imshowCmap(uSobel, "Umap Sobel");
+     //      // imshowCmap(uSobelThresh, "Umap Sobel Thresholded");
+     //
+     //      if(this->_do_umap_secondary_dilate){
+     //           cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE,
+     //                cv::Size(this->_kernel_x_multiplier*this->_umap_mask_secondary_dilate_size,
+     //                     this->_kernel_y_multiplier*this->_umap_mask_secondary_dilate_size)
+     //           );
+     //           cv::dilate(uSobelThresh, uSobelThresh, element, cv::Point(-1,-1), 1);
+     //      }
+     //
+     //      if(this->_do_umap_secondary_blur) cv::blur(uSobelThresh, uSobelBlur,
+     //           cv::Size(this->_kernel_x_multiplier*this->_umap_mask_secondary_blur_size,
+     //                this->_kernel_y_multiplier*this->_umap_mask_secondary_blur_size)
+     //           );
+     //      else uSobelBlur = uSobelThresh;
+     //      // threshold(uSobelBlur, uSobelMask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+     //      threshold(uSobelBlur, uSobelMask, 0, 255, cv::THRESH_BINARY);
+     //
+     //      uTmp.copyTo(custUmap, uSobelMask);
+     //      threshold(custUmap, uProcessed, this->_umap_post_blur_thresh, 255, cv::THRESH_TOZERO);
+     //
+     //      // imshowCmap(uSobelMask, "Umap Sobel Mask");
+     //      // imshowCmap(uProcessed, "Custom Umap");
+     //      // if(!this->_do_cv_wait_key) cv::waitKey(1);
+     // } else{
+     //      double uMin, uMax;
+     //      cv::minMaxLoc(uTmp, &uMin, &uMax);
+     //      int wholeThresh = int((float) uMax * this->_simple_umap_thresh_ratio);
+     //      cv::threshold(uTmp, uProcessed, wholeThresh, 255, cv::THRESH_TOZERO);
+     // }
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Finding contours in filtered Umap.\r\n");
+     //
+     // // Find contours in Umap needed later for obstacle filtering
+     // vector<vector<cv::Point>> contours;
+     // find_contours(uProcessed, &contours, this->_umap_contour_filter_method,
+     //      this->_umap_contour_min_thresh, nullptr, -1, false,
+     //      this->_visualize_umap_contours
+     // );
+     //
+     // double minVal, maxVal;
+     // // Pre-filter Vmap
+     // cv::Mat vTmp, vProcessed;
+     // vTmp = vCopy.clone();
+     // vector<vector<cv::Point>> deadzoneVmap;
+     // vector<cv::Point> deadzonePtsVmap = {
+     //      cv::Point(0,0),
+     //      cv::Point(0,vmap.rows),
+     //      cv::Point(minDisparity,vmap.rows),
+     //      cv::Point(minDisparity,0),
+     //      cv::Point(0,0)
+     // };
+     // vector<cv::Point> deadzonePts2Vmap = {
+     //      cv::Point(vmap.cols, 0),
+     //      cv::Point(vmap.cols, vmap.rows),
+     //      cv::Point(maxDisparity,vmap.rows),
+     //      cv::Point(maxDisparity,0),
+     //      cv::Point(vmap.cols,0)
+     // };
+     // deadzoneVmap.push_back(deadzonePtsVmap);
+     // deadzoneVmap.push_back(deadzonePts2Vmap);
+     // cv::fillPoly(vTmp, deadzoneVmap, cv::Scalar(0));
+     //
+     // // Filter Vmap -- Revised
+     // cv::Mat sobelRawInput, sobelInput, sobelPreThresh, rawSobel, blurSobel, dilatedSobel, sobelThresh, sobelPreprocessed, sobelMask;
+     // if(this->_do_sobel_pre_thresholding){
+     //      threshold(vTmp, sobelPreThresh, this->_sobel_pre_thresh, 255, cv::THRESH_TOZERO);
+     //      sobelRawInput = sobelPreThresh.clone();
+     // } else sobelRawInput = vTmp.clone();
+     //
+     // if(this->_use_custom_vmap_filtering){
+     //      if(this->_debug) printf("[INFO] VboatsRos::process() --- Creating Sobelized Vmap.\r\n");
+     //      sobelRawInput.convertTo(rawSobel, CV_64F);
+     //      sobelInput = rawSobel.clone();
+     //      if(this->_do_vmap_sobel_blurring){
+     //           cv::blur(rawSobel, blurSobel, cv::Size(this->_sobel_blur_kernel_size,this->_sobel_blur_kernel_size));
+     //           sobelInput = blurSobel.clone();
+     //      }
+     //      if(this->_do_vmap_sobel_dilation){
+     //           cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_sobel_dilate_kernel_size, this->_sobel_dilate_kernel_size));
+     //           cv::dilate(sobelInput, dilatedSobel, element, cv::Point(-1,-1), 1);
+     //           sobelInput = dilatedSobel.clone();
+     //      }
+     //      cv::Sobel(sobelInput, rawSobel, CV_64F, 0, 1, 3);
+     //
+     //      double minVal, maxVal;
+     //      cv::minMaxLoc(sobelInput, &minVal, &maxVal);
+     //      sobelInput = sobelInput * (255.0/maxVal);
+     //      cv::convertScaleAbs(sobelInput, sobelInput, 1, 0);
+     //      threshold(sobelInput, sobelThresh, this->_vmap_sobel_thresh, 255, cv::THRESH_TOZERO);
+     // } else{
+     //      vector<float> threshsV(this->_vThreshs);
+     //      filter_disparity_vmap(sobelRawInput, &sobelThresh, &threshsV);
+     // }
+     // sobelPreprocessed = sobelThresh.clone();
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Looking for Ground line.\r\n");
+     //
+     // // Extract ground line parameters (if ground is present)
+     // std::vector<float> line_params;
+     // float gndM; int gndB;
+     // bool gndPresent = find_ground_line(sobelPreprocessed, &gndM,&gndB,
+     //      this->_gnd_line_min_ang, this->_gnd_line_max_ang
+     // );
+     // if(gndPresent){
+     //      line_params.push_back(gndM);
+     //      line_params.push_back((float) gndB);
+     // }
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Vmap Secondary Filtering.\r\n");
+     //
+     // cv::Mat sobelSecThresh, sobelSecDilate, sobelSecBlur, segMask;
+     // if(this->_do_sobel_vmask_subtraction){
+     //      if(this->_do_vmap_sobel_sec_thresh){
+     //           threshold(sobelThresh, sobelSecThresh, this->_vmap_sobel_sec_thresh, 255, cv::THRESH_TOZERO);
+     //      } else sobelSecThresh = sobelThresh.clone();
+     //
+     //      if(this->_do_vmap_sobel_sec_blurring){
+     //           cv::blur(sobelSecThresh, sobelSecBlur, cv::Size(this->_sobel_sec_blur_kernel_size,this->_sobel_sec_blur_kernel_size));
+     //      } else sobelSecBlur = sobelSecThresh.clone();
+     //
+     //      if(this->_do_vmap_sobel_sec_dilation){
+     //           cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_sobel_sec_dilate_kernel_size, this->_sobel_sec_dilate_kernel_size));
+     //           cv::dilate(sobelSecBlur, sobelSecDilate, element, cv::Point(-1,-1), 1);
+     //           segMask = sobelSecDilate.clone();
+     //      } else segMask = sobelSecBlur.clone();
+     //
+     //      threshold(segMask, segMask, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
+     //      cv::bitwise_not(segMask,segMask);
+     //      vTmp.copyTo(vProcessed, segMask);
+     // } else vProcessed = vTmp.clone();
+     // threshold(vProcessed, vProcessed, this->_vmap_thresh, 255, cv::THRESH_TOZERO);
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Obstacle Segmentation.\r\n");
+     //
+     // // Remove non-ground regions from depth image using contours found in Umap to identify potential non-ground objects, and extract their corresponding regions from the vmap
+     // int err;
+     // cv::Mat noGndImg, noObsImg, gndMask, objMask, filtered_image, filtered_depth;
+     // // cvinfo(depth, "VboatsHandler::process() --- Depth before ground segmentation: ");
+     // // cvinfo(vProcessed, "VboatsHandler::process() --- Vmap input before ground segmentation: ");
+     // if(this->_do_object_segmented_filtering){
+     //      err = this->remove_objects(vProcessed, tmpDisparity, tmpDepth, contours,
+     //           line_params, &noObsImg, &objMask
+     //      );
+     //      if(err >= 0){
+     //           if(!noObsImg.empty()) filtered_image = noObsImg.clone();
+     //           else printf("[WARNING] VboatsRos::process() --- Object filtered depth image is empty, skipping pointcloud generation.\r\n");
+     //      } else printf("[WARNING] VboatsRos::process() --- Unable to filter objects from depth image, skipping pointcloud generation.\r\n");
+     // } else filtered_image = tmpDepth.clone();
+     //
+     // if((gndPresent) && this->_use_gnd_line_based_removal){                         /** Ground segmentation */
+     //      if(filtered_image.empty()) filtered_image = tmpDepth.clone();
+     //      err = this->remove_ground(tmpDisparity,vProcessed, filtered_image, line_params, &noGndImg, &gndMask);
+     //      if(err >= 0){
+     //           if(!noGndImg.empty()) filtered_depth = noGndImg.clone();
+     //           else printf("[WARNING] VboatsRos::process() --- Ground filtered depth image is empty, skipping pointcloud generation.\r\n");
+     //      } else printf("[WARNING] VboatsRos::process() --- Unable to filter ground from depth image, skipping pointcloud generation.\r\n");
+     // }
+     // if(this->_debug) printf("[INFO] VboatsRos::process() --- Performing Depth Image Post-process morphing.\r\n");
+     //
+     // cv::Mat morphedDepth;
+     // if(this->_do_post_depth_morphing && !filtered_image.empty()){
+     //      cv::Mat morphElement = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( this->_depth_morph_kernel_size, this->_depth_morph_kernel_size));
+     //      cv::morphologyEx(filtered_image, morphedDepth, cv::MORPH_OPEN, morphElement);
+     //      filtered_depth = morphedDepth.clone();
+     // } else filtered_depth = filtered_image.clone();
+     //
+     // // Obstacle data extractionaa
+     // cv::Mat obsSearchVmap;
+     // std::vector< std::vector<cv::Rect> > objectsWindows;
+     // if(this->_do_individual_obstacle_detection){
+     //      if(this->_visualize_obstacle_search_windows) nObs = find_obstacles_disparity(vProcessed, contours, &_obstacles, line_params, &objectsWindows);
+     //      else nObs = find_obstacles_disparity(vProcessed, contours, &_obstacles, line_params);
+     // }
+     //
+     // // Return Output images if requested before visualization
+     // if(obstacles) *obstacles = _obstacles;
+     // if(filtered) *filtered = filtered_depth.clone();
+     // if(processed_umap) *processed_umap = uProcessed.clone();
+     // if(processed_vmap) *processed_vmap = vProcessed.clone();
 
 
      /** Extrapolate pointcloud information from depth image if ground segmentation was successful */
@@ -1208,7 +1208,8 @@ int VboatsRos::process(const cv::Mat& depth, const cv::Mat& disparity,
      }
      if(this->_do_cv_wait_key) cv::waitKey(1);
      */
-     return (int) _obstacles.size();
+     // return (int) _obstacles.size();
+     return 0;
 }
 
 /** -------------------------------------------------------------------------------------------------

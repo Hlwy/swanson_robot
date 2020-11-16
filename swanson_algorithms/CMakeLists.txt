@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(swanson_algorithms)
-
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
-# set(CMAKE_CXX_FLAGS "-std=c++14 ${CMAKE_CXX_FLAGS}")
 
 execute_process(COMMAND ${CMAKE_C_COMPILER} -dumpmachine OUTPUT_VARIABLE MACHINE)
 message(STATUS "MACHINE = ${MACHINE}")
@@ -26,21 +26,21 @@ set( ROS_CXX_DEPENDENCIES
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
-find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(OpenCV 3.4 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(OpenCV 4 REQUIRED)
 # find_package(OpenCV 4.1.1 REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
 find_package(realsense2 REQUIRED)
 
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/RoboCommander
-find_package(RoboCommander REQUIRED)
+find_package(robocommander REQUIRED)
 
-message(STATUS "RoboCommander: Found = ${RoboCommander_FOUND}")
-message(STATUS "     Root Directory --- ${RoboCommander_ROOT}")
-message(STATUS "     Includes Directory --- ${RoboCommander_INCLUDE_DIR}")
-message(STATUS "     CMake Directory --- ${RoboCommander_INSTALLED_CMAKE_DIR}")
+message(STATUS "RoboCommander: Found = ${robocommander_FOUND}")
+message(STATUS "     Root Directory --- ${robocommander_ROOT}")
+message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
+message(STATUS "     CMake Directory --- ${robocommander_INSTALLED_CMAKE_DIR}")
 message(STATUS "     Library Objects:")
-foreach(obj ${RoboCommander_LIBRARIES})
+foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
@@ -52,7 +52,8 @@ add_definitions(${PCL_DEFINITIONS})
 include_directories(
      include
      ${Boost_INCLUDE_DIRS}
-     ${RoboCommander_INCLUDE_DIR}
+     ${robocommander_INCLUDE_DIR}
+     ${robocommander_INCLUDES}
      ${catkin_INCLUDE_DIRS}
      ${OpenCV_INCLUDE_DIRS}
      ${realsense2_INCLUDE_DIR}
@@ -60,7 +61,7 @@ include_directories(
 )
 link_directories(
      ${Boost_LIBRARIES}
-     ${RoboCommander_LIBRARIES}
+     ${robocommander_LIBRARIES}
      ${OpenCV_LIBS}
      ${realsense2_LIBRARY}
      ${PCL_LIBRARIES}
@@ -74,9 +75,7 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_algorithms
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS
-          Boost
-          RoboCommander
+     DEPENDS Boost
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
@@ -85,7 +84,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ###########
 
 add_library(vboats_ros src/vboats_ros.cpp)
-target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${RoboCommander_LIBRARIES})
+target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocommander_LIBRARIES})
 add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)

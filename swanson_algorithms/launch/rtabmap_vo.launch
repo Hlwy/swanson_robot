@@ -1,11 +1,12 @@
 <launch>
-     <arg name="namespace"               default="rtabmap"/>
+     <arg name="namespace"               default="rtabmapTest"/>
 
      <!-- roslaunch prefix args -->
      <arg name="args"                    default="--delete_db_on_start"/>              <!-- delete_db_on_start, udebug -->
      <arg name="rtabmap_args"            default="$(arg args)"/>
-     <arg name="odom_args"               default="$(arg args)"/>
+     <arg name="odom_args"               default=""/>
      <arg name="launch_prefix"           default=""/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
+     <arg name="launch_prefixDbg"        default="gdb -ex run --args"/>              <!-- for debugging purpose, it fills launch-prefix tag of the nodes -->
      <arg name="output"                  default="screen"/>        <!-- Control node output (screen or log) -->
 
      <!-- Flags -->
@@ -13,17 +14,20 @@
      <arg name="publish_tf_odom"           default="false"/>
 
      <!-- ROS topics -->
-     <arg name="vo_topic"                default="/vo"/>          <!-- Visual Odometry topic name -->
-     <arg name="rgb_topic"               default="/hytx/camera/color/image_raw" />
-     <arg name="depth_topic"             default="/hytx/camera/depth/image_rect_raw" />
-     <arg name="camera_info_topic"       default="/hytx/camera/color/camera_info" />
+     <arg name="vo_topic"                default="/voTest"/>          <!-- Visual Odometry topic name -->
+     <arg name="rgb_topic"               default="/camera/color/image_raw" />
+     <arg name="depth_topic"             default="/camera/depth/image_rect_raw" />
+     <arg name="camera_info_topic"       default="/camera/color/camera_info" />
      <!-- Frame ids -->
-     <arg name="frame_id"                default="base_footprint"/>
+     <arg name="frame_id"                default="base_link"/>
+     <!-- <arg name="vo_frame_id"             default="odom"/> -->
      <arg name="vo_frame_id"             default="odom"/>
 
+     <!-- <node pkg="tf" type="static_transform_publisher" name="base_combined_broadcaster" args="0 0 0 0 0 0 odom odom_local 100" /> -->
+
      <!-- misc param config -->
-     <arg name="queue_size"              default="30"/>
-     <arg name="wait_for_transform_dt"   default="0.1"/>
+     <arg name="queue_size"              default="1000"/>
+     <arg name="wait_for_transform_dt"   default="0.05"/>
 
      <!-- Feature Extraction Method
           0=SURF
@@ -46,6 +50,7 @@
           2 = Particle Filtering
      -->
      <arg name="odom_filter_method"  default="0"/>
+
      <!--
      Odometry Estimating Method:
           0 = Frame-to-Map (F2M) (default)
@@ -58,11 +63,11 @@
           7 = LOAM
           8 = MSCKF-VIO
      -->
-     <arg name="odom_strategy"  default="1"/>
+     <arg name="odom_strategy"  default="5"/>
 
      <!-- RGB-D Odometry -->
      <group ns="$(arg namespace)">
-          <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="$(arg output)" args="$(arg rtabmap_args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
+          <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry_test" output="$(arg output)" args="$(arg rtabmap_args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
                <remap from="odom"            to="$(arg vo_topic)"/>
                <remap from="rgb/image"       to="$(arg rgb_topic)"/>
                <remap from="depth/image"     to="$(arg depth_topic)"/>
@@ -70,41 +75,45 @@
 
                <param name="frame_id"                    type="string" value="$(arg frame_id)"/>
                <param name="odom_frame_id"               type="string" value="$(arg vo_frame_id)"/>
-               <param name="publish_tf"                  type="bool"   value="$(arg publish_tf_odom)"/>
                <param name="wait_for_transform_duration" type="double" value="$(arg wait_for_transform_dt)"/>
                <param name="approx_sync"                 type="bool"   value="$(arg approx_sync)"/>
                <param name="queue_size"                  type="int"    value="$(arg queue_size)"/>
-               <param name="publish_null_when_lost"      type="bool"   value="false"/>
-               <param name="Odom/FillInfoData"           type="string" value="true"/>
-               <param name="guess_from_tf"               type="bool"   value="false"/>
+               <param name="publish_tf"                  type="bool"   value="$(arg publish_tf_odom)"/>
+               <param name="publish_null_when_lost"      type="bool"   value="true"/>
+
+               <!-- 3D Case -->
+               <param name="Reg/Force3DoF"          value="false" />
+               <param name="Odom/Holonomic"         type="bool" value="true"/>
+               <!-- 2D Case -->
+               <!-- <param name="Reg/Force3DoF"          value="true" />
+               <param name="Odom/Holonomic"         type="bool" value="false"/> -->
                <!-- Misc settings -->
-               <param name="Reg/Force3DoF"          value="true" />
-               <param name="Odom/ResetCountdown"    type="string" value="40"/>
-               <param name="Odom/Holonomic"         type="bool"   value="false"/>
+               <param name="Vis/Iterations"         value="300"/> <!-- default = 300 -->
+               <param name="Vis/CorType"            value="0"/>
+               <param name="Vis/CorNNType"          value="1"/> <!-- default = 1 ____ [kNNFlannNaive=0, kNNFlannKdTree=1, kNNFlannLSH=2, kNNBruteForce=3, kNNBruteForceGPU=4] -->
+               <param name="Odom/ResetCountdown"    type="string" value="10"/>
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
-               <param name="Vis/MaxFeatures"        type="string" value="2000"/>
-               <param name="OdomF2M/MaxSize"        type="string" value="2000"/>
-               <param name="Odom/VisKeyFrameThr"    type="string" value="500"/>
-               <param name="Vis/ForwardEstOnly"     type="bool" value="false"/>
-               <!-- <param name="GFTT/MinDistance"       type="string" value="5"/> -->
+               <param name="Odom/ImageBufferSize"   value="5"/> <!-- default = 1 -->
+               <param name="GFTT/MinDistance"       type="string" value="7"/>
 
-               <param name="Vis/CorType"            value="0"/> <!--default = 0 [0=Features Matching, 1=Optical Flow] -->
-               <param name="Vis/CorGuessWinSize"    value="20"/> <!-- default = 20 -->
-               <param name="Vis/CorNNDR"            value="0.6"/> <!-- default = 0.6 -->
-               <param name="Vis/CorNNType"          value="1"/> <!-- [Vis/CorType=0] default = 1 == kNNFlannNaive=0, kNNFlannKdTree=1, kNNFlannLSH=2, kNNBruteForce=3, kNNBruteForceGPU=4. -->
+               <param name="Vis/MaxFeatures"        type="string" value="1500"/>
+               <param name="OdomF2M/MaxSize"        type="string" value="1500"/>
+               <param name="OdomORBSLAM2/MaxFeatures"   value="1500"/> <!-- default = 1000 -->
+               <param name="OdomORBSLAM2/VocPath"   type="string" value="/home/hunter/libraries/orb_slam2/Vocabulary/ORBvoc.txt"/>
 
-               <param name="Vis/CorFlowWinSize"     value="30"/> <!-- default = 16 -->
-
-               <param name="Odom/ImageBufferSize"           value="30"/> <!-- default = 1 -->
-               <param name="Odom/KalmanMeasurementNoise"    value="0.5"/> <!-- default = 0.01 -->
-               <param name="Odom/KalmanProcessNoise"        value="10.0"/> <!-- default = 0.001 -->
-               <param name="Optimizer/Iterations"           value="20"/> <!-- default = 20 -->
-               <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 -->
+               <param name="Optimizer/Iterations"           value="10"/> <!-- default = 20 -->
+               <param name="Optimizer/Strategy"             value="2"/> <!-- default = 1 ____ [0=TORO, 1=g2o and 2=GTSAM] -->
                <param name="Reg/Strategy"                   value="0"/> <!-- default = 0 ____ [0=Vis, 1=Icp, 2=VisIcp] -->
-               <param name="g2o/Optimizer"                  value="0"/> <!-- default = 0 ____ [0=Levenberg 1=GaussNewton] -->
-               <param name="g2o/Solver"                     value="0"/> <!-- default = 0 ____ [0=csparse 1=pcg 2=cholmod 3=Eigen] -->
+
+               <!-- =============== Test Parameters ================ -->
+               <param name="OdomF2M/BundleAdjustment"  value="1"/> <!-- default = 1 -->
+               <param name="Vis/BundleAdjustment"      value="1"/> <!-- default = 1 -->
+               <param name="Vis/ForwardEstOnly"        value="true"/> <!-- default = true -->
+               <param name="Vis/MinDepth"              value="0"/> <!-- default = 0 -->
+               <param name="Vis/RoiRatios"             value="0.1 0.0 0.0 0.15"/>
           </node>
      </group>
+
 </launch>

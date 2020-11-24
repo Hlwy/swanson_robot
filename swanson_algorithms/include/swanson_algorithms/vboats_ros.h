@@ -37,56 +37,59 @@
 
 class VboatsRos{
 private:
-     /** Multi-threading objects */
+     // Multi-threading objects
      std::mutex _lock;
-     /** ROS Objects */
+     // ROS Objects
      ros::NodeHandle m_nh;
      ros::NodeHandle p_nh;
      ros::Rate* _loop_rate;
      tf::TransformBroadcaster _br;
+
      ros::Subscriber _depth_sub;
      ros::Subscriber _cam_info_sub;
-
-     ros::Publisher _raw_umap_pub;
-     ros::Publisher _raw_vmap_pub;
-     ros::Publisher _umap_pub;
-     ros::Publisher _vmap_pub;
-
-     ros::Publisher _gnd_filtered_img_pub;
-     ros::Publisher _obstacles_img_pub;
-     ros::Publisher _detected_obstacle_info_pub;
-     ros::Publisher _generated_disparity_pub;
-
-     ros::Publisher _raw_cloud_pub;
-     ros::Publisher _unfiltered_cloud_pub;
-     ros::Publisher _filtered_cloud_pub;
-
      ros::Subscriber _imu_sub;
      ros::Subscriber _pose_sub;
      ros::Subscriber _pose_stamped_sub;
-     ros::Subscriber _disparity_sub;
+
+     ros::Publisher _filtered_depth_pub;
+     ros::Publisher _raw_cloud_pub;
+     ros::Publisher _unfiltered_cloud_pub;
+     ros::Publisher _filtered_cloud_pub;
+     ros::Publisher _obstacles_img_pub;
+     ros::Publisher _detected_obstacle_info_pub;
+     ros::Publisher _corrected_depth_pub;
+     ros::Publisher _generated_disparity_pub;
+     ros::Publisher _raw_umap_pub;
+     ros::Publisher _raw_vmap_pub;
+     ros::Publisher _proc_umap_pub;
+     ros::Publisher _proc_vmap_pub;
+
+     ros::Publisher _gnd_line_mask_pub;
+     ros::Publisher _obj_candidate_mask_pub;
+     ros::Publisher _umap_keep_mask_pub;
+     ros::Publisher _vmap_keep_mask_pub;
+     ros::Publisher _umap_debug_pub;
+     ros::Publisher _vmap_debug_pub;
 
      image_transport::ImageTransport _it;
      dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig> _cfg_server;
      dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig>::CallbackType _cfg_f;
 
-     /** ROS namespacing */
+     // ROS namespacing
      std::string _ns;
      std::string _parent_tf;
      std::string _camera_tf;
 
-     /** Counters / Timers / Loop Exiting */
+     // Counters / Timers / Loop Exiting
      int _count               = 0;
      cv::Mat _depth;
-     cv::Mat _generated_disparity;
-     cv::Mat _umap_raw;
-     cv::Mat _vmap_raw;
-     /** Depth Pre-Processing Parameters */
+
+     // Depth Pre-Processing Parameters
      double _cam_min_depth_x            = 0.0;
      double _cam_max_depth_x            = 0.0;
      double _cam_min_depth_y            = 0.0;
      double _cam_max_depth_y            = 0.0;
-     /** Pointcloud Filtering Parameters */
+     // Pointcloud Filtering Parameters
      bool _do_cloud_limit_filtering     = true;
      float _max_cloud_height            = 1.0;
      float _min_cloud_height            = 1.0;
@@ -100,7 +103,7 @@ private:
      int _cloud_outlier_min_neighbors   = 50;
      float _cloud_outlier_search_radius = 1.0;
 
-     /** Debug Flags */
+     // Debug Flags
      bool _verbose_update                    = false;
      bool _debug_angle_inputs                = false;
      bool _verbose_obstacles                 = false;
@@ -112,6 +115,7 @@ private:
      bool _publish_obs_data                  = false;
      bool _publish_obstacle_segmented_image  = false;
 
+     bool _publish_corrected_depth           = false;
      bool _publish_generated_disparity       = false;
      bool _publish_umap_raw                  = false;
      bool _publish_vmap_raw                  = false;
@@ -136,31 +140,36 @@ private:
      bool _visualize_vmap_sobelized_postprocessed_threshed  = false;
      bool _visualize_vmap_sobelized_postprocessed_blurred   = false;
 
-     /** ROS Subscriber Callbacks */
+     // ROS Subscriber Callbacks
      void cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level);
      void infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value);
      void depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
 
      void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
      void poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-     void _publish_image(ros::Publisher publisher, const cv::Mat& image);
+     void _publish_image(ros::Publisher publisher, const cv::Mat& image, bool colorize = false);
+     void _publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles);
      void _publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud);
 public:
      Vboats* vb;
 
-     /** Class Construction / Deconstruction */
+     // Class Construction / Deconstruction
      VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~VboatsRos();
 
-     /** ROS Interface Helper Functions */
+     // ROS Interface Helper Functions
      void publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth);
-     void publish_auxillery_images();
+     void publish_auxillery_images(
+          const cv::Mat& disparity_gen,
+          const cv::Mat& umap_proc,
+          const cv::Mat& vmap_proc
+     );
      void publish_debugging_images();
 
-     /** Data Generation Functions */
+     // Data Generation Functions
      cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing = false);
 
-     /** Runtime Functions */
+     // Runtime Functions
      int update();
      int run();
 };

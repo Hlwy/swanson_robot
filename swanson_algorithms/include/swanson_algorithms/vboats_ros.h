@@ -35,8 +35,6 @@
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> cloudxyz_t;
-
 class VboatsRos{
 private:
      /** Multi-threading objects */
@@ -76,90 +74,18 @@ private:
      std::string _ns;
      std::string _parent_tf;
      std::string _camera_tf;
-     /** Common ROS Msg Header containers */
-     std_msgs::Header _obsImgHeader;
-     std_msgs::Header _umapImgHeader;
-     std_msgs::Header _vmapImgHeader;
-     std_msgs::Header _filteredImgHeader;
-
-     /** Camera Intrinsic/Extrinsic Properties */
-     float _dscale;
-     float _baseline;
-     float _fx, _fy, _px, _py;
-     float _focal[2];
-     float _principle[2];
-     float _depth2disparityFactor;
-     /** Internally Stored Images */
-     cv::Mat _umap;
-     cv::Mat _vmap;
-     cv::Mat _depth;
-     cv::Mat _disparity;
-     std::vector<Obstacle> _segmented_obstacle_data;
 
      /** Counters / Timers / Loop Exiting */
-     float dt                 = 0.0;
      int _count               = 0;
-     int _img_count           = 0;
-     int _info_count          = 0;
-     bool _recvd_image        = false;
-     bool _recvd_cam_info     = false;
-
+     cv::Mat _depth;
+     cv::Mat _generated_disparity;
+     cv::Mat _umap_raw;
+     cv::Mat _vmap_raw;
      /** Depth Pre-Processing Parameters */
-     bool _do_angle_correction          = false;
-     double _correction_angle_offset    = 0.0;
-     double _correction_roll            = 0.0;
-     double _correction_pitch           = 0.0;
-     double _correction_yaw             = 0.0;
-     double _disparity_hard_min         = 0.1;
-     double _disparity_hard_max         = 15.0;
-     double _cam_min_depth              = 0.1;
-     double _cam_max_depth              = 15.0;
      double _cam_min_depth_x            = 0.0;
      double _cam_max_depth_x            = 0.0;
      double _cam_min_depth_y            = 0.0;
      double _cam_max_depth_y            = 0.0;
-     /** U-Map Pre-Processing Flags */
-     vector<float> _uThreshs;
-     float _simple_umap_thresh_ratio    = 0.07;
-     bool _use_custom_umap_filtering    = true;
-     int _umap_contour_filter_method    = 1;
-     float _umap_contour_min_thresh     = 40.0;
-     float _umap_pre_blur_thresh        = 0.0;
-     float _umap_post_blur_thresh       = 0.0;
-     float _umap_sobel_thresh           = 0.0;
-     bool _do_umap_primary_blur         = false;
-     bool _do_umap_secondary_dilate     = false;
-     bool _do_umap_secondary_blur       = false;
-     int _umap_mask_primary_blur_size   = 1;
-     int _umap_mask_secondary_blur_size = 1;
-     int _kernel_x_multiplier           = 1;
-     int _kernel_y_multiplier           = 1;
-     int _umap_mask_secondary_dilate_size = 1;
-     /** V-Map Pre-Processing Flags */
-     vector<float> _vThreshs;
-     bool _use_custom_vmap_filtering    = true;
-     float _vmap_sobel_thresh           = 30;
-     float _vmap_thresh                 = 0.0;
-     bool _do_sobel_pre_thresholding    = true;
-     float _sobel_pre_thresh            = 0.0;
-     float _vmap_sobel_sec_thresh       = 0.0;
-     bool _do_vmap_sobel_dilation       = false;
-     bool _do_vmap_sobel_sec_dilation   = false;
-     int _sobel_dilate_kernel_size      = 3;
-     int _sobel_sec_dilate_kernel_size  = 1;
-     bool _do_sobel_vmask_subtraction   = true;
-     bool _do_vmap_sobel_blurring       = false;
-     bool _do_vmap_sobel_sec_blurring   = false;
-     bool _do_vmap_sobel_sec_thresh     = false;
-     int _sobel_blur_kernel_size        = 3;
-     int _sobel_sec_blur_kernel_size    = 3;
-     /** Ground-Segmentation Parameters */
-     bool _use_gnd_line_based_removal   = true;
-     double _gnd_line_max_ang           = 89.0;
-     double _gnd_line_min_ang           = 26.0;
-     int _gnd_line_upper_offset         = 5;
-     int _gnd_line_lower_offset         = 25;
-     bool _do_object_segmented_filtering = true;
      /** Pointcloud Filtering Parameters */
      bool _do_cloud_limit_filtering     = true;
      float _max_cloud_height            = 1.0;
@@ -174,71 +100,51 @@ private:
      int _cloud_outlier_min_neighbors   = 50;
      float _cloud_outlier_search_radius = 1.0;
 
-     /** Algorithm Flags */
-     bool _do_post_depth_morphing            = true;
-     int _depth_morph_kernel_size            = 3;
-     bool _do_individual_obstacle_detection  = true;
+     /** Debug Flags */
+     bool _verbose_update                    = false;
+     bool _debug_angle_inputs                = false;
+     bool _verbose_obstacles                 = false;
+     bool _debug_timings                     = false;
 
-     /** ROS Flags */
-     bool _publish_aux_images                = false;
      bool _flag_pub_raw_cloud                = false;
      bool _flag_pub_unfiltered_cloud         = false;
      bool _flag_pub_filtered_cloud           = false;
      bool _publish_obs_data                  = false;
      bool _publish_obstacle_segmented_image  = false;
 
-     /** Debug Flags */
-     bool _debug                             = false;
-     bool _verbose                           = false;
-     bool _verbose_update                    = false;
-     bool _debug_angle_inputs                = false;
-     bool _do_cv_wait_key                    = false;
-     bool _do_vmap_viz                       = false;
-     bool _do_umap_viz                       = false;
-     bool _do_misc_viz                       = false;
-     bool _verbose_obstacles                 = false;
-     bool _verbose_gnd_line_removal          = false;
-     bool _debug_timings                     = false;
-     bool _debug_gnd_line_removal            = false;
-     bool _debug_disparity_generation        = false;
-     bool _debug_published_cloud_sizes       = false;
-     bool _visualize_filtered_depth          = false;
-     bool _visualize_inputs                  = false;
-     bool _visualize_generated_disparity     = false;
-     bool _visualize_umap_contours           = false;
-     bool _visualize_angle_corrected_depth   = false;
-     bool _visualize_umap_raw                = false;
-     bool _visualize_umap_filtered           = false;
-     bool _visualize_vmap_raw                = false;
-     bool _visualize_vmap_blurred            = false;
-     bool _visualize_vmap_dilated            = false;
-     bool _visualize_vmap_thresh             = false;
-     bool _visualize_vmap_sec_thresh         = false;
-     bool _visualize_vmap_sec_dilated        = false;
-     bool _visualize_vmap_sec_blur           = false;
-     bool _visualize_vmap_mask               = false;
-     bool _visualize_sobel_processed         = false;
-     bool _visualize_vmap_raw_w_lines        = false;
-     bool _visualize_vmap_sobel_raw          = false;
-     bool _visualize_vmap_sobel_filtered     = false;
-     bool _visualize_obj_detection_vmap      = false;
-     bool _visualize_process_input_vmap      = false;
-     bool _visualize_gnd_mask                = false;
-     bool _visualize_gnd_filter_img          = false;
-     bool _visualize_obj_mask                = false;
-     bool _visualize_obj_filter_img          = false;
-     bool _visualize_obstacle_search_windows = false;
-     bool _visualize_segmented_obstacle_regions = false;
+     bool _publish_generated_disparity       = false;
+     bool _publish_umap_raw                  = false;
+     bool _publish_vmap_raw                  = false;
+     bool _publish_umap_processed            = false;
+     bool _publish_vmap_processed            = false;
+     bool _overlay_gnd_lines                 = false;
+     bool _overlay_filtered_contours         = false;
+     bool _overlay_object_search_windows     = false;
+
+     bool _publish_mid_level_debug_images    = false;
+     bool _visualize_gnd_line_keep_mask      = false;
+     bool _visualize_obj_candidate_keep_mask = false;
+     bool _visualize_umap_keep_mask          = false;
+     bool _visualize_vmap_keep_mask          = false;
+
+     bool _publish_low_level_debug_images                   = false;
+     bool _visualize_umap_sobel_raw                         = false;
+     bool _visualize_umap_sobel_preprocessed                = false;
+     bool _visualize_umap_sobel_dilated                     = false;
+     bool _visualize_umap_sobel_blurred                     = false;
+     bool _visualize_vmap_sobelized_preprocessed            = false;
+     bool _visualize_vmap_sobelized_postprocessed_threshed  = false;
+     bool _visualize_vmap_sobelized_postprocessed_blurred   = false;
 
      /** ROS Subscriber Callbacks */
      void cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level);
      void infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value);
      void depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
-     void disparityCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
 
      void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
      void poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-
+     void _publish_image(ros::Publisher publisher, const cv::Mat& image);
+     void _publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud);
 public:
      Vboats* vb;
 
@@ -247,32 +153,12 @@ public:
      ~VboatsRos();
 
      /** ROS Interface Helper Functions */
-     void publish_images(cv::Mat* umap = nullptr, cv::Mat* vmap = nullptr,
-          cv::Mat* filtered_depth = nullptr, cv::Mat* filtered_umap = nullptr, cv::Mat* filtered_vmap = nullptr
-     );
-     void publish_obstacle_image(cv::Mat image);
      void publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth);
+     void publish_auxillery_images();
+     void publish_debugging_images();
 
      /** Data Generation Functions */
-     void depth_to_disparity(const cv::Mat& depth, cv::Mat* disparity, float gain);
-     cloudxyz_t::Ptr generate_cloud_from_depth(const cv::Mat& depth);
-     cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud);
-
-     /** Image Processing Functions */
-     int remove_objects(const cv::Mat& vmap, const cv::Mat& disparity,
-          const cv::Mat& depth, const vector<vector<cv::Point>>& contours,
-          std::vector<float> line_params, cv::Mat* filtered_img = nullptr,
-          cv::Mat* generated_mask = nullptr, bool debug_timing = false
-     );
-     int remove_ground(const cv::Mat& disparity, const cv::Mat& vmap,
-          const cv::Mat& depth, std::vector<float> line_params,
-          cv::Mat* filtered_img = nullptr, cv::Mat* generated_mask = nullptr
-     );
-
-     int process(const cv::Mat& depth, const cv::Mat& disparity,
-          const cv::Mat& umap, const cv::Mat& vmap, vector<Obstacle>* obstacles = nullptr,
-          cv::Mat* filtered = nullptr, cv::Mat* processed_umap = nullptr, cv::Mat* processed_vmap = nullptr
-     );
+     cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing = false);
 
      /** Runtime Functions */
      int update();

@@ -28,11 +28,10 @@ set( ROS_CXX_DEPENDENCIES
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenCV 4 REQUIRED)
-# find_package(OpenCV 4.1.1 REQUIRED PATHS /usr/local/lib/cmake/opencv4/OpenCVConfig.cmake)
 find_package(realsense2 REQUIRED)
 
 # For proper linkage use:
-#    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/RoboCommander
+#    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/robocommander
 find_package(robocommander REQUIRED)
 
 message(STATUS "RoboCommander: Found = ${robocommander_FOUND}")
@@ -44,7 +43,7 @@ foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
-find_package(PCL 1.7 REQUIRED)
+find_package(PCL 1.7 REQUIRED COMPONENTS common)
 add_definitions(${PCL_DEFINITIONS})
 
 ## Specify additional locations of header files
@@ -64,7 +63,7 @@ link_directories(
      ${robocommander_LIBRARIES}
      ${OpenCV_LIBS}
      ${realsense2_LIBRARY}
-     ${PCL_LIBRARIES}
+     ${PCL_LIBRARY_DIRS}
 )
 
 generate_dynamic_reconfigure_options(

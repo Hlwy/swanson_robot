@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(swanson_base)
-
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
 
 set( ROS_CXX_DEPENDENCIES
@@ -17,15 +18,15 @@ set( ROS_CXX_DEPENDENCIES
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
-find_package(Boost 1.55.0 REQUIRED COMPONENTS system thread)
-find_package(RoboCommander REQUIRED COMPONENTS dualclaw)
+find_package(Boost REQUIRED COMPONENTS system thread)
+find_package(robocommander REQUIRED COMPONENTS dualclaw)
 
-message(STATUS "RoboCommander: Found = ${RoboCommander_FOUND}")
-message(STATUS "     Root Directory --- ${RoboCommander_ROOT}")
-message(STATUS "     Includes Directory --- ${RoboCommander_INCLUDE_DIR}")
-message(STATUS "     CMake Directory --- ${RoboCommander_INSTALLED_CMAKE_DIR}")
+message(STATUS "robocommander: Found = ${robocommander_FOUND}")
+message(STATUS "     Root Directory --- ${robocommander_ROOT}")
+message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
+message(STATUS "     CMake Directory --- ${robocommander_INSTALLED_CMAKE_DIR}")
 message(STATUS "     Library Objects:")
-foreach(obj ${RoboCommander_LIBRARIES})
+foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
 
@@ -37,17 +38,18 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_base
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS Boost RoboCommander
+     DEPENDS Boost
 )
 include_directories(
      include
      ${Boost_INCLUDE_DIRS}
-     ${RoboCommander_INCLUDE_DIR}
+     ${robocommander_INCLUDE_DIR}
+     ${robocommander_INCLUDES}
      ${catkin_INCLUDE_DIRS}
 )
 link_directories(
      ${Boost_LIBRARIES}
-     ${RoboCommander_LIBRARIES}
+     ${robocommander_LIBRARIES}
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 

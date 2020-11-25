@@ -25,15 +25,17 @@ set( ROS_CXX_DEPENDENCIES
      dynamic_reconfigure
 )
 
-find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
+# add_definitions(${PCL_DEFINITIONS})
+
+find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/robocommander
 find_package(robocommander REQUIRED)
-
 message(STATUS "RoboCommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
 message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
@@ -42,9 +44,6 @@ message(STATUS "     Library Objects:")
 foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
-
-find_package(PCL 1.7 REQUIRED COMPONENTS common)
-add_definitions(${PCL_DEFINITIONS})
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -87,7 +86,7 @@ target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocomman
 add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)
-target_link_libraries(vboats_node vboats_ros ${robocommander_LIBRARIES})
+target_link_libraries(vboats_node vboats_ros)
 
 # add_library(angle_test src/angle_test.cpp)
 # target_link_libraries(angle_test ${catkin_LIBRARIES} ${robocommander_LIBRARIES})

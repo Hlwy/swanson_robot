@@ -434,20 +434,6 @@ void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const
 void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);
      this->vb->set_camera_orientation(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w, this->_debug_angle_inputs);
-     //
-     // double roll, pitch, yaw;
-     // // tf::Quaternion quat;
-     // // geometry_msgs::Quaternion orientMsg = msg->orientation;
-     // // tf::quaternionMsgToTF(orientMsg, quat);
-	// // tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
-     //
-     // Eigen::Quaternion<double> quat(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
-     // Eigen::Vector3d euler = quat.toRotationMatrix().eulerAngles(1, 0, 2);
-     // roll  = (double) euler[0];
-     // pitch = (double) euler[1];
-     // yaw   = (double) euler[2];
-     //
-     // this->vb->set_camera_orientation(roll, pitch, yaw, this->_debug_angle_inputs);
 }
 void VboatsRos::poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);

@@ -119,6 +119,8 @@ private:
      bool _publish_generated_disparity       = false;
      bool _publish_umap_raw                  = false;
      bool _publish_vmap_raw                  = false;
+     bool _visualize_umap_raw                               = false;
+     bool _visualize_vmap_raw                               = false;
      bool _publish_umap_processed            = false;
      bool _publish_vmap_processed            = false;
      bool _overlay_gnd_lines                 = false;
@@ -132,6 +134,9 @@ private:
      bool _visualize_vmap_keep_mask          = false;
 
      bool _publish_low_level_debug_images                   = false;
+     bool _show_uvmap_debug_titles                          = false;
+     bool _visualize_umap_final                             = false;
+     bool _visualize_vmap_final                             = false;
      bool _visualize_umap_sobel_raw                         = false;
      bool _visualize_umap_sobel_preprocessed                = false;
      bool _visualize_umap_sobel_dilated                     = false;

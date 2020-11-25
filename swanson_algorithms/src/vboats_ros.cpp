@@ -226,8 +226,8 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           if(config.gnd_line_search_max_deg != this->vb->vmapParams.gnd_line_search_max_deg){
                this->vb->vmapParams.set_ground_line_search_max_angle(config.gnd_line_search_max_deg);
           }
-          if(config.gnd_line_search_hough_thresh != this->vb->vmapParams.depth_filtering_gnd_line_intercept_offset){
-               this->vb->vmapParams.set_depth_filtering_ground_line_intercept_offset(config.gnd_line_search_hough_thresh);
+          if(config.gnd_line_intercept_offset != this->vb->vmapParams.depth_filtering_gnd_line_intercept_offset){
+               this->vb->vmapParams.set_depth_filtering_ground_line_intercept_offset(config.gnd_line_intercept_offset);
           }
      }
 
@@ -236,6 +236,7 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           this->vb->enable_angle_correction(config.do_angle_correction);
           this->vb->set_image_angle_correction_type(config.angle_correction_method);
           this->vb->set_camera_angle_offset(config.correction_angle_offset_deg);
+          this->vb->enable_correction_angle_sign_flip(config.flip_correction_angle_sign);
           if(config.debug_angle_inputs != this->_debug_angle_inputs) this->_debug_angle_inputs = config.debug_angle_inputs;
 
           this->vb->enable_filtered_depth_denoising(config.do_post_depth_denoising);
@@ -316,40 +317,39 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           if(config.publish_generated_disparity != this->_publish_generated_disparity){
                this->_publish_generated_disparity = config.publish_generated_disparity;
           }
-          if(config.publish_umap_raw != this->_publish_umap_raw){
-               this->_publish_umap_raw = config.publish_umap_raw;
-               // this->vb->processingDebugger.enable_umap_raw_visualization(this->_publish_umap_raw);
-          }
-          if(config.publish_vmap_raw != this->_publish_vmap_raw){
-               this->_publish_vmap_raw = config.publish_vmap_raw;
-               // this->vb->processingDebugger.enable_vmap_raw_visualization(this->_publish_vmap_raw);
-          }
-          if(config.publish_umap_processed != this->_publish_umap_processed){
-               this->_publish_umap_processed = config.publish_umap_processed;
-          }
-          if(config.publish_vmap_processed != this->_publish_vmap_processed){
-               this->_publish_vmap_processed = config.publish_vmap_processed;
-          }
           if(config.publish_mid_level_debug_images != this->_publish_mid_level_debug_images){
                this->_publish_mid_level_debug_images = config.publish_mid_level_debug_images;
           }
           if(config.publish_low_level_debug_images != this->_publish_low_level_debug_images){
                this->_publish_low_level_debug_images = config.publish_low_level_debug_images;
           }
-          if(config.overlay_gnd_lines != this->_overlay_gnd_lines){
-               this->_overlay_gnd_lines = config.overlay_gnd_lines;
-          }
-          if(config.overlay_filtered_contours != this->_overlay_filtered_contours){
-               this->_overlay_filtered_contours = config.overlay_filtered_contours;
-          }
+
+          if(config.publish_umap_raw != this->_publish_umap_raw){ this->_publish_umap_raw = config.publish_umap_raw; }
+          if(config.visualize_umap_raw != this->_visualize_umap_raw){ this->_visualize_umap_raw = config.visualize_umap_raw; }
+          this->vb->processingDebugger.enable_umap_raw_visualization((this->_publish_umap_raw || this->_visualize_umap_raw));
+
+          if(config.publish_vmap_raw != this->_publish_vmap_raw){ this->_publish_vmap_raw = config.publish_vmap_raw; }
+          if(config.visualize_vmap_raw != this->_visualize_vmap_raw){ this->_visualize_vmap_raw = config.visualize_vmap_raw; }
+          this->vb->processingDebugger.enable_vmap_raw_visualization((this->_publish_vmap_raw || this->_visualize_vmap_raw));
+
+          if(config.publish_umap_processed != this->_publish_umap_processed){ this->_publish_umap_processed = config.publish_umap_processed; }
+          if(config.visualize_umap_processed != this->_visualize_umap_final){ this->_visualize_umap_final = config.visualize_umap_processed; }
+          this->vb->processingDebugger.enable_umap_processed_visualization((this->_publish_umap_processed || this->_visualize_umap_final));
+
+          if(config.publish_vmap_processed != this->_publish_vmap_processed){ this->_publish_vmap_processed = config.publish_vmap_processed; }
+          if(config.visualize_vmap_processed != this->_visualize_vmap_final){ this->_visualize_vmap_final = config.visualize_vmap_processed; }
+          this->vb->processingDebugger.enable_vmap_processed_visualization((this->_publish_vmap_processed || this->_visualize_vmap_final));
+
+          if(config.overlay_gnd_lines != this->_overlay_gnd_lines){ this->_overlay_gnd_lines = config.overlay_gnd_lines; }
+          if(config.overlay_filtered_contours != this->_overlay_filtered_contours){ this->_overlay_filtered_contours = config.overlay_filtered_contours; }
           if(config.overlay_object_search_windows != this->_overlay_object_search_windows){
                this->_overlay_object_search_windows = config.overlay_object_search_windows;
           }
-
      }
 
      // Mid to Low-level Debugging Image Visualization
      {
+          if(config.visualize_debug_tile_names != this->_show_uvmap_debug_titles){ this->_show_uvmap_debug_titles = config.visualize_debug_tile_names; }
           // Override flags for mid-level debugging images to false if we aren't publishing these types
           // Otherwise grab the configured flags for enabling/disabling the viewing of individual images
           if(!this->_publish_mid_level_debug_images){
@@ -433,21 +433,21 @@ void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const
 }
 void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);
-     // this->vb->set_camera_orientation(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w, this->_debug_angle_inputs);
-
-     double roll, pitch, yaw;
-     // tf::Quaternion quat;
-     // geometry_msgs::Quaternion orientMsg = msg->orientation;
-     // tf::quaternionMsgToTF(orientMsg, quat);
-	// tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
-
-     Eigen::Quaternion<double> quat(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
-     Eigen::Vector3d euler = quat.toRotationMatrix().eulerAngles(1, 0, 2);
-     roll  = (double) euler[0];
-     pitch = (double) euler[1];
-     yaw   = (double) euler[2];
-
-     this->vb->set_camera_orientation(roll, pitch, yaw, this->_debug_angle_inputs);
+     this->vb->set_camera_orientation(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w, this->_debug_angle_inputs);
+     //
+     // double roll, pitch, yaw;
+     // // tf::Quaternion quat;
+     // // geometry_msgs::Quaternion orientMsg = msg->orientation;
+     // // tf::quaternionMsgToTF(orientMsg, quat);
+	// // tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
+     //
+     // Eigen::Quaternion<double> quat(msg->orientation.w, msg->orientation.x, msg->orientation.y, msg->orientation.z);
+     // Eigen::Vector3d euler = quat.toRotationMatrix().eulerAngles(1, 0, 2);
+     // roll  = (double) euler[0];
+     // pitch = (double) euler[1];
+     // yaw   = (double) euler[2];
+     //
+     // this->vb->set_camera_orientation(roll, pitch, yaw, this->_debug_angle_inputs);
 }
 void VboatsRos::poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);
@@ -568,8 +568,8 @@ void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv:
      vmap_object_search_regions
 */
 void VboatsRos::publish_debugging_images(){
-     cv::Mat umapDebugImg = this->vb->processingDebugger.construct_low_level_umap_image();
-     cv::Mat vmapDebugImg = this->vb->processingDebugger.construct_low_level_vmap_image();
+     cv::Mat umapDebugImg = this->vb->processingDebugger.construct_low_level_umap_image(this->_overlay_filtered_contours, this->_show_uvmap_debug_titles);
+     cv::Mat vmapDebugImg = this->vb->processingDebugger.construct_low_level_vmap_image(this->_overlay_gnd_lines, this->_overlay_object_search_windows, this->_show_uvmap_debug_titles);
      this->_publish_image(this->_umap_debug_pub, umapDebugImg);
      this->_publish_image(this->_vmap_debug_pub, vmapDebugImg);
 }

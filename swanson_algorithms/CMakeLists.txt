@@ -87,7 +87,14 @@ target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocomman
 add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)
-target_link_libraries(vboats_node vboats_ros)
+target_link_libraries(vboats_node vboats_ros ${robocommander_LIBRARIES})
+
+# add_library(angle_test src/angle_test.cpp)
+# target_link_libraries(angle_test ${catkin_LIBRARIES} ${robocommander_LIBRARIES})
+# add_dependencies(angle_test ${catkin_EXPORTED_TARGETS})
+#
+# add_executable(angle_test_node src/angle_test_node.cpp)
+# target_link_libraries(angle_test_node angle_test)
 
 #############
 ## Install ##
@@ -95,6 +102,8 @@ target_link_libraries(vboats_node vboats_ros)
 install(TARGETS
      vboats_ros
      vboats_node
+     # angle_test
+     # angle_test_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

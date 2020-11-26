@@ -28,9 +28,10 @@
 #include <sensor_msgs/Imu.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <tf/transform_broadcaster.h>
-#include <dynamic_reconfigure/server.h>
+
 #include <std_srvs/Empty.h>
+#include <dynamic_reconfigure/server.h>
+#include <visualization_msgs/MarkerArray.h>
 
 #include <swanson_algorithms/VboatsConfig.h>
 #include <swanson_msgs/VboatsObstacle.h>
@@ -43,8 +44,7 @@ private:
      // ROS Objects
      ros::NodeHandle m_nh;
      ros::NodeHandle p_nh;
-     ros::Rate* _loop_rate;
-     tf::TransformBroadcaster _br;
+     double _update_rate;
 
      ros::Subscriber _depth_sub;
      ros::Subscriber _cam_info_sub;
@@ -57,6 +57,7 @@ private:
      ros::Publisher _unfiltered_cloud_pub;
      ros::Publisher _filtered_cloud_pub;
      ros::Publisher _detected_obstacle_info_pub;
+     ros::Publisher _obstacle_markers_pub;
      ros::Publisher _corrected_depth_pub;
      ros::Publisher _generated_disparity_pub;
      ros::Publisher _raw_umap_pub;
@@ -65,6 +66,7 @@ private:
      ros::Publisher _proc_vmap_pub;
 
      ros::Publisher _gnd_line_mask_pub;
+     ros::Publisher _gnd_line_vmask_pub;
      ros::Publisher _obj_candidate_mask_pub;
      ros::Publisher _umap_keep_mask_pub;
      ros::Publisher _vmap_keep_mask_pub;
@@ -84,60 +86,62 @@ private:
 
      // Counters / Timers / Loop Exiting
      cv::Mat _depth;
-     int _count               = 0;
-     bool _do_angle_offsets_calibration     = false;
-     bool _angle_offsets_calibration_performed  = false;
-     int _angle_offsets_count               = 0;
-     int _angle_offset_samples              = 10;
-     double _avg_roll    = 0.0;
-     double _avg_pitch   = 0.0;
-     double _avg_yaw     = 0.0;
-     double _user_angle_offset     = 0.0;
+     int _count                                             = 0;
+     int _last_markers_count                                = 0;
+     bool _do_angle_offsets_calibration                     = false;
+     bool _angle_offsets_calibration_performed              = false;
+     int _angle_offsets_count                               = 0;
+     int _angle_offset_samples                              = 10;
+     double _avg_roll                                       = 0.0;
+     double _avg_pitch                                      = 0.0;
+     double _avg_yaw                                        = 0.0;
+     double _user_angle_offset                              = 0.0;
 
      // Pointcloud Filtering Parameters
-     bool _do_cloud_limit_filtering     = true;
-     float _max_cloud_height            = 1.0;
-     float _min_cloud_height            = 1.0;
-     float _max_cloud_range             = 15.0;
-     float _min_cloud_range             = 0.1;
-     bool _do_cloud_downsampling        = true;
-     float _voxel_res_x                 = 0.02;
-     float _voxel_res_y                 = 0.02;
-     float _voxel_res_z                 = 0.02;
-     bool _do_cloud_outlier_removal     = true;
-     int _cloud_outlier_min_neighbors   = 50;
-     float _cloud_outlier_search_radius = 1.0;
+     bool _do_cloud_limit_filtering                         = true;
+     float _max_cloud_height                                = 1.0;
+     float _min_cloud_height                                = 1.0;
+     float _max_cloud_range                                 = 15.0;
+     float _min_cloud_range                                 = 0.1;
+     bool _do_cloud_downsampling                            = true;
+     float _voxel_res_x                                     = 0.02;
+     float _voxel_res_y                                     = 0.02;
+     float _voxel_res_z                                     = 0.02;
+     bool _do_cloud_outlier_removal                         = true;
+     int _cloud_outlier_min_neighbors                       = 50;
+     float _cloud_outlier_search_radius                     = 1.0;
 
      // Debug Flags
-     bool _verbose_update                    = false;
-     bool _verbose_obstacles                 = false;
-     bool _debug_timings                     = false;
-     bool _debug_angle_inputs                = false;
-     bool _debug_disparity_generation        = false;
+     bool _verbose_update                                   = false;
+     bool _verbose_obstacles                                = false;
+     bool _debug_timings                                    = false;
+     bool _debug_angle_inputs                               = false;
+     bool _debug_disparity_generation                       = false;
 
-     bool _flag_pub_raw_cloud                = false;
-     bool _flag_pub_unfiltered_cloud         = false;
-     bool _flag_pub_filtered_cloud           = false;
-     bool _publish_obs_data                  = false;
+     bool _flag_pub_raw_cloud                               = false;
+     bool _flag_pub_unfiltered_cloud                        = false;
+     bool _flag_pub_filtered_cloud                          = false;
+     bool _publish_obs_data                                 = false;
+     bool _publish_obstacle_markers                         = false;
 
-     bool _publish_corrected_depth           = false;
-     bool _publish_generated_disparity       = false;
-     bool _publish_umap_raw                  = false;
-     bool _publish_vmap_raw                  = false;
+     bool _publish_corrected_depth                          = false;
+     bool _publish_generated_disparity                      = false;
+     bool _publish_umap_raw                                 = false;
+     bool _publish_vmap_raw                                 = false;
      bool _visualize_umap_raw                               = false;
      bool _visualize_vmap_raw                               = false;
-     bool _publish_umap_processed            = false;
-     bool _publish_vmap_processed            = false;
-     bool _overlay_gnd_lines                 = false;
-     bool _overlay_filtered_contours         = false;
-     bool _overlay_object_search_windows     = false;
-     bool _overlay_obstacle_bounding_boxes   = false;
+     bool _publish_umap_processed                           = false;
+     bool _publish_vmap_processed                           = false;
+     bool _overlay_gnd_lines                                = false;
+     bool _overlay_filtered_contours                        = false;
+     bool _overlay_object_search_windows                    = false;
+     bool _overlay_obstacle_bounding_boxes                  = false;
 
-     bool _publish_mid_level_debug_images    = false;
-     bool _visualize_gnd_line_keep_mask      = false;
-     bool _visualize_obj_candidate_keep_mask = false;
-     bool _visualize_umap_keep_mask          = false;
-     bool _visualize_vmap_keep_mask          = false;
+     bool _publish_mid_level_debug_images                   = false;
+     bool _visualize_gnd_line_keep_mask                     = false;
+     bool _visualize_obj_candidate_keep_mask                = false;
+     bool _visualize_umap_keep_mask                         = false;
+     bool _visualize_vmap_keep_mask                         = false;
 
      bool _publish_low_level_debug_images                   = false;
      bool _show_uvmap_debug_titles                          = false;
@@ -161,6 +165,7 @@ private:
      void _publish_image(ros::Publisher publisher, const cv::Mat& image, bool colorize = false);
      void _publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles);
      void _publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud);
+
 public:
      Vboats* vb;
 
@@ -168,14 +173,6 @@ public:
      VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);
      ~VboatsRos();
 
-     // ROS Interface Helper Functions
-     void publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth);
-     void publish_auxillery_images(
-          const cv::Mat& disparity_gen,
-          const cv::Mat& umap_proc,
-          const cv::Mat& vmap_proc
-     );
-     void publish_debugging_images();
      // Data Generation Functions
      cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing = false);
 
@@ -183,6 +180,12 @@ public:
      bool calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
      int update();
      int run();
+
+     // ROS Interface Helper Functions
+     void publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth);
+     void publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc);
+     void publish_debugging_images();
+     void visualize_obstacle_markers(const std::vector<Obstacle>& obstacles);
 };
 
 #endif // SWANSON_ALGORITHMS_VBOATS_ROS_H_

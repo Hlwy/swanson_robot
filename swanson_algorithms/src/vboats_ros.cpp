@@ -15,11 +15,11 @@ using namespace std;
 */
 VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh), _it(nh){
      // Flag Configuration
-     int update_rate = 30;
+     int update_rate;
      bool flag_use_tf_prefix = false;
      std::string namespaced = m_nh.getNamespace();
      p_nh.getParam("namespace",namespaced);
-     p_nh.getParam("update_rate",update_rate);
+     p_nh.param<int>("update_rate", update_rate, 30);
      this->_ns = namespaced;
 
      // ROS Object Configuration
@@ -69,15 +69,18 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
           p_nh.getParam("filtered_umap_topic",         filt_umap_topic);
           p_nh.getParam("filtered_vmap_topic",         filt_vmap_topic);
 
-          std::string gnd_line_mask_topic, obj_candidates_mask_topic;
-          std::string umap_mask_topic, vmap_mask_topic;
+          std::string gnd_line_mask_topic, gnd_line_vmask_topic, obj_candidates_mask_topic;
           std::string umap_debugging_topic, vmap_debugging_topic;
+          std::string umap_mask_topic, vmap_mask_topic;
+          std::string obstacle_markers_topic;
           p_nh.param<std::string>("gnd_line_mask_topic",       gnd_line_mask_topic,       "vboats/vmap/gnd_line_mask");
+          p_nh.param<std::string>("gnd_line_vmask_topic",      gnd_line_vmask_topic,      "vboats/vmap/gnd_line_vmask");
           p_nh.param<std::string>("obj_candidates_mask_topic", obj_candidates_mask_topic, "vboats/vmap/obj_candidates_mask");
           p_nh.param<std::string>("vmap_mask_topic",           vmap_mask_topic,           "vboats/vmap/keep_mask");
           p_nh.param<std::string>("vmap_debug_topic",          vmap_debugging_topic,      "vboats/vmap/debug/low_lvl");
           p_nh.param<std::string>("umap_mask_topic",           umap_mask_topic,           "vboats/umap/keep_mask");
           p_nh.param<std::string>("umap_debug_topic",          umap_debugging_topic,      "vboats/umap/debug/low_lvl");
+          p_nh.param<std::string>("obstacle_markers_topic",    obstacle_markers_topic,    "vboats/obstacles");
 
           // Initialize ROS-Objects
           this->_filtered_depth_pub          = m_nh.advertise<sensor_msgs::Image>(filtered_image_topic, 1);
@@ -92,11 +95,13 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
           this->_proc_umap_pub               = m_nh.advertise<sensor_msgs::Image>(filt_umap_topic, 1);
           this->_proc_vmap_pub               = m_nh.advertise<sensor_msgs::Image>(filt_vmap_topic, 1);
           this->_gnd_line_mask_pub           = m_nh.advertise<sensor_msgs::Image>(gnd_line_mask_topic, 1);
+          this->_gnd_line_vmask_pub          = m_nh.advertise<sensor_msgs::Image>(gnd_line_vmask_topic, 1);
           this->_obj_candidate_mask_pub      = m_nh.advertise<sensor_msgs::Image>(obj_candidates_mask_topic, 1);
           this->_umap_keep_mask_pub          = m_nh.advertise<sensor_msgs::Image>(umap_mask_topic, 1);
           this->_vmap_keep_mask_pub          = m_nh.advertise<sensor_msgs::Image>(vmap_mask_topic, 1);
           this->_umap_debug_pub              = m_nh.advertise<sensor_msgs::Image>(umap_debugging_topic, 1);
           this->_vmap_debug_pub              = m_nh.advertise<sensor_msgs::Image>(vmap_debugging_topic, 1);
+          this->_obstacle_markers_pub        = m_nh.advertise<visualization_msgs::MarkerArray>(obstacle_markers_topic, 10);
      }
 
      // ROS tf frames Configuration
@@ -120,16 +125,12 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      // Initialize VBOATS
      this->vb = new Vboats();
 
-     printf("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!\r\n");
+     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!");
      this->_correction_angle_calibration_service = m_nh.advertiseService("vboats/calibrate_correction_angle", &VboatsRos::calibrate_orientation_offsets_callback, this);
      this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
      this->_cfg_server.setCallback(this->_cfg_f);
-     this->_loop_rate = new ros::Rate(update_rate);
 }
-VboatsRos::~VboatsRos(){
-     delete this->_loop_rate;
-     delete this->vb;
-}
+VboatsRos::~VboatsRos(){ delete this->vb; }
 
 /** -------------------------------------------------------------------------------------------------
 *                                     ROS Subscriber Callbacks
@@ -305,8 +306,14 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
 
      // Data Publishing
      {
+          if(config.update_rate != this->_update_rate){
+               this->_update_rate = config.update_rate;
+          }
           if(config.publish_obstacle_data != this->_publish_obs_data){
                this->_publish_obs_data = config.publish_obstacle_data;
+          }
+          if(config.publish_obstacle_markers != this->_publish_obstacle_markers){
+               this->_publish_obstacle_markers = config.publish_obstacle_markers;
           }
           if(config.publish_raw_cloud != this->_flag_pub_raw_cloud){
                this->_flag_pub_raw_cloud = config.publish_raw_cloud;
@@ -561,28 +568,6 @@ void VboatsRos::_publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr in
           publisher.publish(tmpCloudMsg);
      } else{ ROS_DEBUG("VboatsRos::_publish_pointcloud() --- Input pointcloud has no points, not publishing."); }
 }
-
-void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc){
-     if(this->_publish_corrected_depth){ this->_publish_image(this->_corrected_depth_pub, this->vb->processingDebugger.angle_corrected_depth_img, true); }
-     if(this->_publish_generated_disparity){ this->_publish_image(this->_generated_disparity_pub, disparity_gen, true); }
-     if(this->_publish_umap_raw){ this->_publish_image(this->_raw_umap_pub, this->vb->processingDebugger.umap_raw, true); }
-     if(this->_publish_vmap_raw){ this->_publish_image(this->_raw_vmap_pub, this->vb->processingDebugger.vmap_raw, true); }
-     if(this->_publish_umap_processed){ this->_publish_image(this->_proc_umap_pub, umap_proc, true); }
-     if(this->_publish_vmap_processed){ this->_publish_image(this->_proc_vmap_pub, vmap_proc, true); }
-
-     if(this->_publish_mid_level_debug_images){
-          this->_publish_image(this->_gnd_line_mask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask);
-          this->_publish_image(this->_obj_candidate_mask_pub, this->vb->processingDebugger.obj_candidate_filtering_keep_mask);
-          this->_publish_image(this->_umap_keep_mask_pub, this->vb->processingDebugger.umap_keep_mask);
-          this->_publish_image(this->_vmap_keep_mask_pub, this->vb->processingDebugger.vmap_postproc_keep_mask);
-     }
-}
-void VboatsRos::publish_debugging_images(){
-     cv::Mat umapDebugImg = this->vb->processingDebugger.construct_low_level_umap_image(this->_overlay_filtered_contours, this->_show_uvmap_debug_titles);
-     cv::Mat vmapDebugImg = this->vb->processingDebugger.construct_low_level_vmap_image(this->_overlay_gnd_lines, this->_overlay_object_search_windows, this->_show_uvmap_debug_titles);
-     this->_publish_image(this->_umap_debug_pub, umapDebugImg);
-     this->_publish_image(this->_vmap_debug_pub, vmapDebugImg);
-}
 void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
      cv::Mat testMat, inMat;
      double minVal, maxVal;
@@ -613,6 +598,79 @@ void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
                this->_publish_pointcloud(this->_raw_cloud_pub, rawCloud);
           }
      }
+}
+
+void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc){
+     if(this->_publish_corrected_depth){ this->_publish_image(this->_corrected_depth_pub, this->vb->processingDebugger.angle_corrected_depth_img, true); }
+     if(this->_publish_generated_disparity){ this->_publish_image(this->_generated_disparity_pub, disparity_gen, true); }
+     if(this->_publish_umap_raw){ this->_publish_image(this->_raw_umap_pub, this->vb->processingDebugger.umap_raw, true); }
+     if(this->_publish_vmap_raw){ this->_publish_image(this->_raw_vmap_pub, this->vb->processingDebugger.vmap_raw, true); }
+     if(this->_publish_umap_processed){ this->_publish_image(this->_proc_umap_pub, umap_proc, true); }
+     if(this->_publish_vmap_processed){ this->_publish_image(this->_proc_vmap_pub, vmap_proc, true); }
+
+     if(this->_publish_mid_level_debug_images){
+          this->_publish_image(this->_gnd_line_mask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask);
+          this->_publish_image(this->_gnd_line_vmask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask_vmap);
+          this->_publish_image(this->_obj_candidate_mask_pub, this->vb->processingDebugger.obj_candidate_filtering_keep_mask);
+          this->_publish_image(this->_umap_keep_mask_pub, this->vb->processingDebugger.umap_keep_mask);
+          this->_publish_image(this->_vmap_keep_mask_pub, this->vb->processingDebugger.vmap_postproc_keep_mask);
+     }
+}
+void VboatsRos::publish_debugging_images(){
+     cv::Mat umapDebugImg = this->vb->processingDebugger.construct_low_level_umap_image(this->_overlay_filtered_contours, this->_show_uvmap_debug_titles);
+     cv::Mat vmapDebugImg = this->vb->processingDebugger.construct_low_level_vmap_image(this->_overlay_gnd_lines, this->_overlay_object_search_windows, this->_show_uvmap_debug_titles);
+     this->_publish_image(this->_umap_debug_pub, umapDebugImg);
+     this->_publish_image(this->_vmap_debug_pub, vmapDebugImg);
+}
+void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacles){
+     if( (obstacles.empty()) || (obstacles.size() <= 0) ) return;
+     std_msgs::ColorRGBA blue;   blue.r = 0; blue.g = 0; blue.b = 1.0; blue.a = 1.0;
+     std_msgs::ColorRGBA red;    red.r = 1.0; red.g = 0; red.b = 0; red.a = 1.0;
+     std_msgs::ColorRGBA green;  green.r = 0; green.g = 1.0; green.b = 0; green.a = 1.0;
+     std_msgs::ColorRGBA purple; purple.r = 1.0; purple.g = 0; purple.b = 1.0; purple.a = 1.0;
+
+     ROS_DEBUG("visualising %lu obstacles", obstacles.size());
+     visualization_msgs::MarkerArray markers_msg;
+     std::vector<visualization_msgs::Marker>& markers = markers_msg.markers;
+     visualization_msgs::Marker m;
+     m.header.stamp = ros::Time::now();
+     m.header.frame_id = this->_camera_tf;
+     m.ns = "obstacles";
+
+     double scale = 0.5;
+     m.scale.x = scale; m.scale.y = scale; m.scale.z = scale;
+     m.color.r = 0; m.color.g = 0; m.color.b = 255; m.color.a = 255;
+     m.lifetime = ros::Duration(0); // lives forever
+     m.frame_locked = true;
+     m.action = visualization_msgs::Marker::ADD;
+
+     size_t id = 0;
+     int obsIdx = 0;
+     geometry_msgs::Quaternion q; q.w = 1.0; q.x = 0.0; q.y = 0.0; q.z = 0.0;
+     for(Obstacle obstacle : obstacles){
+          m.type = visualization_msgs::Marker::SPHERE;
+          m.id = int(id);
+          m.points = {};
+          m.color = red;
+          m.scale.x = scale; m.scale.y = scale; m.scale.z = scale;
+
+          cv::Point3f loc = obstacle.get_location();
+          ROS_DEBUG(" --- obstacle %d = %s", obsIdx, obstacle.toString().c_str());
+          m.pose.position.x = loc.x;
+          m.pose.position.y = loc.y;
+          m.pose.position.z = loc.z;
+          m.pose.orientation = q;
+
+          markers.push_back(m);
+          ++id;
+          obsIdx++;
+     }
+     // delete previous markers, which are now unused
+     int current_markers_count = (int) markers.size();
+     m.action = visualization_msgs::Marker::DELETE;
+     for(; id < this->_last_markers_count; ++id){ m.id = int(id); markers.push_back(m); }
+     this->_last_markers_count = current_markers_count;
+     this->_obstacle_markers_pub.publish(markers_msg);
 }
 
 /** -------------------------------------------------------------------------------------------------
@@ -679,9 +737,13 @@ int VboatsRos::update(){
      this->_lock.unlock();
 
      vector<Obstacle> obs;
-     cv::Mat filtered_depth, genDisparity, procUmap, procVmap;
-     int nObs = this->vb->process(curDepth, &filtered_depth, &obs, &genDisparity, &procUmap, &procVmap, this->_verbose_obstacles);
-     if(this->_verbose_update) printf("[INFO] VboatsRos::update() --- Found %d obstacles.\r\n", nObs);
+     cv::Mat inUmap, inVmap;
+     cv::Mat procUmap, procVmap;
+     cv::Mat filtered_depth, genDisparity;
+     int nObs = this->vb->process(curDepth, &filtered_depth, &obs, &genDisparity,
+          &procUmap, &procVmap, nullptr, nullptr,
+          this->_verbose_obstacles
+     );
 
      // Publish ROS data
      if(this->_publish_obs_data){ this->_publish_extracted_obstacle_data(this->_detected_obstacle_info_pub, obs); }
@@ -693,16 +755,25 @@ int VboatsRos::update(){
      this->publish_auxillery_images(genDisparity, procUmap, procVmap);
      if(this->_publish_low_level_debug_images){ this->publish_debugging_images(); }
      this->publish_pointclouds(curDepth, filtered_depth);
-
+     if(this->_publish_obstacle_markers) this->visualize_obstacle_markers(obs);
      this->_count++;
-     return 0;
+     return nObs;
 }
 
 int VboatsRos::run(){
+     double t;
+     if(this->_debug_timings) t = (double)cv::getTickCount();
      while(ros::ok()){
-          this->update();
+          ros::Rate rate( (int) this->_update_rate );
+          int nObjects = this->update();
+          if(this->_debug_timings || this->_verbose_update){
+               double now = (double)cv::getTickCount();
+               double dt = (now - t)/cv::getTickFrequency();
+               ROS_INFO("[INFO] VboatsRos::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));
+               t = now;
+          }
           ros::spinOnce();
-          this->_loop_rate->sleep();
+          rate.sleep();
      }
      return 0;
 }

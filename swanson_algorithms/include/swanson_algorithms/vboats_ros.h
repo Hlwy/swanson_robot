@@ -30,6 +30,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <tf/transform_broadcaster.h>
 #include <dynamic_reconfigure/server.h>
+#include <std_srvs/Empty.h>
 
 #include <swanson_algorithms/VboatsConfig.h>
 #include <swanson_msgs/VboatsObstacle.h>
@@ -55,7 +56,6 @@ private:
      ros::Publisher _raw_cloud_pub;
      ros::Publisher _unfiltered_cloud_pub;
      ros::Publisher _filtered_cloud_pub;
-     ros::Publisher _obstacles_img_pub;
      ros::Publisher _detected_obstacle_info_pub;
      ros::Publisher _corrected_depth_pub;
      ros::Publisher _generated_disparity_pub;
@@ -71,6 +71,8 @@ private:
      ros::Publisher _umap_debug_pub;
      ros::Publisher _vmap_debug_pub;
 
+     ros::ServiceServer _correction_angle_calibration_service;
+
      image_transport::ImageTransport _it;
      dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig> _cfg_server;
      dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig>::CallbackType _cfg_f;
@@ -81,14 +83,17 @@ private:
      std::string _camera_tf;
 
      // Counters / Timers / Loop Exiting
-     int _count               = 0;
      cv::Mat _depth;
+     int _count               = 0;
+     bool _do_angle_offsets_calibration     = false;
+     bool _angle_offsets_calibration_performed  = false;
+     int _angle_offsets_count               = 0;
+     int _angle_offset_samples              = 10;
+     double _avg_roll    = 0.0;
+     double _avg_pitch   = 0.0;
+     double _avg_yaw     = 0.0;
+     double _user_angle_offset     = 0.0;
 
-     // Depth Pre-Processing Parameters
-     double _cam_min_depth_x            = 0.0;
-     double _cam_max_depth_x            = 0.0;
-     double _cam_min_depth_y            = 0.0;
-     double _cam_max_depth_y            = 0.0;
      // Pointcloud Filtering Parameters
      bool _do_cloud_limit_filtering     = true;
      float _max_cloud_height            = 1.0;
@@ -105,15 +110,15 @@ private:
 
      // Debug Flags
      bool _verbose_update                    = false;
-     bool _debug_angle_inputs                = false;
      bool _verbose_obstacles                 = false;
      bool _debug_timings                     = false;
+     bool _debug_angle_inputs                = false;
+     bool _debug_disparity_generation        = false;
 
      bool _flag_pub_raw_cloud                = false;
      bool _flag_pub_unfiltered_cloud         = false;
      bool _flag_pub_filtered_cloud           = false;
      bool _publish_obs_data                  = false;
-     bool _publish_obstacle_segmented_image  = false;
 
      bool _publish_corrected_depth           = false;
      bool _publish_generated_disparity       = false;
@@ -126,6 +131,7 @@ private:
      bool _overlay_gnd_lines                 = false;
      bool _overlay_filtered_contours         = false;
      bool _overlay_object_search_windows     = false;
+     bool _overlay_obstacle_bounding_boxes   = false;
 
      bool _publish_mid_level_debug_images    = false;
      bool _visualize_gnd_line_keep_mask      = false;
@@ -170,11 +176,11 @@ public:
           const cv::Mat& vmap_proc
      );
      void publish_debugging_images();
-
      // Data Generation Functions
      cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing = false);
 
      // Runtime Functions
+     bool calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
      int update();
      int run();
 };

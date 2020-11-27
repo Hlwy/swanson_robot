@@ -83,7 +83,8 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
           p_nh.param<std::string>("obstacle_markers_topic",    obstacle_markers_topic,    "vboats/obstacles");
 
           // Initialize ROS-Objects
-          this->_filtered_depth_pub          = m_nh.advertise<sensor_msgs::Image>(filtered_image_topic, 1);
+          // this->_filtered_depth_pub          = _it.advertise(filtered_image_topic, 1);
+          this->_filtered_depth_pub          = _it.advertiseCamera(filtered_image_topic, 1);
           this->_raw_cloud_pub               = m_nh.advertise<cloudxyz_t>(raw_cloud_topic, 1);
           this->_unfiltered_cloud_pub        = m_nh.advertise<cloudxyz_t>(unfiltered_cloud_topic, 1);
           this->_filtered_cloud_pub          = m_nh.advertise<cloudxyz_t>(filtered_cloud_topic, 1);
@@ -444,6 +445,8 @@ void VboatsRos::depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int
      this->_depth = image;
 }
 void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){
+     std::lock_guard<std::mutex> lock(_lock);
+     this->_filtered_depth_info = msg;
      float Tx = msg->P[3];
      float baseline = -Tx / msg->K[0];
      float depth_scale = msg->D[0];
@@ -496,7 +499,9 @@ bool VboatsRos::calibrate_orientation_offsets_callback(std_srvs::Empty::Request&
 /** -------------------------------------------------------------------------------------------------
 *                                     ROS Interface Helper Functions
 * ------------------------------------------------------------------------------------------------- */
-void VboatsRos::_publish_image(ros::Publisher publisher, const cv::Mat& image, bool colorize){
+template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
+     const cv::Mat& image, bool colorize
+){
      if(!image.empty()){
           cv::Mat data;
           if(colorize) data = imCvtCmap(image);
@@ -535,6 +540,48 @@ void VboatsRos::_publish_image(ros::Publisher publisher, const cv::Mat& image, b
           cvinfo(image, "_publish_image() --- Input Image: ");
      }
 }
+template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
+     const cv::Mat& image, const sensor_msgs::CameraInfo::ConstPtr& cam_info, bool colorize
+){
+     if(!image.empty()){
+          cv::Mat data;
+          if(colorize) data = imCvtCmap(image);
+          else data = image;
+
+          std_msgs::Header tmpHeader;
+          tmpHeader.stamp = ros::Time::now();
+          tmpHeader.seq = this->_count;
+          tmpHeader.frame_id = this->_camera_tf;
+
+          sensor_msgs::ImagePtr tmpImgMsg;
+          if(data.type() == CV_8UC1) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "8UC1", data).toImageMsg();
+          else if(data.type() == CV_8UC3) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "bgr8", data).toImageMsg();
+          else if(data.type() == CV_16UC1) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "16UC1", data).toImageMsg();
+          else if(data.type() == CV_16UC3) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "16UC3", data).toImageMsg();
+          else if(data.type() == CV_32FC1) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "32FC1", data).toImageMsg();
+          else{
+               ROS_DEBUG("VboatsRos::_publish_image() --- Image type is one not currently handled, converting to CV_8U type.");
+               cvinfo(data, "_publish_image() --- Input Image: ");
+               cv::Mat output;
+               cv::Mat tmpCopy = data.clone();
+               cv::cvtColor(tmpCopy, tmpCopy, cv::COLOR_BGR2GRAY);
+               double minVal, maxVal;
+               cv::minMaxLoc(tmpCopy, &minVal, &maxVal);
+               if(tmpCopy.channels() > 1){
+                    tmpCopy.convertTo(output, CV_8UC3, (255.0/maxVal) );
+                    tmpImgMsg = cv_bridge::CvImage(tmpHeader, "bgr8", output).toImageMsg();
+               } else{
+                    tmpCopy.convertTo(output, CV_8UC1, (255.0/maxVal) );
+                    tmpImgMsg = cv_bridge::CvImage(tmpHeader, "8UC1", output).toImageMsg();
+               }
+          }
+          // boost::shared_ptr< ::sensor_msgs::CameraInfo const> tmpCamInfo(&this->_filtered_depth_info);
+          publisher.publish(tmpImgMsg, this->_filtered_depth_info);
+     } else{
+          ROS_DEBUG("VboatsRos::_publish_image() --- Image is empty, not publishing.");
+          cvinfo(image, "_publish_image() --- Input Image: ");
+     }
+}
 void VboatsRos::_publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles){
      if( (!obstacles.empty()) && (obstacles.size() > 0) ){
           int n = 0;
@@ -547,11 +594,11 @@ void VboatsRos::_publish_extracted_obstacle_data(ros::Publisher publisher, std::
                tmpOb.header.seq = n;
                tmpOb.header.stamp = obsMsg.header.stamp;
                tmpOb.header.frame_id = obsMsg.header.frame_id;
-               tmpOb.distance = ob.distance;
-               tmpOb.angle = ob.angle;
-               tmpOb.position.x = ob.location.x;
-               tmpOb.position.y = ob.location.y;
-               tmpOb.position.z = ob.location.z;
+               tmpOb.distance = ob._distance;
+               tmpOb.angle = ob._angle;
+               tmpOb.position.x = ob._location.x;
+               tmpOb.position.y = ob._location.y;
+               tmpOb.position.z = ob._location.z;
                obsMsg.obstacles.push_back(tmpOb);
                n++;
           }
@@ -601,19 +648,19 @@ void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
 }
 
 void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc){
-     if(this->_publish_corrected_depth){ this->_publish_image(this->_corrected_depth_pub, this->vb->processingDebugger.angle_corrected_depth_img, true); }
-     if(this->_publish_generated_disparity){ this->_publish_image(this->_generated_disparity_pub, disparity_gen, true); }
-     if(this->_publish_umap_raw){ this->_publish_image(this->_raw_umap_pub, this->vb->processingDebugger.umap_raw, true); }
-     if(this->_publish_vmap_raw){ this->_publish_image(this->_raw_vmap_pub, this->vb->processingDebugger.vmap_raw, true); }
-     if(this->_publish_umap_processed){ this->_publish_image(this->_proc_umap_pub, umap_proc, true); }
-     if(this->_publish_vmap_processed){ this->_publish_image(this->_proc_vmap_pub, vmap_proc, true); }
+     if(this->_publish_corrected_depth){ this->_publish_image<ros::Publisher>(this->_corrected_depth_pub, this->vb->processingDebugger.angle_corrected_depth_img, true); }
+     if(this->_publish_generated_disparity){ this->_publish_image<ros::Publisher>(this->_generated_disparity_pub, disparity_gen, true); }
+     if(this->_publish_umap_raw){ this->_publish_image<ros::Publisher>(this->_raw_umap_pub, this->vb->processingDebugger.umap_raw, true); }
+     if(this->_publish_vmap_raw){ this->_publish_image<ros::Publisher>(this->_raw_vmap_pub, this->vb->processingDebugger.vmap_raw, true); }
+     if(this->_publish_umap_processed){ this->_publish_image<ros::Publisher>(this->_proc_umap_pub, umap_proc, true); }
+     if(this->_publish_vmap_processed){ this->_publish_image<ros::Publisher>(this->_proc_vmap_pub, vmap_proc, true); }
 
      if(this->_publish_mid_level_debug_images){
-          this->_publish_image(this->_gnd_line_mask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask);
-          this->_publish_image(this->_gnd_line_vmask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask_vmap);
-          this->_publish_image(this->_obj_candidate_mask_pub, this->vb->processingDebugger.obj_candidate_filtering_keep_mask);
-          this->_publish_image(this->_umap_keep_mask_pub, this->vb->processingDebugger.umap_keep_mask);
-          this->_publish_image(this->_vmap_keep_mask_pub, this->vb->processingDebugger.vmap_postproc_keep_mask);
+          this->_publish_image<ros::Publisher>(this->_gnd_line_mask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask);
+          this->_publish_image<ros::Publisher>(this->_gnd_line_vmask_pub, this->vb->processingDebugger.gnd_line_filtering_keep_mask_vmap);
+          this->_publish_image<ros::Publisher>(this->_obj_candidate_mask_pub, this->vb->processingDebugger.obj_candidate_filtering_keep_mask);
+          this->_publish_image<ros::Publisher>(this->_umap_keep_mask_pub, this->vb->processingDebugger.umap_keep_mask);
+          this->_publish_image<ros::Publisher>(this->_vmap_keep_mask_pub, this->vb->processingDebugger.vmap_postproc_keep_mask);
      }
 }
 void VboatsRos::publish_debugging_images(){
@@ -637,7 +684,7 @@ void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacle
      m.header.frame_id = this->_camera_tf;
      m.ns = "obstacles";
 
-     double scale = 0.5;
+     double scale = 0.1;
      m.scale.x = scale; m.scale.y = scale; m.scale.z = scale;
      m.color.r = 0; m.color.g = 0; m.color.b = 255; m.color.a = 255;
      m.lifetime = ros::Duration(0); // lives forever
@@ -749,8 +796,8 @@ int VboatsRos::update(){
      if(this->_publish_obs_data){ this->_publish_extracted_obstacle_data(this->_detected_obstacle_info_pub, obs); }
      if(this->_overlay_obstacle_bounding_boxes){
           cv::Mat obs_display = this->vb->processingDebugger.overlay_obstacle_bounding_boxes(filtered_depth, obs);
-          this->_publish_image(this->_filtered_depth_pub, obs_display);
-     } else{this->_publish_image(this->_filtered_depth_pub, filtered_depth); }
+          this->_publish_image<image_transport::CameraPublisher>(this->_filtered_depth_pub, obs_display, this->_filtered_depth_info);
+     } else{this->_publish_image<image_transport::CameraPublisher>(this->_filtered_depth_pub, filtered_depth, this->_filtered_depth_info); }
 
      this->publish_auxillery_images(genDisparity, procUmap, procVmap);
      if(this->_publish_low_level_debug_images){ this->publish_debugging_images(); }

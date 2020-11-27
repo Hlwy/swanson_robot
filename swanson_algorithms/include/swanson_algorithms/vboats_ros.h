@@ -52,7 +52,9 @@ private:
      ros::Subscriber _pose_sub;
      ros::Subscriber _pose_stamped_sub;
 
-     ros::Publisher _filtered_depth_pub;
+     sensor_msgs::CameraInfo::ConstPtr _filtered_depth_info;
+     // image_transport::Publisher _filtered_depth_pub;
+     image_transport::CameraPublisher _filtered_depth_pub;
      ros::Publisher _raw_cloud_pub;
      ros::Publisher _unfiltered_cloud_pub;
      ros::Publisher _filtered_cloud_pub;
@@ -162,7 +164,10 @@ private:
 
      void imuCallback(const sensor_msgs::Imu::ConstPtr& msg);
      void poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
-     void _publish_image(ros::Publisher publisher, const cv::Mat& image, bool colorize = false);
+
+     template<typename ROS_OBJ> void _publish_image(ROS_OBJ publisher, const cv::Mat& image, bool colorize = false);
+     template<typename ROS_OBJ> void _publish_image(ROS_OBJ publisher, const cv::Mat& image, const sensor_msgs::CameraInfo::ConstPtr& cam_info, bool colorize = false);
+     // void _publish_image(image_transport::Publisher publisher, const cv::Mat& image, bool colorize = false);
      void _publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles);
      void _publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud);
 

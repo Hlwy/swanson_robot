@@ -726,51 +726,53 @@ void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacle
 cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing){
      cloudxyz_t::Ptr filtered_cloud(new cloudxyz_t);
      if(inputCloud->points.size() == 0) return filtered_cloud;
+     try{
+          double t;
+          if(debug_timing) t = (double)cv::getTickCount();
 
-     double t;
-     if(debug_timing) t = (double)cv::getTickCount();
+          if(this->_do_cloud_limit_filtering){
+               pcl::ConditionAnd<pcl::PointXYZ>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZ> ());
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::GT, -this->_max_cloud_height)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::LT, this->_min_cloud_height)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::GT, this->_min_cloud_range)));
+               range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::LT, this->_max_cloud_range)));
 
-     if(this->_do_cloud_limit_filtering){
-          pcl::ConditionAnd<pcl::PointXYZ>::Ptr range_cond(new pcl::ConditionAnd<pcl::PointXYZ> ());
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::GT, -this->_max_cloud_height)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("y", pcl::ComparisonOps::LT, this->_min_cloud_height)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::GT, this->_min_cloud_range)));
-          range_cond->addComparison(pcl::FieldComparison<pcl::PointXYZ>::Ptr (new pcl::FieldComparison<pcl::PointXYZ>("z", pcl::ComparisonOps::LT, this->_max_cloud_range)));
+               pcl::ConditionalRemoval<pcl::PointXYZ> range_filt;
+               range_filt.setInputCloud(inputCloud);
+               range_filt.setCondition(range_cond);
+               range_filt.filter(*filtered_cloud);
+          }
+          if(this->_do_cloud_outlier_removal){
+               pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
+               if(filtered_cloud->size() > 0) outrem.setInputCloud(filtered_cloud);
+               else outrem.setInputCloud(inputCloud);
+               outrem.setRadiusSearch(this->_cloud_outlier_search_radius);
+               outrem.setMinNeighborsInRadius(this->_cloud_outlier_min_neighbors);
+               outrem.filter(*filtered_cloud);
+          }
+          if(this->_do_cloud_downsampling){
+               pcl::VoxelGrid<pcl::PointXYZ> voxg;
+               if(filtered_cloud->size() > 0) voxg.setInputCloud(filtered_cloud);
+               else voxg.setInputCloud(inputCloud);
+               voxg.setLeafSize(this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
+               voxg.filter(*filtered_cloud);
+          }
 
-          pcl::ConditionalRemoval<pcl::PointXYZ> range_filt;
-          range_filt.setInputCloud(inputCloud);
-          range_filt.setCondition(range_cond);
-          range_filt.filter(*filtered_cloud);
+          // // Another potentially useful filter for filtering a noisy cloud
+          // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
+          // sor.setInputCloud(filtered_cloud);
+          // sor.setMeanK(this->_cloud_outlier_min_neighbors);
+          // sor.setStddevMulThresh(this->_cloud_outlier_search_radius);
+          // sor.filter(*filtered_cloud);
+
+          if(debug_timing){
+               t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
+               ROS_INFO("generate_pointcloud_from_depth() ---- took %.4lf ms (%.2lf Hz) to filter a pointcloud.", t*1000.0, (1.0/t));
+          }
+     } catch(std::exception e){
+          ROS_ERROR("filter_pointcloud() --- %s", e.what());
      }
 
-     if(this->_do_cloud_outlier_removal){
-          pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem;
-          if(filtered_cloud->size() > 0) outrem.setInputCloud(filtered_cloud);
-          else outrem.setInputCloud(inputCloud);
-          outrem.setRadiusSearch(this->_cloud_outlier_search_radius);
-          outrem.setMinNeighborsInRadius(this->_cloud_outlier_min_neighbors);
-          outrem.filter(*filtered_cloud);
-     }
-
-     if(this->_do_cloud_downsampling){
-          pcl::VoxelGrid<pcl::PointXYZ> voxg;
-          if(filtered_cloud->size() > 0) voxg.setInputCloud(filtered_cloud);
-          else voxg.setInputCloud(inputCloud);
-          voxg.setLeafSize(this->_voxel_res_x, this->_voxel_res_y, this->_voxel_res_z);
-          voxg.filter(*filtered_cloud);
-     }
-
-     // // Another potentially useful filter for filtering a noisy cloud
-     // pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
-     // sor.setInputCloud(filtered_cloud);
-     // sor.setMeanK(this->_cloud_outlier_min_neighbors);
-     // sor.setStddevMulThresh(this->_cloud_outlier_search_radius);
-     // sor.filter(*filtered_cloud);
-
-     if(debug_timing){
-          t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-          ROS_INFO("generate_pointcloud_from_depth() ---- took %.4lf ms (%.2lf Hz) to filter a pointcloud.", t*1000.0, (1.0/t));
-     }
      return filtered_cloud;
 }
 

@@ -98,6 +98,8 @@ private:
      double _avg_pitch                                      = 0.0;
      double _avg_yaw                                        = 0.0;
      double _user_angle_offset                              = 0.0;
+     float _prev_gnd_line_slope                             = 0.0;
+     int _prev_gnd_line_intercept                           = 0;
 
      // Pointcloud Filtering Parameters
      bool _do_cloud_limit_filtering                         = true;
@@ -118,6 +120,7 @@ private:
      bool _verbose_obstacles                                = false;
      bool _debug_timings                                    = false;
      bool _debug_angle_inputs                               = false;
+     bool _debug_ground_line_params                         = false;
      bool _debug_disparity_generation                       = false;
 
      bool _flag_pub_raw_cloud                               = false;

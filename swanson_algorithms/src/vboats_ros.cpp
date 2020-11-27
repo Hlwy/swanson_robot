@@ -153,6 +153,9 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           if(config.debug_disparity_generation != this->_debug_disparity_generation){
                this->_debug_disparity_generation = config.debug_disparity_generation;
           }
+          if(config.debug_ground_line_params != this->_debug_ground_line_params){
+               this->_debug_ground_line_params = config.debug_ground_line_params;
+          }
      }
 
      // Umap Filtering
@@ -251,6 +254,10 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
 
           this->vb->set_absolute_minimum_depth(config.depth_absolute_min);
           this->vb->set_absolute_maximum_depth(config.depth_absolute_max);
+
+          this->vb->enable_noisy_gnd_line_filtering(config.do_noisy_gnd_line_filtering);
+          this->vb->set_gnd_line_slope_error_threshold(config.noisy_gnd_line_slope_thresh);
+          this->vb->set_gnd_line_intercept_error_threshold(config.noisy_gnd_line_intercept_thresh);
 
           this->vb->set_object_dimension_limits_x(
                (float) config.object_geometric_limit_x_min,
@@ -806,25 +813,39 @@ int VboatsRos::update(){
      this->_lock.unlock();
 
      vector<Obstacle> obs;
+     vector<float> gnd_line_coefficients;
      cv::Mat inUmap, inVmap;
      cv::Mat procUmap, procVmap;
      cv::Mat filtered_depth, genDisparity;
-     int nObs = this->vb->process(curDepth, &filtered_depth, &obs, &genDisparity,
-          &procUmap, &procVmap, nullptr, nullptr,
-          this->_verbose_obstacles
+     int nObs = this->vb->process(curDepth, &filtered_depth, &obs, &gnd_line_coefficients,
+          &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles
      );
 
-     // Publish ROS data
+     // Misc Printouts
+     if(!gnd_line_coefficients.empty()){
+          float cur_gnd_line_slope      = (float) gnd_line_coefficients[0];
+          int cur_gnd_line_intercept    = (int) gnd_line_coefficients[1];
+          float delta_slope             = cur_gnd_line_slope - this->_prev_gnd_line_slope;
+          int delta_intercept           = cur_gnd_line_intercept - this->_prev_gnd_line_intercept;
+          this->_prev_gnd_line_slope     = cur_gnd_line_slope;
+          this->_prev_gnd_line_intercept = cur_gnd_line_intercept;
+          if(this->_debug_ground_line_params){
+               ROS_INFO("Estimated Ground Line Coefficients (slope, intercept) = %.4f, %d", cur_gnd_line_slope, cur_gnd_line_intercept);
+               ROS_INFO("Ground Line Coefficients Delta (slope, intercept) = %.4f, %d", delta_slope, delta_intercept);
+          }
+     }
+
+     // Data Publishing
      if(this->_publish_obs_data){ this->_publish_extracted_obstacle_data(this->_detected_obstacle_info_pub, obs); }
      if(this->_overlay_obstacle_bounding_boxes){
           cv::Mat obs_display = this->vb->processingDebugger.overlay_obstacle_bounding_boxes(filtered_depth, obs);
           this->_publish_image<image_transport::CameraPublisher>(this->_filtered_depth_pub, obs_display, this->_filtered_depth_info);
      } else{this->_publish_image<image_transport::CameraPublisher>(this->_filtered_depth_pub, filtered_depth, this->_filtered_depth_info); }
-
      this->publish_auxillery_images(genDisparity, procUmap, procVmap);
      if(this->_publish_low_level_debug_images){ this->publish_debugging_images(); }
      this->publish_pointclouds(curDepth, filtered_depth);
      if(this->_publish_obstacle_markers) this->visualize_obstacle_markers(obs);
+
      this->_count++;
      return nObs;
 }

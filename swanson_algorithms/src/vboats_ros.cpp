@@ -526,9 +526,7 @@ bool VboatsRos::calibrate_orientation_offsets_callback(std_srvs::Empty::Request&
 /** -------------------------------------------------------------------------------------------------
 *                                     ROS Interface Helper Functions
 * ------------------------------------------------------------------------------------------------- */
-template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
-     const cv::Mat& image, bool colorize
-){
+template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher, const cv::Mat& image, bool colorize){
      if(!image.empty()){
           cv::Mat data;
           if(colorize) data = imCvtCmap(image);
@@ -568,8 +566,8 @@ template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
      }
 }
 template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
-     const cv::Mat& image, const sensor_msgs::CameraInfo::ConstPtr& cam_info, bool colorize
-){
+     const cv::Mat& image, const sensor_msgs::CameraInfo::ConstPtr& cam_info, bool colorize)
+{
      if(!image.empty()){
           cv::Mat data;
           if(colorize) data = imCvtCmap(image);
@@ -830,8 +828,9 @@ int VboatsRos::update(){
           this->_prev_gnd_line_slope     = cur_gnd_line_slope;
           this->_prev_gnd_line_intercept = cur_gnd_line_intercept;
           if(this->_debug_ground_line_params){
-               ROS_INFO("Estimated Ground Line Coefficients (slope, intercept) = %.4f, %d", cur_gnd_line_slope, cur_gnd_line_intercept);
-               ROS_INFO("Ground Line Coefficients Delta (slope, intercept) = %.4f, %d", delta_slope, delta_intercept);
+               ROS_INFO("Estimated Ground Line Coefficients (slope, intercept) = %.4f, %d &&&& Delta = %.4f, %d",
+                    cur_gnd_line_slope, cur_gnd_line_intercept, delta_slope, delta_intercept
+               );
           }
      }
 

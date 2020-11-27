@@ -340,21 +340,41 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
                this->_publish_low_level_debug_images = config.publish_low_level_debug_images;
           }
 
-          if(config.publish_umap_raw != this->_publish_umap_raw){ this->_publish_umap_raw = config.publish_umap_raw; }
-          if(config.visualize_umap_raw != this->_visualize_umap_raw){ this->_visualize_umap_raw = config.visualize_umap_raw; }
-          this->vb->processingDebugger.enable_umap_raw_visualization((this->_publish_umap_raw || this->_visualize_umap_raw));
+          if(config.publish_umap_raw != this->_publish_umap_raw){
+               this->_publish_umap_raw = config.publish_umap_raw;
+               this->vb->processingDebugger.enable_umap_raw_visualization(this->_publish_umap_raw);
+          }
+          if(config.visualize_umap_raw != this->_visualize_umap_raw){
+               this->_visualize_umap_raw = config.visualize_umap_raw;
+               this->vb->processingDebugger.enable_umap_raw_visualization(this->_visualize_umap_raw);
+          }
 
-          if(config.publish_vmap_raw != this->_publish_vmap_raw){ this->_publish_vmap_raw = config.publish_vmap_raw; }
-          if(config.visualize_vmap_raw != this->_visualize_vmap_raw){ this->_visualize_vmap_raw = config.visualize_vmap_raw; }
-          this->vb->processingDebugger.enable_vmap_raw_visualization((this->_publish_vmap_raw || this->_visualize_vmap_raw));
+          if(config.publish_vmap_raw != this->_publish_vmap_raw){
+               this->_publish_vmap_raw = config.publish_vmap_raw;
+               this->vb->processingDebugger.enable_vmap_raw_visualization(this->_publish_vmap_raw);
+          }
+          if(config.visualize_vmap_raw != this->_visualize_vmap_raw){
+               this->_visualize_vmap_raw = config.visualize_vmap_raw;
+               this->vb->processingDebugger.enable_vmap_raw_visualization(this->_visualize_vmap_raw);
+          }
 
-          if(config.publish_umap_processed != this->_publish_umap_processed){ this->_publish_umap_processed = config.publish_umap_processed; }
-          if(config.visualize_umap_processed != this->_visualize_umap_final){ this->_visualize_umap_final = config.visualize_umap_processed; }
-          this->vb->processingDebugger.enable_umap_processed_visualization((this->_publish_umap_processed || this->_visualize_umap_final));
+          if(config.publish_umap_processed != this->_publish_umap_processed){
+               this->_publish_umap_processed = config.publish_umap_processed;
+               this->vb->processingDebugger.enable_umap_processed_visualization(this->_publish_umap_processed);
+          }
+          if(config.visualize_umap_processed != this->_visualize_umap_final){
+               this->_visualize_umap_final = config.visualize_umap_processed;
+               this->vb->processingDebugger.enable_umap_processed_visualization(this->_visualize_umap_final);
+          }
 
-          if(config.publish_vmap_processed != this->_publish_vmap_processed){ this->_publish_vmap_processed = config.publish_vmap_processed; }
-          if(config.visualize_vmap_processed != this->_visualize_vmap_final){ this->_visualize_vmap_final = config.visualize_vmap_processed; }
-          this->vb->processingDebugger.enable_vmap_processed_visualization((this->_publish_vmap_processed || this->_visualize_vmap_final));
+          if(config.publish_vmap_processed != this->_publish_vmap_processed){
+               this->_publish_vmap_processed = config.publish_vmap_processed;
+               this->vb->processingDebugger.enable_vmap_processed_visualization(this->_publish_vmap_processed);
+          }
+          if(config.visualize_vmap_processed != this->_visualize_vmap_final){
+               this->_visualize_vmap_final = config.visualize_vmap_processed;
+               this->vb->processingDebugger.enable_vmap_processed_visualization(this->_visualize_vmap_final);
+          }
 
           if(config.overlay_gnd_lines != this->_overlay_gnd_lines){ this->_overlay_gnd_lines = config.overlay_gnd_lines; }
           if(config.overlay_filtered_contours != this->_overlay_filtered_contours){ this->_overlay_filtered_contours = config.overlay_filtered_contours; }

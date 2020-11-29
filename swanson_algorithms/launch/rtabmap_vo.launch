@@ -70,7 +70,7 @@
 
      <!-- RGB-D Odometry -->
      <group ns="$(arg namespace)">
-          <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="$(arg output)" args="$(arg rtabmap_args) $(arg odom_args)" launch-prefix="$(arg launch_prefix)">
+          <node pkg="rtabmap_ros" type="rgbd_odometry" name="rgbd_odometry" output="$(arg output)" args="$(arg rtabmap_args) $(arg odom_args)" respawn="true" launch-prefix="$(arg launch_prefix)">
                <remap from="odom"            to="$(arg vo_topic)"/>
                <remap from="rgb/image"       to="$(arg rgb_topic)"/>
                <remap from="depth/image"     to="$(arg depth_topic)"/>
@@ -98,7 +98,7 @@
                <param name="Vis/FeatureType"        type="string" value="$(arg feature_method)"/>
                <param name="Odom/Strategy"          type="string" value="$(arg odom_strategy)"/>
                <param name="Odom/FilteringStrategy" type="string" value="$(arg odom_filter_method)"/>
-               <param name="Odom/ImageBufferSize"   value="15"/> <!-- default = 1 -->
+               <param name="Odom/ImageBufferSize"   value="1"/> <!-- default = 1  PREVIOUSL = 15 -->
                <!-- <param name="GFTT/MinDistance"       type="string" value="7"/> -->
                <!-- <param name="GFTT/QualityLevel"      type="string" value="0.001"/> -->
 

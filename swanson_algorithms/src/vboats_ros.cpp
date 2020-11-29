@@ -502,7 +502,7 @@ void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
           if(this->_flag_pub_unfiltered_cloud || this->_flag_pub_filtered_cloud){
                cloudxyz_t::Ptr obsFilteredCloud = this->generate_cloud_from_depth(testMat);
                if(obsFilteredCloud->points.size() != 0){
-                    this->_unfiltered_cloud_pub.publish(obsFilteredCloud);
+                    if(this->_flag_pub_unfiltered_cloud) this->_unfiltered_cloud_pub.publish(obsFilteredCloud);
                     // if(unfiltered_cloud) pcl::copyPointCloud(*unfiltCloud, *unfiltered_cloud);
                     if(this->_flag_pub_filtered_cloud){
                          cloudxyz_t::Ptr filtCloud = this->filter_pointcloud(obsFilteredCloud);

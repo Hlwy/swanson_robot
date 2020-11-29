@@ -9,7 +9,7 @@
      <arg name="post_process"      default="false"/>
      <arg name="get_disparity"     default="false"/>
      <arg name="update_rate"       default="15"/>
-     <arg name="cam_fps"           default="30"/>
+     <arg name="cam_fps"           default="15"/>
      <arg name="depth_width"       default="848"/>
      <arg name="depth_height"      default="480"/>
      <arg name="color_width"       default="848"/>

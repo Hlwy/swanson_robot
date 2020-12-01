@@ -1,33 +1,40 @@
 <launch>
-     <arg name="namespace"              default="/hytx/rtabmap"/>
-     <arg name="database_path"          default="~/.ros/rtabmap.db"/>
+     <arg name="debug"                                 default="false"/>
+     <arg name="localization"                          default="false"/>
+     <arg name="database_path"                         default="~/.ros/rtabmap.db"/>
+     <arg name="gui_cfg"                               default="~/.ros/rtabmap_gui.ini" />
+     <arg name="flag_test"                             default="false"/>
+     <arg if="$(arg flag_test)"     name="namespace"   default="/hytx/rtabmap"/>
+     <arg unless="$(arg flag_test)" name="namespace"   default="rtabmap"/>
 
      <!-- roslaunch prefix args -->
-     <arg name="args"                   default="delete_db_on_start"/>
-     <arg name="rtabmap_args"           default="$(arg args)"/>
-     <arg name="output"                 default="screen"/>
-     <arg name="launch_prefix"          default=""/>
+     <arg if="$(arg localization)"      name="args"    default=""/>
+     <arg unless="$(arg localization)"  name="args"    default="--delete_db_on_start"/>
+     <arg name="rtabmap_args"                          default="$(arg args)"/>
+     <arg name="output"                                default="screen"/>
+     <arg if="$(arg debug)"     name="launch_prefix"   default="gdb -ex run --args"/>
+     <arg unless="$(arg debug)" name="launch_prefix"   default=""/>
 
      <!-- General flags -->
-     <arg name="localization"           default="false"/>
-     <arg name="publish_tf_map"         default="false"/>
-     <arg name="odom_sensor_sync"       default="false"/>
-     <arg name="approx_sync"            default="true"/>
+     <arg name="publish_tf_map"                        default="true"/>
+     <arg name="odom_sensor_sync"                      default="false"/>
+     <arg name="approx_sync"                           default="true"/>
+     <arg name="viz"                                   default="false"/>
 
      <!-- ROS topics -->
-     <arg name="frame_id"               default="base_link"/>
-     <!-- <arg name="odom_topic"             default="odometry/filtered"/> -->
-     <arg name="odom_topic"             default="/swansonPi4/dead_reckoning"/>
-     <arg name="imu_topic"              default="/swansonPi4/imu/data/filtered"/>
-     <arg name="rgb_topic"              default="/hytx/camera/color/image_raw" />
-     <arg name="depth_topic"            default="/hytx/camera/depth/image_rect_raw" />
-     <arg name="camera_info_topic"      default="/hytx/camera/color/camera_info" />
+     <arg name="frame_id"                              default="base_link"/>
+     <arg name="odom_frame_id"                         default="odom"/>
+     <arg name="odom_topic"                            default="/mavros/local_position/odom"/>
+     <arg name="imu_topic"                             default="/mavros/imu/data"/>
+     <arg name="rgb_topic"                             default="/camera/color/image_raw" />
+     <arg name="camera_info_topic"                     default="/camera/color/camera_info" />
+     <arg name="depth_topic"                           default="/camera/depth/image_rect_raw" />
 
      <!-- misc param config -->
-     <arg name="queue_size"                  default="1000"/>
-     <arg name="wait_for_transform_dt"       default="0.2"/>
-     <arg name="odom_tf_angular_variance"    default="1"/>
-     <arg name="odom_tf_linear_variance"     default="1"/>
+     <arg name="queue_size"                            default="10"/>
+     <arg name="wait_for_transform_dt"                 default="0.75"/>
+     <arg name="odom_tf_angular_variance"              default="1.0"/>
+     <arg name="odom_tf_linear_variance"               default="1.0"/>
 
      <!-- Feature Extraction Method
           0=SURF
@@ -42,20 +49,22 @@
           9=KAZE
           10=ORB-OCTREE
      -->
-     <arg name="feature_method"      default="6"/>
+     <arg name="feature_method"                        default="6"/>
 
      <!-- Visual SLAM -->
      <group ns="$(arg namespace)">
-          <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="$(arg output)" args="$(arg rtabmap_args)" launch-prefix="$(arg launch_prefix)">
+          <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="$(arg output)" args="$(arg rtabmap_args)" launch-prefix="$(arg launch_prefix)" clear_params="true">
                <param name="subscribe_depth"      type="bool" value="true"/>
                <param name="subscribe_odom_info"  type="bool" value="true"/>
                <param name="queue_size"           type="int" value="$(arg queue_size)"/>
+               <!-- <param name="subscribe_scan"       type="bool" value="$(arg use_sweep)"/> -->
 
                <remap from="odom"                 to="$(arg odom_topic)"/>
                <remap from="imu"                  to="$(arg imu_topic)"/>
                <remap from="rgb/image"            to="$(arg rgb_topic)"/>
                <remap from="depth/image"          to="$(arg depth_topic)"/>
                <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
+               <!-- <remap from="scan"                 to="$(arg scan_topic)"/> -->
 
                <param name="frame_id"             type="string" value="$(arg frame_id)"/>
                <param name="publish_tf"           type="bool"   value="$(arg publish_tf_map)"/>
@@ -67,15 +76,80 @@
                <param name="odom_tf_linear_variance"        type="double" value="$(arg odom_tf_linear_variance)"/>
                <param name="wait_for_transform_duration"    type="double" value="$(arg wait_for_transform_dt)"/>
 
+               <!-- <param name="map_negative_poses_ignored" type="bool" value="true"/> -->
+               <remap from="grid_map" to="/grid_map"/>
+               <!--
+                    When appending a new cloud to cloud_map, filter points that have less neighbors
+               than cloud_subtract_filtering_min_neighbors in the radius Grid/CellSize.
+               This will helps to reconstruct the whole map's cloud faster
+               when a loop closure happens. Used for cloud_map published topic.
+               -->
+               <param name="cloud_subtract_filtering"                 type="bool" value="true"/>
+               <param name="cloud_subtract_filtering_min_neighbors"   type="int" value="3"/>
+
                <!-- Misc settings -->
                <param     if="$(arg localization)" name="Mem/IncrementalMemory" type="string" value="false"/>
                <param unless="$(arg localization)" name="Mem/IncrementalMemory" type="string" value="true"/>
                <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization)"/>
-               <param name="Optimizer/Slam2D"          type="bool" value="true" />
-               <param name="Reg/Force3DoF"             type="bool" value="true" />
-               <param name="Grid/3D"                   type="bool" value="false"/>
                <param name="Kp/DetectorStrategy"       type="string" value="$(arg feature_method)"/>
+               <param name="Rtabmap/DetectionRate"     value="0.1"/> <!-- default = 1 -->
+               <param name="Optimizer/Strategy"        value="2"/> <!-- default = 2.  0=TORO, 1=g2o, 2=GTSAM and 3=Ceres. -->
+               <param name="Optimizer/Iterations"      value="20"/> <!-- default = 20 -->
+               <param name="Optimizer/Epsilon"         value="0.00001"/> <!-- default = 0.00001 -->
+               <param name="Optimizer/VarianceIgnored" value="false"/> <!-- default = false -->
+
+               <param name="RGBD/NeighborLinkRefining"                   value="true"/> <!-- default = false -->
+               <param name="RGBD/LoopClosureReextractFeatures"           value="false"/> <!-- default = false -->
+               <param name="RGBD/OptimizeMaxError"         type="double" value="3.0"/>
+               <param name="RGBD/LocalBundleOnLoopClosure" type="string" value="false"/>   <!-- Local loop closure detection (using estimated position) with locations in WM -->
+               <param name="RGBD/OptimizeFromGraphEnd"     type="string" value="false"/>  <!-- Set to false to generate map correction between /map and /odom -->
+               <param name="Reg/Strategy"                  type="string" value="0"/>      <!-- Loop closure transformation: 0=Visual, 1=ICP, 2=Visual+ICP -->
+               <param name="Vis/MinInliers"                type="string" value="20"/>      <!-- 3D visual words minimum inliers to accept loop closure -->
+               <param name="Vis/InlierDistance"            type="string" value="0.1"/>    <!-- 3D visual words correspondence distance -->
+               <param name="Vis/MaxFeatures"               value="1500"/> <!-- default = 1000 -->
+               <param name="Vis/MinDepth"                  value="0.0"/> <!-- default = 0 -->
+               <!-- <param name="Vis/MaxDepth"                  value="3.0"/> --> <!-- default = 0 -->
+               <param name="Kp/MaxFeatures"                value="750"/>
+               <param name="Kp/MinDepth"                   value="0.0"/> <!-- default = 0 -->
+
+               <param name="GFTT/MinDistance"              type="string" value="7"/>
+               <!-- <param name="GFTT/BlockSize"         type="string" value="1"/> -->
+               <!-- <param name="GFTT/QualityLevel"      type="string" value="0.001"/> -->
+
+               <param name="Vis/RoiRatios"                  value="0.1 0.0 0.0 0.15"/>
+               <param name="g2o/Baseline"                   value="0.014732"/>
+               <!-- <param name="Kp/RoiRatios"                   value="0.1 0.0 0.0 0.15"/> -->
+
+               <!-- Test Parameters -->
+               <param name="Mem/STMSize"                    value="10"/> <!-- default = 10 -->
+               <param name="Rtabmap/TimeThr"                value="0"/> <!-- default = 0 -->
+               <param name="Rtabmap/MemoryThr"              value="0"/> <!-- default = 0 -->
+               <param name="Rtabmap/LoopThr"                value="0.11"/> <!-- default = 0.11 -->
+               <param name="RGBD/LoopCovLimited"            value="false"/> <!-- default = false -->
+               <param name="RGBD/AngularUpdate"             value="0.1225"/> <!-- default = 0.1 -->
+               <param name="RGBD/LinearUpdate"              value="0.1"/> <!-- default = 0.1 -->
+               <param name="RGBD/MaxLocalRetrieved"         value="2"/> <!-- default = 2 -->
+               <param name="Mem/NotLinkedNodesKept"         value="true"/> <!-- default = true -->
+               <param name="Grid/RangeMax"                  value="3.0"/> <!-- default = 5.0 -->
+               <param name="Reg/Force3DoF"                  value="true" /> <!-- default = 5.0 -->
+               <!-- <param name="Grid/3D"                        value="true"/> --> <!-- default = true -->
+               <!-- Obstacles would be cleared if the sensor sees a wall behind them. -->
+               <param name="Grid/3D"                        value="false"/> <!-- default = true -->
+               <param name="Grid/RayTracing"                value="true"/> <!-- default = false -->
+               <param name="Grid/FootprintHeight"           value="0.26"/>
+               <param name="Grid/FootprintLength"           value="0.56"/>
+               <param name="Grid/FootprintWidth"            value="0.45"/>
+               <param name="GridGlobal/FootprintRadius"     value="0.34"/>
+               <param name="Grid/MaxObstacleHeight"         value="0.35"/>
+               <param name="Grid/MaxGroundHeight"           value="0.02"/>
+               <param name="Grid/NormalsSegmentation"       value="true"/>
+               <param name="Grid/NormalK"                   value="30"/>
+               <param name="Grid/MinClusterSize"            value="10"/>
+               <param name="Grid/ClusterRadius"             value="0.05"/>
+               <param name="Grid/NoiseFilteringRadius"      value="0.05"/>
+               <param name="Grid/NoiseFilteringMinNeighbors" value="17"/>
+               <param name="Grid/CellSize"                  value="0.02"/>
+               <param name="Grid/DepthRoiRatios"            value="0.1 0.0 0.0 0.15"/>
           </node>
      </group>
-
 </launch>

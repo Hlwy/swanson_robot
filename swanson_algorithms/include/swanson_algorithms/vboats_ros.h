@@ -94,6 +94,7 @@ private:
      bool _angle_offsets_calibration_performed              = false;
      int _angle_offsets_count                               = 0;
      int _angle_offset_samples                              = 10;
+     double _time_offset                                    = 0.0;
      double _avg_roll                                       = 0.0;
      double _avg_pitch                                      = 0.0;
      double _avg_yaw                                        = 0.0;

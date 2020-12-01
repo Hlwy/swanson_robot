@@ -246,6 +246,9 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
                this->_user_angle_offset = config.correction_angle_offset_deg;
                this->vb->set_camera_angle_offset(config.correction_angle_offset_deg);
           }
+          if(config.time_offset != this->_time_offset){
+               this->_time_offset = config.time_offset;
+          }
           if(config.debug_angle_inputs != this->_debug_angle_inputs) this->_debug_angle_inputs = config.debug_angle_inputs;
 
           this->vb->enable_filtered_depth_denoising(config.do_post_depth_denoising);
@@ -632,9 +635,10 @@ void VboatsRos::_publish_extracted_obstacle_data(ros::Publisher publisher, std::
 }
 void VboatsRos::_publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud){
      if(inputCloud->points.size() != 0){
+          ros::Duration smallDt(this->_time_offset);
           sensor_msgs::PointCloud2 tmpCloudMsg;
           pcl::toROSMsg(*inputCloud, tmpCloudMsg);
-          tmpCloudMsg.header.stamp = ros::Time::now();
+          tmpCloudMsg.header.stamp = ros::Time::now()+smallDt;
           tmpCloudMsg.header.seq = this->_count;
           tmpCloudMsg.header.frame_id = this->_camera_tf;
           publisher.publish(tmpCloudMsg);

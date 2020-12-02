@@ -126,10 +126,12 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      // Initialize VBOATS
      this->vb = new Vboats();
 
-     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!");
+     this->_pause_service = m_nh.advertiseService("vboats/pause", &VboatsRos::pause_callback, this);
+     this->_resume_service = m_nh.advertiseService("vboats/resume", &VboatsRos::resume_callback, this);
      this->_correction_angle_calibration_service = m_nh.advertiseService("vboats/calibrate_correction_angle", &VboatsRos::calibrate_orientation_offsets_callback, this);
      this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
      this->_cfg_server.setCallback(this->_cfg_f);
+     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!");
 }
 VboatsRos::~VboatsRos(){ delete this->vb; }
 
@@ -518,6 +520,14 @@ void VboatsRos::poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& 
      std::lock_guard<std::mutex> lock(_lock);
      this->vb->set_camera_orientation(msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z, msg->pose.orientation.w, this->_debug_angle_inputs);
 }
+bool VboatsRos::pause_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+     this->_is_node_paused = true;
+     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Paused.");
+}
+bool VboatsRos::resume_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+     this->_is_node_paused = false;
+     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Resuming.");
+}
 bool VboatsRos::calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
      this->_do_angle_offsets_calibration = true;
      this->_avg_roll    = 0.0;
@@ -858,12 +868,14 @@ int VboatsRos::run(){
      if(this->_debug_timings) t = (double)cv::getTickCount();
      while(ros::ok()){
           ros::Rate rate( (int) this->_update_rate );
-          int nObjects = this->update();
-          if(this->_debug_timings || this->_verbose_update){
-               double now = (double)cv::getTickCount();
-               double dt = (now - t)/cv::getTickFrequency();
-               ROS_INFO("[INFO] VboatsRos::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));
-               t = now;
+          if(!this->_is_node_paused){
+               int nObjects = this->update();
+               if(this->_debug_timings || this->_verbose_update){
+                    double now = (double)cv::getTickCount();
+                    double dt = (now - t)/cv::getTickFrequency();
+                    ROS_INFO("[INFO] VboatsRos::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));
+                    t = now;
+               }
           }
           ros::spinOnce();
           rate.sleep();

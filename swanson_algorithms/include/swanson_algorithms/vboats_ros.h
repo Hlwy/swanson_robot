@@ -75,6 +75,9 @@ private:
      ros::Publisher _umap_debug_pub;
      ros::Publisher _vmap_debug_pub;
 
+     bool _is_node_paused                                   = false;
+     ros::ServiceServer _pause_service;
+     ros::ServiceServer _resume_service;
      ros::ServiceServer _correction_angle_calibration_service;
 
      image_transport::ImageTransport _it;
@@ -187,6 +190,8 @@ public:
 
      // Runtime Functions
      bool calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
+     bool pause_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
+     bool resume_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
      int update();
      int run();
 

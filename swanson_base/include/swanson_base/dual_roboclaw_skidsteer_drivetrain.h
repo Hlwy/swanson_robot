@@ -3,7 +3,7 @@
 
 #include <mutex>
 #include <pigpiod_if2.h>
-#include <RoboCommander/drivetrains/dual_roboclaw.h>
+#include <robocommander/drivetrains/dual_roboclaw.h>
 
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>

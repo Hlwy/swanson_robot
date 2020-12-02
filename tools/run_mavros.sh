@@ -50,7 +50,7 @@ else
 fi
 
 # Start Mavros node
-(source $CATKIN_SOURCE_PATH; roslaunch mavros apm_custom.launch gcs_url:="udp://192.168.2.3:9000@192.168.2.5:6000?ids=1,255,252")&
+(source $CATKIN_SOURCE_PATH; roslaunch mavros apm_custom.launch gcs_url:="udp://192.168.2.3:9000@192.168.2.4:6000?ids=1,255,252")&
 sleep 5
 
 # Set logger levels to hide annoying printouts from mavros during parameter retrieval
@@ -92,7 +92,7 @@ sleep 5
 # Change the publish rates for the various data streams available from the autopilot
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --ext-status 1)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --rc-channels 1)&
-(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --position 20)&
+(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --position 10)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --raw-sensors 5 --extra1 5)&
 
 # Start any additional ROS nodes

@@ -88,9 +88,10 @@ echo " ---------------------------------------- "
 echo "  Running Auxillery Reconfiguration and/or Service Commands ... "
 echo " ---------------------------------------- "
 sleep 1
-(source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats_node correction_angle_offset_deg 2.0 &> /dev/null)&
+# (source $CATKIN_SOURCE_PATH; rosrun mavros altitude_fixer.py)&
+(source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats correction_angle_offset_deg -1.0 &> /dev/null)&
+(source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats time_offset -0.3)&
 # (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set /${ROS_NAMESPACE}/vboats_node gnd_line_intercept_offset 10)&
-# (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set /${ROS_NAMESPACE}/vboats_node time_offset -0.3)&
 echo " "
 echo " ================================= "
 echo "    MavROS Reset Setup Complete    "

@@ -97,4 +97,5 @@ sleep 5
 # Start any additional ROS nodes
 # (source $CATKIN_SOURCE_PATH; roslaunch move_base move_base.launch)&
 # (source $CATKIN_SOURCE_PATH; roslaunch swanson_algorithms vboats.launch)&
+echo "Press CTRL + C to kill everything"
 read asdf

@@ -51,6 +51,7 @@ fi
 
 # Start Mavros node
 (source $CATKIN_SOURCE_PATH; roslaunch mavros apm_custom.launch gcs_url:="udp://192.168.2.3:9000@192.168.2.5:6000?ids=1,255,252")&
+sleep 5
 
 # Set logger levels to hide annoying printouts from mavros during parameter retrieval
 HIDE_MAVROS_PARAM_PRINTOUTS=$(cat <<- END

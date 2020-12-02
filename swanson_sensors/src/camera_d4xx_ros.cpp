@@ -1,6 +1,6 @@
 #include <iostream>
 #include "swanson_sensors/camera_d4xx_ros.h"
-#include <RoboCommander/utilities/image_utils.h>
+#include <robocommander/utilities/image_utils.h>
 
 using namespace std;
 

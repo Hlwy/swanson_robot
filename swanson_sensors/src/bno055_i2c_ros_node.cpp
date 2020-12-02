@@ -1,6 +1,6 @@
 #include <pigpiod_if2.h>
 #include <ros/ros.h>
-#include <RoboCommander/devices/tca9548a.h>
+#include <robocommander/devices/tca9548a.h>
 
 #include "swanson_sensors/bno055_i2c_ros.h"
 

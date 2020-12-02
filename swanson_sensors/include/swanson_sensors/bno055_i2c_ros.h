@@ -7,9 +7,9 @@
 #include <geometry_msgs/Vector3.h>
 #include "std_srvs/Empty.h"
 
-#include <RoboCommander/base/definitions.h>
-#include <RoboCommander/sensors/bno055_i2c.h>
-#include <RoboCommander/devices/tca9548a.h>
+#include <robocommander/base/definitions.h>
+#include <robocommander/sensors/bno055_i2c.h>
+#include <robocommander/devices/tca9548a.h>
 
 using namespace std;
 

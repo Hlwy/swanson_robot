@@ -1,7 +1,7 @@
 #ifndef SWANSON_SENSORS_CAMERA_D4XX_ROS_H_
 #define SWANSON_SENSORS_CAMERA_D4XX_ROS_H_
 
-#include <RoboCommander/sensors/camera_d4xx.h>
+#include <robocommander/sensors/camera_d4xx.h>
 
 #include <thread>
 #include <mutex>

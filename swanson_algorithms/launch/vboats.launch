@@ -26,7 +26,5 @@
 
           <param name="parent_frame"          value="base_link"/>
           <param name="camera_base_frame"     value="$(arg optical_frame)"/>
-
      </node>
-
 </launch>

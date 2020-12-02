@@ -6,8 +6,8 @@
 #include <sensor_msgs/MagneticField.h>
 #include <geometry_msgs/PoseStamped.h>
 
-#include <RoboCommander/base/definitions.h>
-#include <RoboCommander/sensors/generic_rtimu.h>
+#include <robocommander/base/definitions.h>
+#include <robocommander/sensors/generic_rtimu.h>
 
 using namespace std;
 

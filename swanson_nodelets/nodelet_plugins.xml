@@ -1,0 +1,5 @@
+<library path="lib/libSwansonNodelets">
+     <class name="swanson_nodelets/VboatsNodelet" type="swanson_nodelets::VboatsNodelet" base_class_type="nodelet::Nodelet">
+          <description>This is the main nodelet of the ROS interface for VBOATS.</description>
+     </class>
+</library>

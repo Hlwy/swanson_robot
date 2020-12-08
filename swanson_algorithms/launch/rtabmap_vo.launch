@@ -65,7 +65,7 @@
           7 = LOAM
           8 = MSCKF-VIO
      -->
-     <arg name="odom_strategy"  default="5"/>
+     <arg name="odom_strategy"  default="1"/>
 
      <!-- RGB-D Odometry -->
      <group ns="$(arg namespace)">

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(swanson_algorithms)
+project(swanson_nodelets)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
@@ -16,6 +16,7 @@ set( ROS_CXX_DEPENDENCIES
      roscpp
      tf
      pcl_ros
+     nodelet
      std_msgs
      cv_bridge
      sensor_msgs
@@ -47,6 +48,12 @@ endforeach()
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
+catkin_package(
+     INCLUDE_DIRS include
+     LIBRARIES swanson_nodelets
+     CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES} swanson_algorithms
+     DEPENDS Boost
+)
 include_directories(
      include
      ${Boost_INCLUDE_DIRS}
@@ -56,6 +63,7 @@ include_directories(
      ${OpenCV_INCLUDE_DIRS}
      ${realsense2_INCLUDE_DIR}
      ${PCL_INCLUDE_DIRS}
+     ${swanson_algorithms_INCLUDE_DIRS}
 )
 link_directories(
      ${Boost_LIBRARIES}
@@ -64,43 +72,21 @@ link_directories(
      ${realsense2_LIBRARY}
      ${PCL_LIBRARY_DIRS}
 )
-
-generate_dynamic_reconfigure_options(
-     cfg/Vboats.cfg
-)
-
-catkin_package(
-     INCLUDE_DIRS include
-     LIBRARIES swanson_algorithms
-     CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS Boost
-)
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
 ###########
 ## Build ##
 ###########
 
-add_library(vboats_ros src/vboats_ros.cpp)
-target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocommander_LIBRARIES})
-add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
-
-add_executable(vboats_node src/vboats_ros_node.cpp)
-target_link_libraries(vboats_node vboats_ros)
-
-# add_library(angle_test src/angle_test.cpp)
-# target_link_libraries(angle_test ${catkin_LIBRARIES} ${robocommander_LIBRARIES})
-# add_dependencies(angle_test ${catkin_EXPORTED_TARGETS})
-#
-# add_executable(angle_test_node src/angle_test_node.cpp)
-# target_link_libraries(angle_test_node angle_test)
+add_library(SwansonNodelets src/vboats_nodelet.cpp)
+target_link_libraries(SwansonNodelets ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocommander_LIBRARIES})
+add_dependencies(SwansonNodelets ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
 #############
 install(TARGETS
-     vboats_ros
-     vboats_node
+     SwansonNodelets
      # angle_test
      # angle_test_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -109,4 +95,5 @@ install(TARGETS
 )
 
 install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-install(DIRECTORY launch config DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES nodelet_plugins.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

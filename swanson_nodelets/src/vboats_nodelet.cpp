@@ -1,5 +1,5 @@
 #include <iostream>
-#include "swanson_algorithms/vboats_ros.h"
+#include "swanson_nodelets/vboats_nodelet.h"
 
 #include <robocommander/utilities/utils.h>
 #include <robocommander/utilities/image_utils.h>
@@ -10,10 +10,19 @@
 
 using namespace std;
 
+namespace swanson_nodelets {
+
 /** SECTION:
      CONSTRUCTOR & DECONSTRUCTOR
 */
-VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh), _it(nh){
+VboatsNodelet::VboatsNodelet() : Nodelet() {}
+VboatsNodelet::~VboatsNodelet(){ delete this->vb; }
+
+void VboatsNodelet::onInit(){
+     m_nh = getMTNodeHandle();
+     p_nh = getMTPrivateNodeHandle();
+     image_transport::ImageTransport _it(m_nh);
+
      // Flag Configuration
      int update_rate;
      bool flag_use_tf_prefix = false;
@@ -36,12 +45,12 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
           p_nh.getParam("pose_topic",             pose_topic);
           p_nh.getParam("pose_stamped_topic",     pose_stamped_topic);
           // Initialize ROS-Objects
-          this->_depth_sub = m_nh.subscribe<sensor_msgs::Image>(depth_image_topic, 30, boost::bind(&VboatsRos::depthCallback,this,_1,5));
-          this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsRos::infoCallback,this,_1,1));
+          this->_depth_sub = m_nh.subscribe<sensor_msgs::Image>(depth_image_topic, 30, boost::bind(&VboatsNodelet::depthCallback,this,_1,5));
+          this->_cam_info_sub = m_nh.subscribe<sensor_msgs::CameraInfo>(camera_info_topic, 1, boost::bind(&VboatsNodelet::infoCallback,this,_1,1));
           if(strcmp(pose_stamped_topic.c_str(), "") != 0){
-               this->_pose_stamped_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(pose_stamped_topic, 30, &VboatsRos::poseStampedCallback,this);
+               this->_pose_stamped_sub = m_nh.subscribe<geometry_msgs::PoseStamped>(pose_stamped_topic, 30, &VboatsNodelet::poseStampedCallback,this);
           } else if(strcmp(imu_topic.c_str(), "") != 0){
-               this->_imu_sub = m_nh.subscribe<sensor_msgs::Imu>(imu_topic, 30, &VboatsRos::imuCallback,this);
+               this->_imu_sub = m_nh.subscribe<sensor_msgs::Imu>(imu_topic, 30, &VboatsNodelet::imuCallback,this);
           }
 
           // ROS Publishers
@@ -126,19 +135,18 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      // Initialize VBOATS
      this->vb = new Vboats();
 
-     this->_pause_service = m_nh.advertiseService("vboats/pause", &VboatsRos::pause_callback, this);
-     this->_resume_service = m_nh.advertiseService("vboats/resume", &VboatsRos::resume_callback, this);
-     this->_correction_angle_calibration_service = m_nh.advertiseService("vboats/calibrate_correction_angle", &VboatsRos::calibrate_orientation_offsets_callback, this);
-     this->_cfg_f = boost::bind(&VboatsRos::cfgCallback, this, _1, _2);
+     this->_pause_service = m_nh.advertiseService("vboats/pause", &VboatsNodelet::pause_callback, this);
+     this->_resume_service = m_nh.advertiseService("vboats/resume", &VboatsNodelet::resume_callback, this);
+     this->_correction_angle_calibration_service = m_nh.advertiseService("vboats/calibrate_correction_angle", &VboatsNodelet::calibrate_orientation_offsets_callback, this);
+     this->_cfg_f = boost::bind(&VboatsNodelet::cfgCallback, this, _1, _2);
      this->_cfg_server.setCallback(this->_cfg_f);
-     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Successfully Initialized!");
+     NODELET_INFO("[INFO] VboatsNodelet::VboatsNodelet() ---- Successfully Initialized!");
 }
-VboatsRos::~VboatsRos(){ delete this->vb; }
 
 /** -------------------------------------------------------------------------------------------------
 *                                     ROS Subscriber Callbacks
 * ------------------------------------------------------------------------------------------------- */
-void VboatsRos::cfgCallback(swanson_msgs::VboatsConfig &config, uint32_t level){
+void VboatsNodelet::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level){
      std::lock_guard<std::mutex> lock(_lock);
 
      // Debugging Printouts
@@ -471,12 +479,12 @@ void VboatsRos::cfgCallback(swanson_msgs::VboatsConfig &config, uint32_t level){
           this->vb->processingDebugger.enable_vmap_post_sobel_blurred_visualization(this->_visualize_vmap_sobelized_postprocessed_blurred);
      }
 }
-void VboatsRos::depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value){
+void VboatsNodelet::depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value){
      std::lock_guard<std::mutex> lock(_lock);
      cv::Mat image = cv_bridge::toCvCopy(msg)->image;
      this->_depth = image;
 }
-void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){
+void VboatsNodelet::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value){
      std::lock_guard<std::mutex> lock(_lock);
      this->_filtered_depth_info = msg;
      float Tx = msg->P[3];
@@ -485,7 +493,7 @@ void VboatsRos::infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const
      if(depth_scale == 0.0) depth_scale = 1.0;
      this->vb->set_camera_info(msg->K[0], msg->K[4], msg->K[2], msg->K[5], depth_scale, baseline, true);
 }
-void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
+void VboatsNodelet::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);
      this->vb->set_camera_orientation(msg->orientation.x, msg->orientation.y, msg->orientation.z, msg->orientation.w, this->_debug_angle_inputs);
      if(this->_do_angle_offsets_calibration){
@@ -504,7 +512,7 @@ void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
 
                avg_offset = avg_offset / (double) this->_angle_offsets_count;
                avg_offset = -avg_offset*M_RAD2DEG;
-               ROS_INFO("Camera Correction Angle Calibration Complete. Setting Correction Angle to %.2lf deg.", avg_offset);
+               NODELET_INFO("Camera Correction Angle Calibration Complete. Setting Correction Angle to %.2lf deg.", avg_offset);
                this->vb->set_camera_angle_offset(avg_offset);
 
                this->_avg_roll    = 0.0;
@@ -516,19 +524,19 @@ void VboatsRos::imuCallback(const sensor_msgs::Imu::ConstPtr& msg){
           }
      }
 }
-void VboatsRos::poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
+void VboatsNodelet::poseStampedCallback(const geometry_msgs::PoseStamped::ConstPtr& msg){
      std::lock_guard<std::mutex> lock(_lock);
      this->vb->set_camera_orientation(msg->pose.orientation.x, msg->pose.orientation.y, msg->pose.orientation.z, msg->pose.orientation.w, this->_debug_angle_inputs);
 }
-bool VboatsRos::pause_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+bool VboatsNodelet::pause_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
      this->_is_node_paused = true;
-     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Paused.");
+     NODELET_INFO("[INFO] VboatsNodelet::VboatsNodelet() ---- Paused.");
 }
-bool VboatsRos::resume_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+bool VboatsNodelet::resume_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
      this->_is_node_paused = false;
-     ROS_INFO("[INFO] VboatsRos::VboatsRos() ---- Resuming.");
+     NODELET_INFO("[INFO] VboatsNodelet::VboatsNodelet() ---- Resuming.");
 }
-bool VboatsRos::calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
+bool VboatsNodelet::calibrate_orientation_offsets_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response){
      this->_do_angle_offsets_calibration = true;
      this->_avg_roll    = 0.0;
      this->_avg_pitch   = 0.0;
@@ -539,7 +547,7 @@ bool VboatsRos::calibrate_orientation_offsets_callback(std_srvs::Empty::Request&
 /** -------------------------------------------------------------------------------------------------
 *                                     ROS Interface Helper Functions
 * ------------------------------------------------------------------------------------------------- */
-template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher, const cv::Mat& image, bool colorize){
+template<typename ROS_OBJ> void VboatsNodelet::_publish_image(ROS_OBJ publisher, const cv::Mat& image, bool colorize){
      if(!image.empty()){
           cv::Mat data;
           if(colorize) data = imCvtCmap(image);
@@ -557,7 +565,7 @@ template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher, con
           else if(data.type() == CV_16UC3) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "16UC3", data).toImageMsg();
           else if(data.type() == CV_32FC1) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "32FC1", data).toImageMsg();
           else{
-               ROS_DEBUG("VboatsRos::_publish_image() --- Image type is one not currently handled, converting to CV_8U type.");
+               NODELET_DEBUG("VboatsNodelet::_publish_image() --- Image type is one not currently handled, converting to CV_8U type.");
                cvinfo(data, "_publish_image() --- Input Image: ");
                cv::Mat output;
                cv::Mat tmpCopy = data.clone();
@@ -574,11 +582,11 @@ template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher, con
           }
           publisher.publish(tmpImgMsg);
      } else{
-          ROS_DEBUG("VboatsRos::_publish_image() --- Image is empty, not publishing.");
+          NODELET_DEBUG("VboatsNodelet::_publish_image() --- Image is empty, not publishing.");
           cvinfo(image, "_publish_image() --- Input Image: ");
      }
 }
-template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
+template<typename ROS_OBJ> void VboatsNodelet::_publish_image(ROS_OBJ publisher,
      const cv::Mat& image, const sensor_msgs::CameraInfo::ConstPtr& cam_info, bool colorize)
 {
      if(!image.empty()){
@@ -598,7 +606,7 @@ template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
           else if(data.type() == CV_16UC3) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "16UC3", data).toImageMsg();
           else if(data.type() == CV_32FC1) tmpImgMsg = cv_bridge::CvImage(tmpHeader, "32FC1", data).toImageMsg();
           else{
-               ROS_DEBUG("VboatsRos::_publish_image() --- Image type is one not currently handled, converting to CV_8U type.");
+               NODELET_DEBUG("VboatsNodelet::_publish_image() --- Image type is one not currently handled, converting to CV_8U type.");
                cvinfo(data, "_publish_image() --- Input Image: ");
                cv::Mat output;
                cv::Mat tmpCopy = data.clone();
@@ -616,11 +624,11 @@ template<typename ROS_OBJ> void VboatsRos::_publish_image(ROS_OBJ publisher,
           // boost::shared_ptr< ::sensor_msgs::CameraInfo const> tmpCamInfo(&this->_filtered_depth_info);
           publisher.publish(tmpImgMsg, this->_filtered_depth_info);
      } else{
-          ROS_DEBUG("VboatsRos::_publish_image() --- Image is empty, not publishing.");
+          NODELET_DEBUG("VboatsNodelet::_publish_image() --- Image is empty, not publishing.");
           cvinfo(image, "_publish_image() --- Input Image: ");
      }
 }
-void VboatsRos::_publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles){
+void VboatsNodelet::_publish_extracted_obstacle_data(ros::Publisher publisher, std::vector<Obstacle> obstacles){
      if( (!obstacles.empty()) && (obstacles.size() > 0) ){
           int n = 0;
           swanson_msgs::VboatsObstacles obsMsg;
@@ -643,7 +651,7 @@ void VboatsRos::_publish_extracted_obstacle_data(ros::Publisher publisher, std::
           publisher.publish(obsMsg);
      }
 }
-void VboatsRos::_publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud){
+void VboatsNodelet::_publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr inputCloud){
      if(inputCloud->points.size() != 0){
           ros::Duration smallDt(this->_time_offset);
           sensor_msgs::PointCloud2 tmpCloudMsg;
@@ -652,9 +660,9 @@ void VboatsRos::_publish_pointcloud(ros::Publisher publisher, cloudxyz_t::Ptr in
           tmpCloudMsg.header.seq = this->_count;
           tmpCloudMsg.header.frame_id = this->_camera_tf;
           publisher.publish(tmpCloudMsg);
-     } else{ ROS_DEBUG("VboatsRos::_publish_pointcloud() --- Input pointcloud has no points, not publishing."); }
+     } else{ NODELET_DEBUG("VboatsNodelet::_publish_pointcloud() --- Input pointcloud has no points, not publishing."); }
 }
-void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
+void VboatsNodelet::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
      cv::Mat testMat, inMat;
      double minVal, maxVal;
      cv::minMaxLoc(filtered_depth, &minVal, &maxVal);
@@ -686,7 +694,7 @@ void VboatsRos::publish_pointclouds(cv::Mat raw_depth, cv::Mat filtered_depth){
      }
 }
 
-void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc){
+void VboatsNodelet::publish_auxillery_images(const cv::Mat& disparity_gen, const cv::Mat& umap_proc, const cv::Mat& vmap_proc){
      if(this->_publish_corrected_depth){ this->_publish_image<ros::Publisher>(this->_corrected_depth_pub, this->vb->processingDebugger.angle_corrected_depth_img, true); }
      if(this->_publish_generated_disparity){ this->_publish_image<ros::Publisher>(this->_generated_disparity_pub, disparity_gen, true); }
      if(this->_publish_umap_raw){ this->_publish_image<ros::Publisher>(this->_raw_umap_pub, this->vb->processingDebugger.umap_raw, true); }
@@ -702,20 +710,20 @@ void VboatsRos::publish_auxillery_images(const cv::Mat& disparity_gen, const cv:
           this->_publish_image<ros::Publisher>(this->_vmap_keep_mask_pub, this->vb->processingDebugger.vmap_postproc_keep_mask);
      }
 }
-void VboatsRos::publish_debugging_images(){
+void VboatsNodelet::publish_debugging_images(){
      cv::Mat umapDebugImg = this->vb->processingDebugger.construct_low_level_umap_image(this->_overlay_filtered_contours, this->_show_uvmap_debug_titles);
      cv::Mat vmapDebugImg = this->vb->processingDebugger.construct_low_level_vmap_image(this->_overlay_gnd_lines, this->_overlay_object_search_windows, this->_show_uvmap_debug_titles);
      this->_publish_image(this->_umap_debug_pub, umapDebugImg);
      this->_publish_image(this->_vmap_debug_pub, vmapDebugImg);
 }
-void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacles){
+void VboatsNodelet::visualize_obstacle_markers(const std::vector<Obstacle>& obstacles){
      if( (obstacles.empty()) || (obstacles.size() <= 0) ) return;
      std_msgs::ColorRGBA blue;   blue.r = 0; blue.g = 0; blue.b = 1.0; blue.a = 1.0;
      std_msgs::ColorRGBA red;    red.r = 1.0; red.g = 0; red.b = 0; red.a = 1.0;
      std_msgs::ColorRGBA green;  green.r = 0; green.g = 1.0; green.b = 0; green.a = 1.0;
      std_msgs::ColorRGBA purple; purple.r = 1.0; purple.g = 0; purple.b = 1.0; purple.a = 1.0;
 
-     ROS_DEBUG("visualising %lu obstacles", obstacles.size());
+     NODELET_DEBUG("visualising %lu obstacles", obstacles.size());
      visualization_msgs::MarkerArray markers_msg;
      std::vector<visualization_msgs::Marker>& markers = markers_msg.markers;
      visualization_msgs::Marker m;
@@ -741,7 +749,7 @@ void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacle
           m.scale.x = scale; m.scale.y = scale; m.scale.z = scale;
 
           cv::Point3f loc = obstacle.get_location();
-          ROS_DEBUG(" --- obstacle %d = %s", obsIdx, obstacle.toString().c_str());
+          NODELET_DEBUG(" --- obstacle %d = %s", obsIdx, obstacle.toString().c_str());
           m.pose.position.x = loc.x;
           m.pose.position.y = loc.y;
           m.pose.position.z = loc.z;
@@ -762,7 +770,7 @@ void VboatsRos::visualize_obstacle_markers(const std::vector<Obstacle>& obstacle
 /** -------------------------------------------------------------------------------------------------
 *                                       Data Generation Functions
 * ------------------------------------------------------------------------------------------------- */
-cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing){
+cloudxyz_t::Ptr VboatsNodelet::filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing){
      cloudxyz_t::Ptr filtered_cloud(new cloudxyz_t);
      if(inputCloud->points.size() == 0) return filtered_cloud;
      try{
@@ -806,10 +814,10 @@ cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool de
 
           if(debug_timing){
                t = ((double)cv::getTickCount() - t)/cv::getTickFrequency();
-               ROS_INFO("generate_pointcloud_from_depth() ---- took %.4lf ms (%.2lf Hz) to filter a pointcloud.", t*1000.0, (1.0/t));
+               NODELET_INFO("generate_pointcloud_from_depth() ---- took %.4lf ms (%.2lf Hz) to filter a pointcloud.", t*1000.0, (1.0/t));
           }
      } catch(std::exception e){
-          ROS_ERROR("filter_pointcloud() --- %s", e.what());
+          NODELET_ERROR("filter_pointcloud() --- %s", e.what());
      }
 
      return filtered_cloud;
@@ -818,7 +826,7 @@ cloudxyz_t::Ptr VboatsRos::filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool de
 /** -------------------------------------------------------------------------------------------------
 *                                       Runtime Functions
 * ------------------------------------------------------------------------------------------------- */
-int VboatsRos::update(){
+int VboatsNodelet::update(){
      cv::Mat curDepth;
      this->_lock.lock();
      curDepth = this->_depth;
@@ -842,7 +850,7 @@ int VboatsRos::update(){
           this->_prev_gnd_line_slope     = cur_gnd_line_slope;
           this->_prev_gnd_line_intercept = cur_gnd_line_intercept;
           if(this->_debug_ground_line_params){
-               ROS_INFO("Estimated Ground Line Coefficients (slope, intercept) = %.4f, %d &&&& Delta = %.4f, %d",
+               NODELET_INFO("Estimated Ground Line Coefficients (slope, intercept) = %.4f, %d &&&& Delta = %.4f, %d",
                     cur_gnd_line_slope, cur_gnd_line_intercept, delta_slope, delta_intercept
                );
           }
@@ -863,7 +871,7 @@ int VboatsRos::update(){
      return nObs;
 }
 
-int VboatsRos::run(){
+int VboatsNodelet::run(){
      double t;
      if(this->_debug_timings) t = (double)cv::getTickCount();
      while(ros::ok()){
@@ -873,7 +881,7 @@ int VboatsRos::run(){
                if(this->_debug_timings || this->_verbose_update){
                     double now = (double)cv::getTickCount();
                     double dt = (now - t)/cv::getTickFrequency();
-                    ROS_INFO("[INFO] VboatsRos::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));
+                    NODELET_INFO("[INFO] VboatsNodelet::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));
                     t = now;
                }
           }
@@ -881,4 +889,6 @@ int VboatsRos::run(){
           rate.sleep();
      }
      return 0;
+}
+
 }

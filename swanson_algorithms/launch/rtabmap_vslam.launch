@@ -54,6 +54,9 @@
      -->
      <arg name="feature_method"                        default="6"/>
 
+     <arg if="$(arg localization)"      name="detect_rate"    default="0.1"/>
+     <arg unless="$(arg localization)"  name="detect_rate"    default="1.0"/>
+
      <!-- Visual SLAM -->
      <group ns="$(arg namespace)">
           <node name="rtabmap" pkg="rtabmap_ros" type="rtabmap" output="$(arg output)" args="$(arg rtabmap_args)" launch-prefix="$(arg launch_prefix)" clear_params="true">
@@ -97,7 +100,7 @@
                <param unless="$(arg localization)" name="Mem/IncrementalMemory" type="string" value="true"/>
                <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization)"/>
                <param name="Kp/DetectorStrategy"       type="string" value="$(arg feature_method)"/>
-               <param name="Rtabmap/DetectionRate"     value="0.1"/> <!-- default = 1 -->
+               <param name="Rtabmap/DetectionRate"     value="$(arg detect_rate)"/> <!-- default = 1 -->
                <param name="Optimizer/Strategy"        value="2"/> <!-- default = 2.  0=TORO, 1=g2o, 2=GTSAM and 3=Ceres. -->
                <param name="Optimizer/Iterations"      value="20"/> <!-- default = 20 -->
                <param name="Optimizer/Epsilon"         value="0.00001"/> <!-- default = 0.00001 -->

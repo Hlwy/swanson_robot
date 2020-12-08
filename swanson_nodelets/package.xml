@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-     <name>swanson_algorithms</name>
+     <name>swanson_nodelets</name>
      <version>0.1.0</version>
      <description>Package algorithms used for the Swanson platform</description>
      <maintainer email="hunter.lw.young@gmail.com">Hunter Young</maintainer>
@@ -20,7 +20,9 @@
      <build_depend>image_transport</build_depend>
      <build_depend>pcl_ros</build_depend>
      <build_depend>swanson_msgs</build_depend>
+     <build_depend>swanson_algorithms</build_depend>
      <build_depend>dynamic_reconfigure</build_depend>
+     <build_depend>nodelet</build_depend>
 
      <exec_depend>rospy</exec_depend>
      <exec_depend>roscpp</exec_depend>
@@ -33,9 +35,12 @@
      <exec_depend>image_transport</exec_depend>
      <exec_depend>pcl_ros</exec_depend>
      <exec_depend>swanson_msgs</exec_depend>
+     <exec_depend>swanson_algorithms</exec_depend>
      <exec_depend>dynamic_reconfigure</exec_depend>
+     <exec_depend>nodelet</exec_depend>
 
+     <!-- The export tag contains other, unspecified, tags -->
      <export>
-          <!-- The export tag contains other, unspecified, tags -->
+          <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
      </export>
 </package>

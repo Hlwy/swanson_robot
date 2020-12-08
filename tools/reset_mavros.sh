@@ -73,7 +73,7 @@ sleep 1
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --ext-status 1)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --rc-channels 1)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --position 10)&
-(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --raw-sensors 5 --extra1 5)&
+(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --raw-sensors 50 --extra1 50)&
 sleep 5
 
 # Arm the autopilot allowing motor control
@@ -89,9 +89,9 @@ echo "  Running Auxillery Reconfiguration and/or Service Commands ... "
 echo " ---------------------------------------- "
 sleep 1
 # (source $CATKIN_SOURCE_PATH; rosrun mavros altitude_fixer.py)&
-(source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats correction_angle_offset_deg -1.0 &> /dev/null)&
-(source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats time_offset -0.3)&
-# (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set /${ROS_NAMESPACE}/vboats_node gnd_line_intercept_offset 10)&
+# (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats correction_angle_offset_deg -1.0 &> /dev/null)&
+# (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set ${ROS_NS}/vboats time_offset -0.3)&
+# # (source $CATKIN_SOURCE_PATH; rosrun dynamic_reconfigure dynparam set /${ROS_NAMESPACE}/vboats_node gnd_line_intercept_offset 10)&
 echo " "
 echo " ================================= "
 echo "    MavROS Reset Setup Complete    "

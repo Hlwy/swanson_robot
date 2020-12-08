@@ -1,5 +1,5 @@
-#ifndef SWANSON_ALGORITHMS_VBOATS_ROS_H_
-#define SWANSON_ALGORITHMS_VBOATS_ROS_H_
+#ifndef SWANSON_NODELETS_VBOATS_NODELET_H_
+#define SWANSON_NODELETS_VBOATS_NODELET_H_
 
 #include <thread>
 #include <atomic>
@@ -21,6 +21,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <ros/ros.h>
+#include <nodelet/nodelet.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/image_encodings.h>
@@ -33,11 +34,13 @@
 #include <dynamic_reconfigure/server.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <swanson_msgs/VboatsConfig.h>
+#include <swanson_algorithms/VboatsConfig.h>
 #include <swanson_msgs/VboatsObstacle.h>
 #include <swanson_msgs/VboatsObstacles.h>
 
-class VboatsRos{
+namespace swanson_nodelets {
+
+class VboatsNodelet : public nodelet::Nodelet {
 private:
      // Multi-threading objects
      std::mutex _lock;
@@ -53,7 +56,6 @@ private:
      ros::Subscriber _pose_stamped_sub;
 
      sensor_msgs::CameraInfo::ConstPtr _filtered_depth_info;
-     // image_transport::Publisher _filtered_depth_pub;
      image_transport::CameraPublisher _filtered_depth_pub;
      ros::Publisher _raw_cloud_pub;
      ros::Publisher _unfiltered_cloud_pub;
@@ -80,9 +82,8 @@ private:
      ros::ServiceServer _resume_service;
      ros::ServiceServer _correction_angle_calibration_service;
 
-     image_transport::ImageTransport _it;
-     dynamic_reconfigure::Server<swanson_msgs::VboatsConfig> _cfg_server;
-     dynamic_reconfigure::Server<swanson_msgs::VboatsConfig>::CallbackType _cfg_f;
+     dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig> _cfg_server;
+     dynamic_reconfigure::Server<swanson_algorithms::VboatsConfig>::CallbackType _cfg_f;
 
      // ROS namespacing
      std::string _ns;
@@ -164,8 +165,11 @@ private:
      bool _visualize_vmap_sobelized_postprocessed_threshed  = false;
      bool _visualize_vmap_sobelized_postprocessed_blurred   = false;
 
+protected:
+     virtual void onInit();
+
      // ROS Subscriber Callbacks
-     void cfgCallback(swanson_msgs::VboatsConfig &config, uint32_t level);
+     void cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t level);
      void infoCallback(const sensor_msgs::CameraInfo::ConstPtr& msg, const int value);
      void depthCallback(const sensor_msgs::Image::ConstPtr& msg, const int value);
 
@@ -182,8 +186,8 @@ public:
      Vboats* vb;
 
      // Class Construction / Deconstruction
-     VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh);
-     ~VboatsRos();
+     VboatsNodelet();
+     virtual ~VboatsNodelet();
 
      // Data Generation Functions
      cloudxyz_t::Ptr filter_pointcloud(cloudxyz_t::Ptr inputCloud, bool debug_timing = false);
@@ -201,5 +205,9 @@ public:
      void publish_debugging_images();
      void visualize_obstacle_markers(const std::vector<Obstacle>& obstacles);
 };
+}
 
-#endif // SWANSON_ALGORITHMS_VBOATS_ROS_H_
+#include <pluginlib/class_list_macros.h>
+PLUGINLIB_EXPORT_CLASS(swanson_nodelets::VboatsNodelet, nodelet::Nodelet);
+
+#endif // SWANSON_NODELETS_VBOATS_NODELET_H_

@@ -151,6 +151,7 @@ void VboatsRos::cfgCallback(swanson_algorithms::VboatsConfig &config, uint32_t l
           }
           if(config.debug_timings != this->_debug_timings){
                this->_debug_timings = config.debug_timings;
+               this->vb->enable_image_processing_timings_debug(this->_debug_timings);
           }
           if(config.debug_disparity_generation != this->_debug_disparity_generation){
                this->_debug_disparity_generation = config.debug_disparity_generation;
@@ -865,12 +866,12 @@ int VboatsRos::update(){
 
 int VboatsRos::run(){
      double t;
-     if(this->_debug_timings) t = (double)cv::getTickCount();
+     if(this->_verbose_update) t = (double)cv::getTickCount();
      while(ros::ok()){
           ros::Rate rate( (int) this->_update_rate );
           if(!this->_is_node_paused){
                int nObjects = this->update();
-               if(this->_debug_timings || this->_verbose_update){
+               if(this->_verbose_update){
                     double now = (double)cv::getTickCount();
                     double dt = (now - t)/cv::getTickFrequency();
                     ROS_INFO("[INFO] VboatsRos::update() --- Found %d obstacles in %.4lf ms (%.2lf Hz).", nObjects, dt*1000.0, (1.0/dt));

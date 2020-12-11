@@ -12,13 +12,13 @@ if(${MACHINE} MATCHES "arm-linux-gnueabihf")
 endif(${MACHINE} MATCHES "arm-linux-gnueabihf")
 
 set( ROS_CXX_DEPENDENCIES
+     tf
      rospy
      roscpp
      std_msgs
+     cv_bridge
      sensor_msgs
      geometry_msgs
-     tf
-     cv_bridge
      image_transport
      message_generation
 )
@@ -29,6 +29,7 @@ find_package(realsense2 REQUIRED)
 find_package(robocommander REQUIRED)
 # find_package(robocommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 message(STATUS "robocommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
 message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
@@ -86,7 +87,7 @@ add_executable(bno055_multiplexed_node src/bno055_multiplexed_node.cpp)
 target_link_libraries(bno055_multiplexed_node bno055_i2c_ros)
 
 add_library(camera_d4xx_ros src/camera_d4xx_ros.cpp)
-target_link_libraries(camera_d4xx_ros ${catkin_LIBRARIES} image_utils camera_d4xx) # ${robocommander_LIBRARIES})
+target_link_libraries(camera_d4xx_ros camera_d4xx ${OpenCV_LIBS} ${catkin_LIBRARIES}) # ${robocommander_LIBRARIES})
 add_dependencies(camera_d4xx_ros ${catkin_EXPORTED_TARGETS}) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(camera_d4xx_node src/camera_d4xx_ros_node.cpp)

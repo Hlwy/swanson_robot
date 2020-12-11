@@ -40,6 +40,12 @@ def check_topic_for_keeping(pString, keep_patterns=[], remove_patterns=[],  verb
     if(verbose): print("[INFO] check_topic_for_keeping() --- Input topic \'%s\' -- is a keeper = %s. (isBadApple = %s, isKeeper = %s)" % (pString, str(isAKeeper), str(foundBadApple), str(foundAKeeper)) )
     return isAKeeper
 
+def yes_or_no(question):
+    while "the answer is invalid":
+        reply = str(raw_input(question+' (y/n): ')).lower().strip()
+        if reply[0] == 'y': return True
+        if reply[0] == 'n': return False
+
 
 if __name__ == "__main__" :
 
@@ -87,22 +93,25 @@ if __name__ == "__main__" :
     nData = int(bagIn.get_message_count())
     print("[INFO] rosbag_topic_filter.py --- Input rosbag file \'%s\' contains %d msgs." % (inputBagPath, nData))
 
-
     newCnt = 0
     inputCnt = 0
     newBagData = []
+    keptTopicHistory = []
     for topic, msg, stamp in bagData:
         inputCnt += 1
         isAKeeper = check_topic_for_keeping(topic, keepPatterns, removePatterns)
-        # print("[INFO] rosbag_topic_filter.py --- rosbag data #%d has topic = %s stamped at %s. Will it be kept --- %s" % (inputCnt, topic, str(stamp), str(isAKeeper) ) )
         if isAKeeper:
+            if(topic not in keptTopicHistory):
+                keptTopicHistory.append(topic)
+                print("[INFO] rosbag_topic_filter.py ---- New rosbag will have topic --- \'%s\'" % (topic) )
             newBagData.append([topic, msg, stamp])
             newCnt += 1
 
-    print("[INFO] rosbag_topic_filter.py --- Writing %d / %d ROS msgs into new rosbag file..." % (newCnt, nData))
+    do_save_to_file = yes_or_no("Do you want to save these topics to the new rosbag at \'%s\'?" % newBagPath)
 
-    with rosbag.Bag(newBagPath, mode='w') as outbag:
-        [outbag.write(tp, m, stmp) for tp, m, stmp in newBagData]
-
-
-    print("rosbag filtering finished.")
+    if(do_save_to_file):
+        print("[INFO] rosbag_topic_filter.py --- Writing %d / %d ROS msgs into new rosbag file..." % (newCnt, nData))
+        with rosbag.Bag(newBagPath, mode='w') as outbag:
+            [outbag.write(tp, m, stmp) for tp, m, stmp in newBagData]
+        print("rosbag filtering finished.")
+    else: print("[INFO] rosbag_topic_filter.py --- Try running this script again w/ different keep/remove patterns.")

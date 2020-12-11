@@ -335,13 +335,13 @@ void CameraD4XXRos::update(bool verbose){
 			printf("[INFO] CameraD4XXRos::update() ---- %d images collected. Current timing %.4lf ms (%.2lf Hz)\r\n", this->_img_count, dt*1000.0, (1.0/dt));
 			t = (double)cv::getTickCount();
 		}
-		if(visualize){
-			if(!rgb.empty()) cv::imshow("RGB", rgb);
-			if(!depth.empty()) cv::imshow("Depth", depth);
-			if(this->_calc_disparity)
-				if(!disparity.empty()) cv::imshow("Disparity", disparity);
-			cv::waitKey(10);
-		}
+		// if(visualize){
+		// 	if(!rgb.empty()) cv::imshow("RGB", rgb);
+		// 	if(!depth.empty()) cv::imshow("Depth", depth);
+		// 	if(this->_calc_disparity)
+		// 		if(!disparity.empty()) cv::imshow("Disparity", disparity);
+		// 	cv::waitKey(10);
+		// }
 	}
 }
 

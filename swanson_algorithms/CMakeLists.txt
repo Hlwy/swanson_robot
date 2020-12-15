@@ -25,13 +25,12 @@ set( ROS_CXX_DEPENDENCIES
      dynamic_reconfigure
 )
 
+find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenCV 4 REQUIRED)
 find_package(realsense2 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
 # add_definitions(${PCL_DEFINITIONS})
-
-find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/robocommander
@@ -44,6 +43,14 @@ message(STATUS "     Library Objects:")
 foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
 endforeach()
+
+if(OpenCV_CUDA_VERSION)
+     message(" ----- OpenCV is CUDA-enabled")
+     option(WITH_CUDA  "Build CUDA-accelerated Image Processing Functions" ON)
+else()
+     message(" ----- OpenCV is not CUDA-enabled")
+     option(WITH_CUDA  "Build CUDA-accelerated Image Processing Functions" OFF)
+endif()
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
@@ -61,6 +68,7 @@ link_directories(
      ${Boost_LIBRARIES}
      ${robocommander_LIBRARIES}
      ${OpenCV_LIBS}
+     ${OpenCV_LIBRARIES}
      ${realsense2_LIBRARY}
      ${PCL_LIBRARY_DIRS}
 )
@@ -73,7 +81,7 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_algorithms
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS Boost
+     DEPENDS Boost OpenCV
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
@@ -81,12 +89,12 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ## Build ##
 ###########
 
-add_library(vboats_ros src/vboats_ros.cpp)
-target_link_libraries(vboats_ros ${catkin_LIBRARIES} ${OpenCV_LIBS} ${robocommander_LIBRARIES})
+add_library(vboats_ros SHARED src/vboats_ros.cpp)
+target_link_libraries(vboats_ros PUBLIC ${robocommander_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES})
 add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)
-target_link_libraries(vboats_node vboats_ros)
+target_link_libraries(vboats_node PUBLIC vboats_ros)
 
 # add_library(angle_test src/angle_test.cpp)
 # target_link_libraries(angle_test ${catkin_LIBRARIES} ${robocommander_LIBRARIES})

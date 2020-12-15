@@ -104,6 +104,7 @@ private:
      double _user_angle_offset                              = 0.0;
      float _prev_gnd_line_slope                             = 0.0;
      int _prev_gnd_line_intercept                           = 0;
+     bool _try_cuda                                         = false;
 
      // Pointcloud Filtering Parameters
      bool _do_cloud_limit_filtering                         = true;

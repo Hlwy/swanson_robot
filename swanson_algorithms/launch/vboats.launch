@@ -1,4 +1,5 @@
 <launch>
+     <arg name="use_cuda"               default="false"/>
      <arg name="update_rate"            default="5"/>
 
      <arg name="imu_topic"              default="mavros/imu/data"/>
@@ -26,5 +27,6 @@
 
           <param name="parent_frame"          value="base_link"/>
           <param name="camera_base_frame"     value="$(arg optical_frame)"/>
+          <param name="use_cuda"              value="$(arg use_cuda)"/>
      </node>
 </launch>

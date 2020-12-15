@@ -21,6 +21,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      p_nh.getParam("namespace",namespaced);
      p_nh.param<int>("update_rate", update_rate, 30);
      this->_ns = namespaced;
+     p_nh.getParam("use_cuda",      this->_try_cuda);
 
      // ROS Object Configuration
      {
@@ -830,9 +831,13 @@ int VboatsRos::update(){
      cv::Mat inUmap, inVmap;
      cv::Mat procUmap, procVmap;
      cv::Mat filtered_depth, genDisparity;
-     int nObs = this->vb->process(curDepth, &filtered_depth, &obs, &gnd_line_coefficients,
-          &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles
-     );
+     int nObs;
+     if(this->_try_cuda){
+          nObs = this->vb->process_w_cuda(curDepth, &filtered_depth, &obs, &gnd_line_coefficients, &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles);
+          ROS_INFO("CUDA OUTPUT = %d", nObs);
+     } else{
+          nObs = this->vb->process(curDepth, &filtered_depth, &obs, &gnd_line_coefficients, &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles);
+     }
 
      // Misc Printouts
      if(!gnd_line_coefficients.empty()){

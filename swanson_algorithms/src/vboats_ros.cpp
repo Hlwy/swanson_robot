@@ -834,7 +834,7 @@ int VboatsRos::update(){
      int nObs;
      if(this->_try_cuda){
           nObs = this->vb->process_w_cuda(curDepth, &filtered_depth, &obs, &gnd_line_coefficients, &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles);
-          ROS_INFO("CUDA OUTPUT = %d", nObs);
+          // ROS_INFO("CUDA OUTPUT = %d", nObs);
      } else{
           nObs = this->vb->process(curDepth, &filtered_depth, &obs, &gnd_line_coefficients, &genDisparity, &procUmap, &procVmap, nullptr, nullptr, this->_verbose_obstacles);
      }

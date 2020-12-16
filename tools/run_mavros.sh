@@ -51,7 +51,7 @@ fi
 
 # Start Mavros node
 (source $CATKIN_SOURCE_PATH; roslaunch mavros apm_custom.launch gcs_url:="udp://192.168.2.3:9000@192.168.2.4:6000?ids=1,255,252")&
-sleep 5
+sleep 7
 
 # Set logger levels to hide annoying printouts from mavros during parameter retrieval
 HIDE_MAVROS_PARAM_PRINTOUTS=$(cat <<- END
@@ -81,6 +81,7 @@ sleep 5
 
 # Start RGB-D Camera ROS node
 (source $CATKIN_SOURCE_PATH; roslaunch swanson_sensors camera_d4xx.launch)&
+(source $CATKIN_SOURCE_PATH; roslaunch swanson_algorithms vboats.launch)&
 
 # Run commands for resetting any additional ROS nodes
 # (source $CATKIN_SOURCE_PATH; rosservice call $ROS_NS/mavros/wheel_encoders_data/reset_service "{}")
@@ -97,6 +98,5 @@ sleep 5
 
 # Start any additional ROS nodes
 # (source $CATKIN_SOURCE_PATH; roslaunch move_base move_base.launch)&
-# (source $CATKIN_SOURCE_PATH; roslaunch swanson_algorithms vboats.launch)&
 echo "Press CTRL + C to kill everything"
 read asdf

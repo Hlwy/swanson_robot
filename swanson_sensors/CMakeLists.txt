@@ -29,7 +29,7 @@ find_package(realsense2 REQUIRED)
 find_package(robocommander REQUIRED)
 # find_package(robocommander REQUIRED COMPONENTS tca9548a bno055_i2c rtimu image_utils camera_d4xx)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 message(STATUS "robocommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
 message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")

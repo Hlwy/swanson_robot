@@ -15,26 +15,25 @@ set( ROS_CXX_DEPENDENCIES
      rospy
      roscpp
      tf
+     pcl_ros
      std_msgs
      cv_bridge
      sensor_msgs
+     swanson_msgs
      image_transport
      message_generation
-     swanson_msgs
-     pcl_ros
      dynamic_reconfigure
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
 find_package(OpenCV 4 REQUIRED)
-find_package(realsense2 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
 # add_definitions(${PCL_DEFINITIONS})
 
 # For proper linkage use:
 #    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib/robocommander
-find_package(robocommander REQUIRED)
+find_package(robocommander REQUIRED vboats)
 message(STATUS "RoboCommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
 message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
@@ -61,7 +60,6 @@ include_directories(
      ${robocommander_INCLUDES}
      ${catkin_INCLUDE_DIRS}
      ${OpenCV_INCLUDE_DIRS}
-     ${realsense2_INCLUDE_DIR}
      ${PCL_INCLUDE_DIRS}
 )
 link_directories(
@@ -69,7 +67,6 @@ link_directories(
      ${robocommander_LIBRARIES}
      ${OpenCV_LIBS}
      ${OpenCV_LIBRARIES}
-     ${realsense2_LIBRARY}
      ${PCL_LIBRARY_DIRS}
 )
 
@@ -90,7 +87,7 @@ add_dependencies(${catkin_EXPORTED_TARGETS})
 ###########
 
 add_library(vboats_ros SHARED src/vboats_ros.cpp)
-target_link_libraries(vboats_ros PUBLIC ${robocommander_LIBRARIES} ${OpenCV_LIBS} ${catkin_LIBRARIES})
+target_link_libraries(vboats_ros PUBLIC vboats ${catkin_LIBRARIES})
 add_dependencies(vboats_ros ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg) #${PROJECT_NAME}_generate_messages_cpp ${PROJECT_NAME}_gencpp)
 
 add_executable(vboats_node src/vboats_ros_node.cpp)

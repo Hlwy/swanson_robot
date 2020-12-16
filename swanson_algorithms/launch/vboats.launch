@@ -1,6 +1,5 @@
 <launch>
-     <arg name="use_cuda"               default="false"/>
-     <arg name="update_rate"            default="5"/>
+     <arg name="use_cuda"               default="true"/>
 
      <arg name="imu_topic"              default="mavros/imu/data"/>
      <arg name="info_topic"             default="camera/depth/camera_info"/>
@@ -18,15 +17,13 @@
      <arg unless="$(arg gdb)" name="launch_args" default=""/>
      <arg if="$(arg gdb)"     name="launch_args" default="gdb -ex run --args"/>
 
-     <node pkg="swanson_algorithms" type="vboats_node" name="vboats" clear_params="true" output="screen" launch-prefix="$(arg launch_args)">
-          <param name="update_rate"           value="$(arg update_rate)"/>
+     <arg name="cuda_args" default=""/>
+     <!-- <arg if="$(arg use_cuda)"     name="cuda_args" default="nvprof -o prof.nvvp"/> -->
 
+     <node pkg="swanson_algorithms" type="vboats_node" name="vboats" clear_params="true" output="screen" launch-prefix="$(arg cuda_args) $(arg launch_args)">
           <param name="camera_info_topic"     value="$(arg info_topic)"/>
           <param name="depth_image_topic"     value="$(arg depth_topic)"/>
           <param name="imu_topic"             value="$(arg imu_topic)"/>
-
-          <param name="parent_frame"          value="base_link"/>
-          <param name="camera_base_frame"     value="$(arg optical_frame)"/>
           <param name="use_cuda"              value="$(arg use_cuda)"/>
      </node>
 </launch>

@@ -19,7 +19,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      bool flag_use_tf_prefix = false;
      std::string namespaced = m_nh.getNamespace();
      p_nh.getParam("namespace",namespaced);
-     p_nh.param<int>("update_rate", update_rate, 30);
+     p_nh.param<int>("update_rate", update_rate, 5);
      this->_ns = namespaced;
      p_nh.getParam("use_cuda",      this->_try_cuda);
 
@@ -110,7 +110,7 @@ VboatsRos::VboatsRos(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_
      {
           std::string tf_prefix = "/";
           std::string parent_tf = "base_link";
-          std::string cam_base_tf = "camera_link";
+          std::string cam_base_tf = "camera_depth_optical_frame";
           p_nh.getParam("parent_frame",parent_tf);
           p_nh.getParam("camera_base_frame",cam_base_tf);
 

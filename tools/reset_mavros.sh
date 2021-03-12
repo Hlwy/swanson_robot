@@ -57,14 +57,6 @@ sleep 1
 # (source $CATKIN_SOURCE_PATH; rosrun mavros encoder_pose_republisher.py)&
 sleep 5
 
-# Set the autopilot's mode to GUIDED for control via MAVROS
-echo " ---------------------------------------- "
-echo "   Setting Autopilot Mode to GUIDED...    "
-echo " ---------------------------------------- "
-sleep 1
-(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" mode -c GUIDED)&
-sleep 5
-
 # Change the publish rates for the various data streams available from the autopilot
 echo " ---------------------------------------- "
 echo " Setting GCS Data Telemetry Stream Rates... "
@@ -74,6 +66,14 @@ sleep 1
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --rc-channels 1)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --position 10)&
 (source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" rate --raw-sensors 20 --extra1 20)&
+sleep 5
+
+# Set the autopilot's mode to GUIDED for control via MAVROS
+echo " ---------------------------------------- "
+echo "   Setting Autopilot Mode to GUIDED...    "
+echo " ---------------------------------------- "
+sleep 1
+(source $CATKIN_SOURCE_PATH; rosrun mavros mavsys -n "${MAVROS_NS}" mode -c GUIDED)&
 sleep 5
 
 # Arm the autopilot allowing motor control

@@ -1,0 +1,157 @@
+<launch>
+     <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
+     <!-- Run a VoxelGrid filter to clean NaNs and downsample the data -->
+     <node pkg="nodelet" type="nodelet" name="voxel_grid" args="load pcl/VoxelGrid pcl_manager" output="screen">
+          <remap from="~input" to="vboats/cloud/raw" />
+          <rosparam>
+               filter_field_name: z
+               filter_limit_min: 0.01
+               filter_limit_max: 1.0
+               filter_limit_negative: False
+               leaf_size: 0.01
+          </rosparam>
+     </node>
+     <!-- <node pkg="nodelet" type="nodelet" name="normal_estimation" args="load pcl/NormalEstimation pcl_manager" output="screen">
+          <remap from="~input" to="voxel_grid/output" />
+          <rosparam>
+               # -[ Mandatory parameters
+               k_search: 0
+               radius_search: 0.015
+               # Set the spatial locator. Possible values are: 0 (ANN), 1 (FLANN), 2 (organized)
+               spatial_locator: 0
+          </rosparam>
+          <param name="approximate_sync" value="true" />
+     </node> -->
+
+     <!-- Segment the table plane -->
+     <node pkg="nodelet" type="nodelet" name="planar_segmentation" args="load pcl/SACSegmentation pcl_manager" output="screen">
+          <remap from="~input"   to="voxel_grid/output" />
+          <rosparam>
+               # -[ Mandatory parameters
+               # model_type:
+               # 0: SACMODEL_PLANE
+               # 1: SACMODEL_LINE
+               # 2: SACMODEL_CIRCLE2D
+               # 3: SACMODEL_CIRCLE3D
+               # 4: SACMODEL_SPHERE
+               # 5: SACMODEL_CYLINDER
+               # 6: SACMODEL_CONE
+               # 7: SACMODEL_TORUS
+               # 8: SACMODEL_PARALLEL_LINE
+               # 9: SACMODEL_PERPENDICULAR_PLANE
+               # 10: SACMODEL_PARALLEL_LINES
+               # 11: SACMODEL_NORMAL_PLANE
+               # 12: SACMODEL_NORMAL_SPHERE
+               # 13: SACMODEL_REGISTRATION
+               # 14: SACMODEL_REGISTRATION_2D
+               # 15: SACMODEL_PARALLEL_PLANE
+               # 16: SACMODEL_NORMAL_PARALLEL_PLANE
+               # 17: SACMODEL_STICK
+               model_type: 15
+               distance_threshold: 0.01
+               max_iterations: 1000
+               method_type: 0
+               optimize_coefficients: true
+               normal_distance_weight: 0.1
+               eps_angle: 0.09
+               axis: [0.0, 0.0, -1.0]
+          </rosparam>
+          <param name="approximate_sync" value="true" />
+     </node>
+
+     <node pkg="nodelet" type="nodelet" name="extract_plane_inliers" args="load pcl/ExtractIndices pcl_manager" output="screen">
+          <remap from="~input"   to="voxel_grid/output" />
+          <remap from="~indices" to="planar_segmentation/inliers" />
+          <param name="approximate_sync" value="true" />
+     </node>
+     <node pkg="nodelet" type="nodelet" name="extract_plane_outliers" args="load pcl/ExtractIndices pcl_manager" output="screen">
+          <remap from="~input"   to="voxel_grid/output" />
+          <remap from="~indices" to="planar_segmentation/inliers" />
+          <param name="negative" value="true" />
+          <param name="approximate_sync" value="true" />
+     </node>
+
+     <node pkg="nodelet" type="nodelet" name="beam_segmentation" args="load pcl/SACSegmentation pcl_manager" output="screen">
+          <remap from="~input"   to="extract_plane_outliers/output" />
+          <rosparam>
+               # -[ Mandatory parameters
+               # model_type:
+               # 0: SACMODEL_PLANE
+               # 1: SACMODEL_LINE
+               # 2: SACMODEL_CIRCLE2D
+               # 3: SACMODEL_CIRCLE3D
+               # 4: SACMODEL_SPHERE
+               # 5: SACMODEL_CYLINDER
+               # 6: SACMODEL_CONE
+               # 7: SACMODEL_TORUS
+               # 8: SACMODEL_PARALLEL_LINE
+               # 9: SACMODEL_PERPENDICULAR_PLANE
+               # 10: SACMODEL_PARALLEL_LINES
+               # 11: SACMODEL_NORMAL_PLANE
+               # 12: SACMODEL_NORMAL_SPHERE
+               # 13: SACMODEL_REGISTRATION
+               # 14: SACMODEL_REGISTRATION_2D
+               # 15: SACMODEL_PARALLEL_PLANE
+               # 16: SACMODEL_NORMAL_PARALLEL_PLANE
+               # 17: SACMODEL_STICK
+               model_type: 15
+               distance_threshold: 0.01
+               max_iterations: 1000
+               method_type: 0
+               optimize_coefficients: true
+               normal_distance_weight: 0.1
+               eps_angle: 0.09
+               axis: [0.0, -1.0, 0.0]
+          </rosparam>
+          <param name="approximate_sync" value="true" />
+     </node>
+     <node pkg="nodelet" type="nodelet" name="beam_detection" args="load pcl/ExtractIndices pcl_manager" output="screen">
+          <remap from="~input"   to="extract_plane_outliers/output" />
+          <remap from="~indices" to="beam_segmentation/inliers" />
+          <param name="negative" value="true" />
+          <param name="approximate_sync" value="true" />
+     </node>
+
+     <node pkg="nodelet" type="nodelet" name="extract_clusters" args="load pcl/EuclideanClusterExtraction pcl_manager" output="screen">
+          <remap from="~input"   to="beam_detection/output" />
+          <remap from="~indices" to="beam_segmentation/inliers" />
+          <rosparam>
+               cluster_tolerance: 0.05
+               spatial_locator: 0
+          </rosparam>
+          <param name="approximate_sync" value="true" />
+          <param name="publish_indices" value="true" />
+     </node>
+
+     <node pkg="nodelet" type="nodelet" name="cluster_inliers" args="load pcl/ExtractIndices pcl_manager" output="screen">
+          <remap from="~input"   to="beam_detection/output" />
+          <remap from="~indices" to="extract_clusters/output" />
+          <param name="approximate_sync" value="true" />
+     </node>
+     <node pkg="nodelet" type="nodelet" name="cluster_outliers" args="load pcl/ExtractIndices pcl_manager" output="screen">
+          <remap from="~input"   to="beam_detection/output" />
+          <remap from="~indices" to="extract_clusters/output" />
+          <param name="negative" value="true" />
+          <param name="approximate_sync" value="true" />
+     </node>
+
+     <node pkg="nodelet" type="nodelet" name="planar_segmentation" args="load pcl/SACSegmentation pcl_manager" output="screen">
+          <remap from="~input"   to="voxel_grid/output" />
+          <rosparam>
+               # model_type:
+               # 1: SACMODEL_LINE
+               # 8: SACMODEL_PARALLEL_LINE
+               # 10: SACMODEL_PARALLEL_LINES
+               model_type: 1
+               distance_threshold: 0.01
+               max_iterations: 1000
+               method_type: 0
+               optimize_coefficients: true
+               eps_angle: 0.09
+               # normal_distance_weight: 0.1
+               # axis: [0.0, 0.0, -1.0]
+          </rosparam>
+          <param name="approximate_sync" value="true" />
+     </node>
+
+</launch>

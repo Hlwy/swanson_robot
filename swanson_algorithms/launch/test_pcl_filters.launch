@@ -1,10 +1,12 @@
 <launch>
      <node pkg="nodelet" type="nodelet" name="pcl_manager" args="manager" output="screen" />
      <node name="voxel_grid" pkg="nodelet" type="nodelet" args="load pcl/VoxelGrid pcl_manager">
-          <remap from="~input" to="/vboats/cloud/filtered" />
+          <remap from="~input" to="vboats/cloud/raw" />
           <rosparam subst_value="true">
-               filter_field_name: ''
-               leaf_size: 0.1
+               filter_field_name: z
+               filter_limit_min: 0.01
+               filter_limit_max: 1.5
+               leaf_size: 0.01
           </rosparam>
      </node>
 
@@ -50,7 +52,7 @@
                # 15: SACMODEL_PARALLEL_PLANE
                # 16: SACMODEL_NORMAL_PARALLEL_PLANE
                # 17: SACMODEL_STICK
-               model_type: 0
+               model_type: 11
                distance_threshold: 0.1
                max_iterations: 1000
                method_type: 0

@@ -16,13 +16,17 @@ set( ROS_CXX_DEPENDENCIES
      roscpp
      tf
      pcl_ros
+     pcl_msgs
      std_msgs
      cv_bridge
      sensor_msgs
-     swanson_msgs
+     tf_conversions
      image_transport
+     pcl_conversions
      message_generation
+     swanson_msgs
      dynamic_reconfigure
+     visualization_msgs
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
@@ -99,6 +103,9 @@ target_link_libraries(vboats_node PUBLIC vboats_ros)
 #
 # add_executable(angle_test_node src/angle_test_node.cpp)
 # target_link_libraries(angle_test_node angle_test)
+
+add_executable(pcl_tests src/pcl_tests.cpp)
+target_link_libraries(pcl_tests ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
 #############
 ## Install ##

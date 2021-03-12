@@ -1,5 +1,6 @@
 <launch>
      <arg name="debug"                                 default="false"/>
+     <arg name="robust"                                default="false"/>
      <arg name="localization"                          default="false"/>
      <arg name="database_path"                         default="~/.ros/rtabmap.db"/>
      <arg name="gui_cfg"                               default="~/.ros/rtabmap_gui.ini" />
@@ -20,6 +21,7 @@
      <arg name="odom_sensor_sync"                      default="false"/>
      <arg name="approx_sync"                           default="true"/>
      <arg name="viz"                                   default="false"/>
+     <arg name="gen_scan"                              default="false"/>
 
      <!-- ROS topics -->
      <arg name="frame_id"                              default="base_link"/>
@@ -68,6 +70,7 @@
                <remap from="depth/image"          to="$(arg depth_topic)"/>
                <remap from="rgb/camera_info"      to="$(arg camera_info_topic)"/>
                <!-- <remap from="scan"                 to="$(arg scan_topic)"/> -->
+               <param name="gen_scan"             type="bool"   value="$(arg gen_scan)"/>
 
                <param name="frame_id"             type="string" value="$(arg frame_id)"/>
                <!-- <param name="odom_frame_id"        type="string" value="$(arg odom_frame_id)"/> -->
@@ -82,7 +85,7 @@
                <param name="wait_for_transform_duration"    type="double" value="$(arg wait_for_transform_dt)"/>
 
                <!-- <param name="map_negative_poses_ignored" type="bool" value="true"/> -->
-               <remap from="grid_map" to="/grid_map"/>
+               <!-- <remap from="grid_map" to="/grid_map"/> -->
                <!--
                     When appending a new cloud to cloud_map, filter points that have less neighbors
                than cloud_subtract_filtering_min_neighbors in the radius Grid/CellSize.
@@ -97,25 +100,35 @@
                <param unless="$(arg localization)" name="Mem/IncrementalMemory" type="string" value="true"/>
                <param name="Mem/InitWMWithAllNodes" type="string" value="$(arg localization)"/>
                <param name="Kp/DetectorStrategy"       type="string" value="$(arg feature_method)"/>
-               <param name="Rtabmap/DetectionRate"     value="0.1"/> <!-- default = 1 -->
+               <param if="$(arg localization)"     name="Rtabmap/DetectionRate"     value="0.1"/> <!-- default = 1 -->
+               <param unless="$(arg localization)" name="Rtabmap/DetectionRate"     value="0"/> <!-- default = 1 -->
                <param name="Optimizer/Strategy"        value="2"/> <!-- default = 2.  0=TORO, 1=g2o, 2=GTSAM and 3=Ceres. -->
                <param name="Optimizer/Iterations"      value="20"/> <!-- default = 20 -->
                <param name="Optimizer/Epsilon"         value="0.00001"/> <!-- default = 0.00001 -->
                <param name="Optimizer/VarianceIgnored" value="false"/> <!-- default = false -->
+               <param unless="$(arg robust)"     name="Optimizer/Robust"          value="false"/> <!-- default = false. -->
+               <param unless="$(arg robust)"     name="RGBD/OptimizeMaxError"     type="double" value="3.0"/>
+               <param if="$(arg robust)" name="Optimizer/Robust"          value="true"/> <!-- default = false. -->
+               <param if="$(arg robust)" name="RGBD/OptimizeMaxError"     type="double" value="0.0"/>
 
-               <param name="RGBD/NeighborLinkRefining"                   value="true"/> <!-- default = false -->
+               <param name="RGBD/NeighborLinkRefining"                   value="false"/> <!-- default = false -->
                <param name="RGBD/LoopClosureReextractFeatures"           value="false"/> <!-- default = false -->
-               <param name="RGBD/OptimizeMaxError"         type="double" value="3.0"/>
                <param name="RGBD/LocalBundleOnLoopClosure" type="string" value="false"/>   <!-- Local loop closure detection (using estimated position) with locations in WM -->
                <param name="RGBD/OptimizeFromGraphEnd"     type="string" value="false"/>  <!-- Set to false to generate map correction between /map and /odom -->
                <param name="Reg/Strategy"                  type="string" value="0"/>      <!-- Loop closure transformation: 0=Visual, 1=ICP, 2=Visual+ICP -->
                <param name="Vis/MinInliers"                type="string" value="20"/>      <!-- 3D visual words minimum inliers to accept loop closure -->
                <param name="Vis/InlierDistance"            type="string" value="0.1"/>    <!-- 3D visual words correspondence distance -->
-               <param name="Vis/MaxFeatures"               value="1500"/> <!-- default = 1000 -->
+               <param name="Vis/MaxFeatures"               value="0"/> <!-- default = 1000 ___ was 1500 -->
                <param name="Vis/MinDepth"                  value="0.0"/> <!-- default = 0 -->
                <!-- <param name="Vis/MaxDepth"                  value="3.0"/> --> <!-- default = 0 -->
                <param name="Kp/MaxFeatures"                value="750"/>
                <param name="Kp/MinDepth"                   value="0.0"/> <!-- default = 0 -->
+
+               <param name="Vis/CorNNType"                  value="7"/> <!-- default = 1 -->
+               <!-- <param if="$(arg localization)"     name="Vis/CorNNType"                  value="7"/> -->
+               <!-- <param unless="$(arg localization)" name="Vis/CorNNType"                  value="7"/> -->
+
+               <param name="RGBD/ProximityOdomGuess"        value="true"/> <!-- default = false -->
 
                <param name="GFTT/MinDistance"              type="string" value="7"/>
                <!-- <param name="GFTT/BlockSize"         type="string" value="1"/> -->
@@ -155,6 +168,13 @@
                <param name="Grid/NoiseFilteringMinNeighbors" value="17"/>
                <param name="Grid/CellSize"                  value="0.02"/>
                <param name="Grid/DepthRoiRatios"            value="0.1 0.0 0.0 0.15"/>
+
+               <param name="RGBD/MarkerDetection"           value="true"/>
+               <param name="Marker/Dictionary"              value="20"/>
+               <param name="Marker/VarianceAngular"         value="9999"/>
+               <param name="Marker/VarianceLinear"          value="0.0001"/>
+               <param name="Marker/Length"                  value="0.175"/>
+               <param name="Marker/MaxRange"                value="7.0"/>
           </node>
      </group>
 </launch>

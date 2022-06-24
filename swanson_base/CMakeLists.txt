@@ -19,7 +19,7 @@ set( ROS_CXX_DEPENDENCIES
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
-find_package(robocommander REQUIRED COMPONENTS dualclaw)
+find_package(robocommander REQUIRED COMPONENTS dualclaw diffdrive_claw)
 
 message(STATUS "robocommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
@@ -58,13 +58,23 @@ add_library(dualclawskidsteerdrivetrain src/dual_roboclaw_skidsteer_drivetrain.c
 target_link_libraries(dualclawskidsteerdrivetrain ${catkin_LIBRARIES} dualclaw)
 add_dependencies(dualclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg swanson_msgs_generate_messages_cpp)
 
+# Libraries
+add_library(diffdriveclawskidsteerdrivetrain src/diffdrive_roboclaw_skidsteer_drivetrain.cpp)
+target_link_libraries(diffdriveclawskidsteerdrivetrain ${catkin_LIBRARIES} diffdrive_claw)
+add_dependencies(diffdriveclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg swanson_msgs_generate_messages_cpp)
+
 # Executables
 add_executable(dualclaw_skidsteer_drivetrain_node src/dualclaw_skidsteer_drivetrain_node.cpp)
 target_link_libraries(dualclaw_skidsteer_drivetrain_node dualclawskidsteerdrivetrain)
 
+add_executable(diffdriveclaw_skidsteer_drivetrain_node src/diffdriveclaw_skidsteer_drivetrain_node.cpp)
+target_link_libraries(diffdriveclaw_skidsteer_drivetrain_node diffdriveclawskidsteerdrivetrain)
+
 install(TARGETS
      dualclawskidsteerdrivetrain
      dualclaw_skidsteer_drivetrain_node
+     diffdriveclawskidsteerdrivetrain
+     diffdriveclaw_skidsteer_drivetrain_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})

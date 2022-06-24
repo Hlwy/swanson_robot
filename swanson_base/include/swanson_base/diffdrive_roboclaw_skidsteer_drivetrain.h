@@ -3,7 +3,7 @@
 
 #include <mutex>
 #include <pigpiod_if2.h>
-#include <RoboCommander/drivetrains/diffdrive_roboclaw.h>
+#include <robocommander/drivetrains/diffdrive_roboclaw.h>
 
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
@@ -15,7 +15,7 @@
 #include <dynamic_reconfigure/server.h>
 
 #include <swanson_base/DrivetrainConfig.h>
-#include <swanson_msgs/SingleClawInfo.h>
+#include <swanson_msgs/DiffDriveClawInfo.h>
 
 using namespace std;
 

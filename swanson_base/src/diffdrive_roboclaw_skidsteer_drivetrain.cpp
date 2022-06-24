@@ -5,7 +5,7 @@ using namespace std;
 
 /** SECTION: Constructors / Deconstructors
 */
-DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh){
+DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInterface(ros::NodeHandle nh, ros::NodeHandle _nh) : m_nh(nh), p_nh(_nh){
     // Declare constants
     _count = 0;
     _cmd_count = 0;
@@ -118,10 +118,10 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
         exit(0);
     }
 
-    this->claws->set_max_speed(max_speed);
-    this->claws->set_base_width(base_width);
-    this->claws->set_qpps_per_meter(qpps_per_meter);
-    this->claws->set_wheel_diameter(wheel_diameter);
+    this->claw->set_max_speed(max_speed);
+    this->claw->set_base_width(base_width);
+    this->claw->set_qpps_per_meter(qpps_per_meter);
+    this->claw->set_wheel_diameter(wheel_diameter);
     // this->claws->set_max_turn_radius(max_turn_radius);
 
     /** Pre-initialize ROS messages */
@@ -154,7 +154,7 @@ DualClawSkidsteerDrivetrainInterface::DualClawSkidsteerDrivetrainInterface(ros::
 
     _loop_rate = new ros::Rate(update_rate);
 }
-SingleClawSkidsteerDrivetrainInterface::~DiffDriveClawSkidsteerDrivetrainInterface(){
+DiffDriveClawSkidsteerDrivetrainInterface::~DiffDriveClawSkidsteerDrivetrainInterface(){
     printf("[INFO] Shutting Down DiffDriveClawSkidsteerDrivetrainInterface...\r\n");
     delete this->claw;
     delete this->_loop_rate;
@@ -167,7 +167,7 @@ SingleClawSkidsteerDrivetrainInterface::~DiffDriveClawSkidsteerDrivetrainInterfa
 */
 bool DiffDriveClawSkidsteerDrivetrainInterface::reset_odometry(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res){
     ROS_DEBUG("Resetting Encoders");
-    this->claws->reset_odometry();
+    this->claw->reset_odometry();
     return true;
 }
 void DiffDriveClawSkidsteerDrivetrainInterface::cfgCallback(swanson_base::DrivetrainConfig &config, uint32_t level){
@@ -237,13 +237,13 @@ void DiffDriveClawSkidsteerDrivetrainInterface::cmdCallback(const geometry_msgs:
 /** SECTION: Exection Functions
 *
 */
-void DiffDriveSkidsteerDrivetrainInterface::update(){
+void DiffDriveClawSkidsteerDrivetrainInterface::update(){
     _count++;
     ros::Time curTime = ros::Time::now();
 
     this->_lock.lock();
-    this->claws->update_status();
-    this->claws->update_odometry();
+    this->claw->update_status();
+    this->claw->update_odometry();
     float ppm = this->claw->get_qpps_per_meter();
     float wheelbase = this->claw->get_base_width();
     float wheel_diamter = this->claw->get_wheel_diameter();
@@ -253,8 +253,8 @@ void DiffDriveSkidsteerDrivetrainInterface::update(){
     vector<float> dOdom = this->claw->get_odom_deltas();
     vector<float> pose = this->claw->get_pose();
     vector<float> vels = this->claw->get_velocities();
-    vector<float> currents = this->claws->get_currents();
-    vector<float> voltages = this->claws->get_voltages();
+    vector<float> currents = this->claw->get_currents();
+    float voltage = this->claw->get_voltage();
     this->_lock.unlock();
 
     /** Update Roboclaw Data */
@@ -287,7 +287,7 @@ void DiffDriveSkidsteerDrivetrainInterface::update(){
     dataMsg.right_motor_current = currents[1];
     dataMsg.left_motor_speed = spds[0];
     dataMsg.right_motor_speed =spds[1];
-    datamsg.left_motor_position = positions[0];
+    dataMsg.left_motor_position = positions[0];
     dataMsg.right_motor_position = positions[1];
     dataMsg.estimated_pose.x = pose[0];
     dataMsg.estimated_pose.y = pose[1];
@@ -325,7 +325,7 @@ void DiffDriveSkidsteerDrivetrainInterface::update(){
         printf("Encoder Positions (qpps): %d | %d | %d | %d\r\n",positions[0],positions[1],positions[2],positions[3]);
         printf("Δdistance, ΔYaw, ΔX, ΔY,: %.3f, %.3f, %.3f, %.3f\r\n",dOdom[0], dOdom[1],dOdom[2],dOdom[3]);
         printf("Current Pose [X (m), Y (m), Yaw (rad)]: %.3f     |    %.3f   |       %.3f\r\n",pose[0],pose[1],pose[2]);
-        printf("Battery Voltages:     %.3f |    %.3f\r\n",voltages[0], voltages[1]);
+        printf("Battery Voltages:     %.3f\r\n",voltage);
         printf("Motor Currents:     %.3f |    %.3f |    %.3f |    %.3f\r\n",currents[0], currents[1], currents[2], currents[3]);
         printf(" =========================================== \r\n");
     }

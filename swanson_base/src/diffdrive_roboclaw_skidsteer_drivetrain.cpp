@@ -21,7 +21,7 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
     std::string ser_dev_left = "/dev/ttyS0";
     std::string ser_dev_right = "/dev/ttyS1";
      **/
-    std::string ser_dev = "/dev/ttyS0";
+    std::string ser_dev = "/dev/ttyACM0";
     int ser_baud = 115200;
     /**
     int left_claw_addr = 128;
@@ -62,8 +62,8 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
     std::string data_topic = "dualclaw/info";
     std::string pose_topic = "dualclaw/pose";
      **/
-    std::string data_topic = "singleclaw/info";
-    std::string pose_topic = "singleclaw/info";
+    std::string data_topic = "diffdrive_claw/info";
+    std::string pose_topic = "diffdrive_claw/pose";
     std::string odom_topic = "dead_reckoning";
     p_nh.getParam("velocity_topic",cmd_vel_topic);
     p_nh.getParam("data_topic",data_topic);
@@ -100,18 +100,18 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
     p_nh.getParam("update_rate",update_rate);
 
     /* Connect to Pi. */
-    int _pi = pigpio_start(NULL, NULL);
-    if(_pi < 0){
-        printf("[ERROR] Could not initialize with the pigpiod \r\n");
-        exit(0);
-    }else{ this->pi = _pi; }
+//    int _pi = pigpio_start(NULL, NULL);
+//    if(_pi < 0){
+//        printf("[ERROR] Could not initialize with the pigpiod \r\n");
+//        exit(0);
+//    }else{ this->pi = _pi; }
 
     /** Initialize DiffDrive RoboClaw */
     /**this->claws = new DualClaw(this->pi);*/
-    this->claw = new DiffDriveClaw(this->pi);
+    this->claw = new DiffDriveClaw();
     int err = 0;
     if(single_com_dev) err = this->claw->init(ser_dev.c_str(), ser_baud, claw_addr);
-    else err = this->claw->init(ser_baud, ser_dev.c_str(), claw_addr);
+    else err = this->claw->init(ser_dev.c_str(), ser_baud, claw_addr);
 
     if(err < 0){
         printf("[ERROR] Could not establish serial communication with DualClaws. Error Code = %d\r\n", err);
@@ -159,7 +159,7 @@ DiffDriveClawSkidsteerDrivetrainInterface::~DiffDriveClawSkidsteerDrivetrainInte
     delete this->claw;
     delete this->_loop_rate;
     // usleep(1 * 10000000);
-    pigpio_stop(this->pi);
+    //pigpio_stop(this->pi);
 }
 
 /** SECTION: ROS Callbacks
@@ -242,8 +242,10 @@ void DiffDriveClawSkidsteerDrivetrainInterface::update(){
     ros::Time curTime = ros::Time::now();
 
     this->_lock.lock();
-    this->claw->update_status();
-    this->claw->update_odometry();
+    this->claw->update_status(true);
+//    cout<<"Claw Update Status Complete"<<endl;
+    this->claw->update_odometry(true);
+//    cout<<"Claw Update Odometry Complete"<<endl;
     float ppm = this->claw->get_qpps_per_meter();
     float wheelbase = this->claw->get_base_width();
     float wheel_diamter = this->claw->get_wheel_diameter();
@@ -254,13 +256,18 @@ void DiffDriveClawSkidsteerDrivetrainInterface::update(){
     vector<float> pose = this->claw->get_pose();
     vector<float> vels = this->claw->get_velocities();
     vector<float> currents = this->claw->get_currents();
+//    for (float i: currents) {
+//        std::cout << i << ' ';
+//    }
     float voltage = this->claw->get_voltage();
+//    cout<<"Claw Param Get Complete"<<endl;
     this->_lock.unlock();
 
     /** Update Roboclaw Data */
     swanson_msgs::DiffDriveClawInfo dataMsg;
     dataMsg.header.seq = _count;
     dataMsg.header.stamp = curTime;
+//    cout<<"Header Configured"<<endl;
     /**
     dataMsg.left_roboclaw_voltage = voltages[0];
     dataMsg.right_roboclaw_voltage = voltages[1];**/
@@ -269,6 +276,7 @@ void DiffDriveClawSkidsteerDrivetrainInterface::update(){
     dataMsg.base_width = wheelbase;
     dataMsg.wheel_diameter = wheel_diamter;
     dataMsg.max_speed = max_claw_speed;
+//    cout<<"Robot Status Set"<<endl;
     /**
     dataMsg.left_motor_currents[0] = currents[0];
     dataMsg.left_motor_currents[1] = currents[1];
@@ -285,14 +293,20 @@ void DiffDriveClawSkidsteerDrivetrainInterface::update(){
      **/
     dataMsg.left_motor_current = currents[0];
     dataMsg.right_motor_current = currents[1];
+//    cout << "Currents Configured" << endl;
     dataMsg.left_motor_speed = spds[0];
     dataMsg.right_motor_speed =spds[1];
+//    cout << "Motor Speeds Configured" << endl;
     dataMsg.left_motor_position = positions[0];
     dataMsg.right_motor_position = positions[1];
+//    cout << "Motor Positions Configured" << endl;
     dataMsg.estimated_pose.x = pose[0];
     dataMsg.estimated_pose.y = pose[1];
     dataMsg.estimated_pose.theta = pose[2];
+//    cout << "Finished constructing message" << endl;
     data_pub.publish(dataMsg);
+
+//    cout << "Published DiffDriveClaw Info" << endl;
 
     /** Update Robot's body transformations */
     geometry_msgs::Quaternion quats = tf::createQuaternionMsgFromYaw(pose[2]);
@@ -321,12 +335,12 @@ void DiffDriveClawSkidsteerDrivetrainInterface::update(){
     this->odom_pub.publish(this->_odomMsg);
 
     if(this->_verbose){
-        printf("Motor Speeds (m/s):  %.3f | %.3f  | %.3f  | %.3f \r\n",spds[0],spds[1],spds[2],spds[3]);
-        printf("Encoder Positions (qpps): %d | %d | %d | %d\r\n",positions[0],positions[1],positions[2],positions[3]);
-        printf("Δdistance, ΔYaw, ΔX, ΔY,: %.3f, %.3f, %.3f, %.3f\r\n",dOdom[0], dOdom[1],dOdom[2],dOdom[3]);
+        printf("Motor Speeds (m/s):  %.3f | %.3f\r\n",spds[0],spds[1]);
+        printf("Encoder Positions (qpps): %d | %d\r\n",positions[0],positions[1]);
+        printf("Δdistance, ΔX, ΔY, ΔYaw: %.3f, %.3f, %.3f, %.3f\r\n",dOdom[0], dOdom[1],dOdom[2],dOdom[3]);
         printf("Current Pose [X (m), Y (m), Yaw (rad)]: %.3f     |    %.3f   |       %.3f\r\n",pose[0],pose[1],pose[2]);
         printf("Battery Voltages:     %.3f\r\n",voltage);
-        printf("Motor Currents:     %.3f |    %.3f |    %.3f |    %.3f\r\n",currents[0], currents[1], currents[2], currents[3]);
+        printf("Motor Currents:     %.3f |    %.3f\r\n",currents[0], currents[1]);
         printf(" =========================================== \r\n");
     }
 }
@@ -334,9 +348,13 @@ int DiffDriveClawSkidsteerDrivetrainInterface::run(bool verbose){
     cout << "Looping..." << endl;
     int curCount = 0;
     while(ros::ok()){
+//        cout <<"In Loop" << endl;
         this->update();
+//        cout<<"Finish Update"<<endl;
         ros::spinOnce();
+//        cout<<"Spinning..."<<endl;
         this->_loop_rate->sleep();
+//        cout<<"Sleep"<<endl;
     }
     return 0;
 }

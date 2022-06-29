@@ -3,9 +3,9 @@
      <!-- Base Platform and Drivetrain Constants -->
      <arg name="maxVel"            default="2.0"/>
      <arg name="maxTurnRadius"     default="0.381"/>
-     <arg name="baseWidth"         default="0.42"/>
-     <arg name="wheelDiameter"     default="0.1905"/>
-     <arg name="pulsesPerMeter"    default="9596"/>
+     <arg name="baseWidth"         default="0.42545"/>
+     <arg name="wheelDiameter"     default="0.1524"/>
+     <arg name="pulsesPerMeter"    default="2339"/>
      <arg name="enc_odom_frame"    default="odom"/>
      <arg name="publish_tf"        default="false"/>
      <arg name="update_rate"       default="10"/>

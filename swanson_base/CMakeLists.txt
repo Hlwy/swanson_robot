@@ -15,16 +15,18 @@ set( ROS_CXX_DEPENDENCIES
      swanson_msgs
      message_generation
      dynamic_reconfigure
+     #robocommander
 )
 
 find_package(catkin REQUIRED COMPONENTS ${ROS_CXX_DEPENDENCIES})
 find_package(Boost REQUIRED COMPONENTS system thread)
-find_package(robocommander REQUIRED COMPONENTS dualclaw diffdrive_claw)
+find_package(robocommander REQUIRED COMPONENTS dualclaw diffdrive_claw roboclaw_unix)
 
 message(STATUS "robocommander: Found = ${robocommander_FOUND}")
 message(STATUS "     Root Directory --- ${robocommander_ROOT}")
 message(STATUS "     Includes Directory --- ${robocommander_INCLUDE_DIR}")
 message(STATUS "     CMake Directory --- ${robocommander_INSTALLED_CMAKE_DIR}")
+message(STATUS "     Installed Libs Directory --- ${robocommander_INSTALLED_LIBRARIES_DIR}")
 message(STATUS "     Library Objects:")
 foreach(obj ${robocommander_LIBRARIES})
      message(STATUS "          ${obj}")
@@ -38,7 +40,9 @@ catkin_package(
      INCLUDE_DIRS include
      LIBRARIES swanson_base
      CATKIN_DEPENDS ${ROS_CXX_DEPENDENCIES}
-     DEPENDS Boost
+     DEPENDS
+	Boost
+	#robocommander
 )
 include_directories(
      include
@@ -49,7 +53,8 @@ include_directories(
 )
 link_directories(
      ${Boost_LIBRARIES}
-     ${robocommander_LIBRARIES}
+     #${robocommander_LIBRARIES}
+     ${robocommander_INSTALLED_LIBRARIES_DIR}
 )
 add_dependencies(${catkin_EXPORTED_TARGETS})
 
@@ -60,7 +65,7 @@ add_dependencies(dualclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} ${PROJEC
 
 # Libraries
 add_library(diffdriveclawskidsteerdrivetrain src/diffdrive_roboclaw_skidsteer_drivetrain.cpp)
-target_link_libraries(diffdriveclawskidsteerdrivetrain ${catkin_LIBRARIES} diffdrive_claw)
+target_link_libraries(diffdriveclawskidsteerdrivetrain ${catkin_LIBRARIES} diffdrive_claw roboclaw_unix)
 add_dependencies(diffdriveclawskidsteerdrivetrain ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_gencfg swanson_msgs_generate_messages_cpp)
 
 # Executables

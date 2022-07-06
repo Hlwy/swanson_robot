@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<package>
+<package format="2">
   <name>swanson_base</name>
   <version>0.1.0</version>
   <description>Swanson robot driver</description>
@@ -9,6 +9,9 @@
   <license>GNU</license>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>robocommander</build_depend>
+  <!-- <depend>robocommander</depend> -->
+  
   <build_depend>swanson_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
@@ -20,17 +23,18 @@
   <build_depend>message_generation</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
 
-  <run_depend>geometry_msgs</run_depend>
-  <run_depend>swanson_msgs</run_depend>
-  <run_depend>roslaunch</run_depend>
-  <run_depend>tf</run_depend>
-  <run_depend>roscpp</run_depend>
-  <run_depend>rospy</run_depend>
-  <run_depend>sensor_msgs</run_depend>
-  <run_depend>std_msgs</run_depend>
-  <run_depend>message_runtime</run_depend>
-  <run_depend>message_generation</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>swanson_msgs</exec_depend>
+  <exec_depend>roslaunch</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>rospy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
+  <exec_depend>message_generation</exec_depend>
+  <exec_depend>dynamic_reconfigure</exec_depend>
+  <exec_depend>robocommander</exec_depend>
 
   <export></export>
 </package>

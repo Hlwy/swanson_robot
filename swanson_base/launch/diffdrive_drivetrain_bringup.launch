@@ -7,7 +7,7 @@
      <arg name="wheelDiameter"     default="0.1524"/>
      <arg name="pulsesPerMeter"    default="2339"/>
      <arg name="enc_odom_frame"    default="odom"/>
-     <arg name="publish_tf"        default="false"/>
+     <arg name="publish_tf"        default="true"/>
      <arg name="update_rate"       default="10"/>
      <arg name="verbose"           default="true"/>
      <!-- Communication Config -->
@@ -15,7 +15,7 @@
      <arg name="serial_baud"       default="115200"/>
 
      <arg name="serial_addr"  default="128"/>
-     <arg name="serial_dev"   default="/dev/ttyS0"/>
+     <arg name="serial_dev"   default="/dev/ttyACM0"/>
 
      <arg name="gdb"                default="false"/>
      <arg unless="$(arg gdb)" name="launch_args" default=""/>

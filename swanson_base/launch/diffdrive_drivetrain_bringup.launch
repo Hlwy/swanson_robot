@@ -13,6 +13,8 @@
      <!-- Communication Config -->
      <arg name="single_comm_dev"   default="false"/>
      <arg name="serial_baud"       default="115200"/>
+     <arg name="doack"		   default="false"/>
+     <arg name="timeout"	   default="1000"/>	
 
      <arg name="serial_addr"  default="128"/>
      <arg name="serial_dev"   default="/dev/ttyACM0"/>
@@ -27,6 +29,8 @@
           <param name="serial_baud"               value="$(arg serial_baud)"/>
           <param name="claw_addr"            value="$(arg serial_addr)"/>
           <param name="serial_device"        value="$(arg serial_dev)"/>
+	  <param name="doack"		     value="$(arg doack)"/>
+	  <param name="timeout"		     value="$(arg timeout)"/>
 
           <param name="base_width"                value="$(arg baseWidth)"/>
           <param name="qpps_per_meter"            value="$(arg pulsesPerMeter)"/>
@@ -39,4 +43,3 @@
      </node>
 
 </launch>
-

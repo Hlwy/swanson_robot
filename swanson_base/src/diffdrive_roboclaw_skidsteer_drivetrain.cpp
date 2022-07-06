@@ -28,6 +28,8 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
     int right_claw_addr = 129;
      **/
     int claw_addr = 128;
+    int doack = false;
+    int timeout = 1000;
     p_nh.getParam("use_single_serial_device",single_com_dev);
     p_nh.getParam("serial_baud",ser_baud);
     /**
@@ -38,6 +40,8 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
      **/
     p_nh.getParam("serial_device",ser_dev);
     p_nh.getParam("claw_addr",claw_addr);
+    p_nh.getParam("doack", doack);
+    p_nh.getParam("timeout", timeout);
 
     /** Robot Geometry Config */
     float max_speed = 2.0;
@@ -110,8 +114,8 @@ DiffDriveClawSkidsteerDrivetrainInterface::DiffDriveClawSkidsteerDrivetrainInter
     /**this->claws = new DualClaw(this->pi);*/
     this->claw = new DiffDriveClaw();
     int err = 0;
-    if(single_com_dev) err = this->claw->init(ser_dev.c_str(), ser_baud, claw_addr);
-    else err = this->claw->init(ser_dev.c_str(), ser_baud, claw_addr);
+    if(single_com_dev) err = this->claw->init(doack, ser_dev.c_str(), claw_addr, timeout);
+    else err = this->claw->init(doack, ser_dev.c_str(), claw_addr, timeout);
 
     if(err < 0){
         printf("[ERROR] Could not establish serial communication with DualClaws. Error Code = %d\r\n", err);
